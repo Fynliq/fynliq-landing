@@ -1,0 +1,181 @@
+.wrap {
+  padding: var(--s-56) 0;
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 12% 0%, var(--ink-3), var(--ink) 62%);
+  color: var(--on-dark);
+  border-radius: var(--r-hero);
+  padding: var(--s-40) var(--s-28);
+  box-shadow: var(--e-3);
+}
+
+/* The drifting field behind the panel. Clipped by the panel's own radius, and
+   masked toward the corners so the copy keeps a near-black ground under it. */
+.glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  mask-image: radial-gradient(72% 82% at 50% 50%, transparent 8%, #000 78%);
+  -webkit-mask-image: radial-gradient(72% 82% at 50% 50%, transparent 8%, #000 78%);
+}
+
+.panel > *:not(.glow) {
+  position: relative;
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+  margin-top: var(--s-32);
+}
+
+.coin {
+  filter: drop-shadow(0 24px 34px rgba(0, 0, 0, 0.5));
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-dark-low);
+}
+
+.title {
+  margin-top: var(--s-16);
+  font-size: var(--t-32);
+  color: var(--on-dark);
+  max-width: 20ch;
+}
+
+.body {
+  margin-top: var(--s-16);
+  font-size: var(--t-17);
+  color: var(--on-dark-mid);
+  max-width: 52ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12);
+  margin-top: var(--s-28);
+}
+
+/* On the dark panel the primary button inverts: paper on near-black. */
+.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--paper);
+  color: var(--tx);
+  font-size: var(--t-16);
+  font-weight: 600;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.primary:hover {
+  background: var(--card);
+}
+
+.primary:active {
+  transform: scale(0.97);
+}
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  color: var(--on-dark);
+  font-size: var(--t-16);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--on-dark-line);
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.secondary:hover {
+  background: var(--on-dark-wash);
+}
+
+.secondary:active {
+  transform: scale(0.97);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline-color: var(--paper);
+}
+
+.foot {
+  font-size: var(--t-14);
+  color: var(--on-dark-low);
+  max-width: 56ch;
+}
+
+@media (min-width: 768px) {
+  .wrap {
+    padding: var(--s-88) 0;
+  }
+
+  .panel {
+    padding: var(--s-56);
+  }
+
+  .title {
+    font-size: var(--t-40);
+  }
+}
+
+/* At desktop the panel becomes two columns so the copy is not stranded
+   against a wide empty field. */
+@media (min-width: 940px) {
+  .panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    column-gap: var(--s-56);
+    align-items: end;
+  }
+
+  .eyebrow,
+  .title,
+  .body,
+  .actions {
+    grid-column: 1;
+  }
+
+  .aside {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin-top: 0;
+    align-self: center;
+    align-items: flex-start;
+    padding-left: var(--s-32);
+    border-left: 1px solid var(--on-dark-line2);
+  }
+}

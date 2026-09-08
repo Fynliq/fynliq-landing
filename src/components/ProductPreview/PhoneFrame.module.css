@@ -1,0 +1,91 @@
+/*
+ * The app shell the previews sit in. It echoes the beta's 430px column
+ * without pretending to be a photographed device.
+ */
+.frame {
+  width: 100%;
+  max-width: 380px;
+  margin: 0 auto;
+  background: var(--paper);
+  border-radius: var(--r-sheet);
+  box-shadow: var(--shadow-lift), inset 0 0 0 1px var(--line);
+  overflow: hidden;
+  /* Reserved height keeps the column stable while fonts and content settle. */
+  display: flex;
+  flex-direction: column;
+  /* --p runs 0 -> 1 as the frame crosses the viewport; 0.5 is level, which is
+     also the value pinned under reduced motion. */
+  transform: perspective(1200px) rotateX(calc((var(--p, 0.5) - 0.5) * -7deg))
+    rotateY(calc((0.5 - var(--p, 0.5)) * 7deg));
+  will-change: transform;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--s-56);
+  padding: 0 var(--s-20);
+  border-bottom: 1px solid var(--line);
+  background: rgba(251, 250, 248, 0.9);
+  backdrop-filter: blur(24px) saturate(180%);
+  flex: none;
+}
+
+.title {
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: var(--t-16);
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  background: var(--green-soft);
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--disp);
+  font-weight: 700;
+  font-size: var(--t-13);
+  flex: none;
+}
+
+.screen {
+  padding: var(--s-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+  flex: 1;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  border-top: 1px solid var(--line);
+  background: rgba(251, 250, 248, 0.9);
+  flex: none;
+}
+
+.tab {
+  padding: var(--s-12) 0 var(--s-16);
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--low);
+  text-align: center;
+}
+
+.tabOn {
+  color: var(--tx);
+}
+
+.tabDot {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  margin: var(--s-4) auto 0;
+}

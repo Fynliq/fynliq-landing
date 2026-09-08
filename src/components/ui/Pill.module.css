@@ -1,0 +1,22 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  font-family: var(--body);
+  font-size: var(--t-13);
+  font-weight: 600;
+  line-height: 1.3;
+  border-radius: var(--r-pill);
+  padding: var(--s-8) var(--s-12);
+  white-space: nowrap;
+}
+
+.glyph {
+  font-size: var(--t-13);
+  line-height: 1;
+}
+
+.green { background: var(--green-soft); color: var(--green); }
+.gold { background: var(--gold-soft); color: var(--gold); }
+.rust { background: var(--rust-soft); color: var(--rust); }
+.neutral { background: var(--sunk); color: var(--mid); }

@@ -1,0 +1,205 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+.billRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-16);
+  padding: var(--s-12) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.billRow:last-of-type {
+  border-bottom: none;
+}
+
+.billLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.billNote {
+  display: block;
+  font-size: var(--t-13);
+  color: var(--low);
+  margin-top: 2px;
+}
+
+.owed {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-16);
+  margin-top: var(--s-8);
+  padding: var(--s-16);
+  background: var(--sunk);
+  border-radius: var(--r-input);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.controlHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+
+.controlLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--low);
+}
+
+/* The slider track is the sunk surface; the filled portion takes the tone of
+   the current verdict, so the control itself carries the meaning. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+}
+
+.slider::-moz-range-track {
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--track);
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -8px;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--line2);
+  transition: transform var(--press) var(--ease);
+}
+
+.slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: var(--shadow), inset 0 0 0 1px var(--line2);
+  transition: transform var(--press) var(--ease);
+}
+
+.slider:active::-webkit-slider-thumb {
+  transform: scale(0.97);
+}
+
+.slider:active::-moz-range-thumb {
+  transform: scale(0.97);
+}
+
+.scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+.splitRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  background: var(--line);
+  border-radius: var(--r-input);
+  overflow: hidden;
+}
+
+.splitCell {
+  background: var(--sunk);
+  padding: var(--s-12) var(--s-16);
+}
+
+.splitLabel {
+  display: block;
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--low);
+}
+
+/* Verdict. Reserved height so changing the wording never moves the page. */
+.verdict {
+  border-radius: var(--r-card);
+  padding: var(--s-20);
+  display: flex;
+  flex-direction: column;
+  transition: background-color var(--content) var(--ease);
+}
+
+.verdictGreen { background: var(--green-soft); }
+.verdictGold { background: var(--gold-soft); }
+.verdictRust { background: var(--rust-soft); }
+
+.verdictHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.headGreen { color: var(--green); }
+.headGold { color: var(--gold); }
+.headRust { color: var(--rust); }
+
+.verdictBody {
+  margin-top: var(--s-12);
+  font-size: var(--t-15);
+  color: var(--mid);
+}
+
+.verdictExcess {
+  margin-top: auto;
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--line2);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-12);
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+/* All three bands occupy the same cell. The tallest sets the height, so the
+   panel is a fixed size at every viewport width without a guessed value. */
+.verdictStack {
+  display: grid;
+}
+
+.verdictLayer {
+  grid-area: 1 / 1;
+}
+
+/* `hidden` must not remove the inactive layers from the grid, or they would
+   stop reserving height. They are hidden from view and from assistive tech,
+   but still measured. */
+.verdictLayer[hidden] {
+  display: block;
+  visibility: hidden;
+}

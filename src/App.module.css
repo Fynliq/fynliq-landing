@@ -1,0 +1,94 @@
+.skip {
+  position: absolute;
+  left: var(--s-16);
+  top: -100px;
+  z-index: 60;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-14);
+  font-weight: 600;
+  transition: top var(--content) var(--ease);
+}
+
+.skip:focus {
+  top: var(--s-16);
+}
+
+/*
+ * Reveals.
+ *
+ * Only opacity, transform and filter animate. The block is laid out at full
+ * size from the first paint, so a reveal never moves anything around it.
+ */
+.reveal {
+  opacity: 0;
+  transition:
+    opacity var(--reveal) var(--ease-out) var(--delay, 0ms),
+    transform var(--reveal) var(--ease-out) var(--delay, 0ms),
+    filter var(--reveal) var(--ease-out) var(--delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.up {
+  transform: translate3d(0, 30px, 0);
+}
+
+.left {
+  transform: translate3d(-38px, 0, 0);
+}
+
+.right {
+  transform: translate3d(38px, 0, 0);
+}
+
+.scale {
+  transform: scale(0.94);
+  filter: blur(6px);
+}
+
+/* Arrives lying back in space and rights itself — the depth cue that ties the
+   flat sections to the 3D objects. */
+.tilt {
+  transform: perspective(var(--persp)) rotateX(11deg) translate3d(0, 34px, -60px);
+  transform-origin: 50% 100%;
+}
+
+.shown {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Staggered children: each direct child follows the one before it. */
+.stagger > * {
+  opacity: 0;
+  transform: translate3d(0, 22px, 0);
+  transition:
+    opacity var(--reveal) var(--ease-out),
+    transform var(--reveal) var(--ease-out);
+}
+
+.stagger.shown > * {
+  opacity: 1;
+  transform: none;
+}
+
+.stagger.shown > *:nth-child(1) { transition-delay: calc(var(--delay, 0ms) + 0ms); }
+.stagger.shown > *:nth-child(2) { transition-delay: calc(var(--delay, 0ms) + 70ms); }
+.stagger.shown > *:nth-child(3) { transition-delay: calc(var(--delay, 0ms) + 140ms); }
+.stagger.shown > *:nth-child(4) { transition-delay: calc(var(--delay, 0ms) + 210ms); }
+.stagger.shown > *:nth-child(5) { transition-delay: calc(var(--delay, 0ms) + 280ms); }
+.stagger.shown > *:nth-child(6) { transition-delay: calc(var(--delay, 0ms) + 350ms); }
+.stagger.shown > *:nth-child(n + 7) { transition-delay: calc(var(--delay, 0ms) + 420ms); }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .stagger > * {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}

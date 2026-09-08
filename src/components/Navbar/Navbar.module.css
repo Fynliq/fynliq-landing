@@ -1,0 +1,123 @@
+.bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 40;
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color var(--content) var(--ease),
+    border-color var(--content) var(--ease);
+}
+
+.on {
+  background: rgba(251, 250, 248, 0.72);
+  backdrop-filter: var(--blur);
+  border-bottom-color: var(--line);
+  box-shadow: 0 10px 30px -24px rgba(13, 15, 14, 0.5);
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-16);
+}
+
+.home {
+  display: inline-flex;
+  border-radius: var(--r-input);
+  transition: transform var(--press) var(--ease);
+}
+
+.home:active {
+  transform: scale(0.97);
+}
+
+.links {
+  display: none;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-8) var(--s-12);
+  border-radius: var(--r-pill);
+  font-size: var(--t-15);
+  font-weight: 500;
+  color: var(--mid);
+  transition:
+    color var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    transform var(--press) var(--ease);
+}
+
+.link:hover {
+  color: var(--tx);
+  background: var(--sunk);
+}
+
+.link:active {
+  transform: scale(0.97);
+}
+
+.current {
+  color: var(--tx);
+  background: var(--sunk);
+}
+
+/* The active section is marked twice: by the filled pill above, and by this
+   underline, so the state does not rest on a single background tint. */
+.current::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 16px;
+  height: 2px;
+  margin-left: -8px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(90deg, var(--brand-lime), var(--brand-aqua));
+}
+
+.link {
+  position: relative;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-15);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.cta:hover {
+  background: var(--tx-hi);
+}
+
+.cta:active {
+  transform: scale(0.97);
+}
+
+@media (min-width: 940px) {
+  .links {
+    display: flex;
+  }
+}

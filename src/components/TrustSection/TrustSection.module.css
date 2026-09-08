@@ -1,0 +1,55 @@
+.grid {
+  display: grid;
+  gap: var(--s-20);
+}
+
+.rule {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  height: 100%;
+}
+
+.index {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 700;
+  color: var(--low);
+}
+
+.title {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.body {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+/* What the interface shows in place of a figure it does not have. */
+.example {
+  margin-top: auto;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  color: var(--mid);
+  overflow-wrap: break-word;
+}
+
+@media (min-width: 700px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-24);
+  }
+}

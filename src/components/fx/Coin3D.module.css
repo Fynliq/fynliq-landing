@@ -1,0 +1,77 @@
+.scene {
+  width: var(--size);
+  height: var(--size);
+  perspective: 900px;
+  flex: none;
+}
+
+.coin {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* Tipped back a little so the rim stays visible through the whole turn. */
+  animation: spin 16s linear infinite;
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  backface-visibility: hidden;
+  background:
+    radial-gradient(120% 120% at 30% 24%, #ffffff 0%, #f2f5ec 42%, #dfe6d2 100%);
+  box-shadow:
+    inset 0 0 0 3px rgba(13, 15, 14, 0.9),
+    inset 0 -10px 24px rgba(13, 15, 14, 0.14);
+}
+
+.front {
+  transform: translateZ(var(--half));
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(var(--half));
+}
+
+.mark {
+  width: 52%;
+  height: auto;
+}
+
+.rim {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+
+/* One slice of the edge, standing on the circumference. Width is the coin's
+   thickness; height runs along the arc. */
+.segment {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--thick);
+  height: var(--seg-h);
+  margin-left: calc(var(--thick) / -2);
+  margin-top: calc(var(--seg-h) / -2);
+  background: linear-gradient(90deg, #14160f, #5c6b3a 42%, #9ce623 62%, #2c331f);
+}
+
+@keyframes spin {
+  from {
+    transform: rotateX(-14deg) rotateY(0deg);
+  }
+  to {
+    transform: rotateX(-14deg) rotateY(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coin {
+    animation: none;
+    transform: rotateX(-14deg) rotateY(-24deg);
+  }
+}

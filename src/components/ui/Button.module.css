@@ -1,0 +1,122 @@
+.btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  font-family: var(--body);
+  font-size: var(--t-16);
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: var(--r-pill);
+  padding: var(--s-16) var(--s-28);
+  /* Comfortable on a thumb at every breakpoint. */
+  min-height: 52px;
+  text-align: center;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    box-shadow var(--press) var(--ease);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+/* A light sweeping across the face on hover. Clipped to the pill, and behind
+   the label so it never washes the text out. */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.42) 46%,
+    transparent 72%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn:hover::after {
+  animation: sheen 760ms var(--ease-out);
+}
+
+@keyframes sheen {
+  from {
+    transform: translateX(-120%);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:hover::after {
+    animation: none;
+  }
+}
+
+/* Primary: near-black on paper. Never a coloured fill, which would compete
+   with what green, gold and rust mean. */
+.primary {
+  background: var(--tx);
+  color: var(--on-dark);
+  box-shadow: var(--shadow);
+}
+
+.primary:hover {
+  background: var(--tx-hi);
+  box-shadow: var(--e-2);
+  transform: translateY(-2px);
+}
+
+.primary:active {
+  transform: scale(0.97);
+}
+
+.secondary {
+  background: var(--card);
+  color: var(--tx);
+  box-shadow: inset 0 0 0 1px var(--line2);
+}
+
+.secondary:hover {
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line2), var(--e-2);
+  transform: translateY(-2px);
+}
+
+.secondary:active {
+  transform: scale(0.97);
+}
+
+.quiet {
+  background: transparent;
+  color: var(--mid);
+  padding: var(--s-12) var(--s-16);
+  min-height: 44px;
+}
+
+.quiet:hover {
+  color: var(--tx);
+}
+
+.full {
+  width: 100%;
+}
+
+.arrow {
+  transition: transform var(--content) var(--ease);
+}
+
+.btn:hover .arrow {
+  transform: translateX(2px);
+}

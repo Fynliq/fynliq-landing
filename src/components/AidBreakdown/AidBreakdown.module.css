@@ -1,0 +1,95 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+.enrolment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.enrolRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-12);
+  padding-bottom: var(--s-12);
+  border-bottom: 1px solid var(--line);
+}
+
+.enrolRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.enrolLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.enrolNote {
+  display: block;
+  font-size: var(--t-13);
+  color: var(--low);
+  margin-top: 2px;
+}
+
+.groupTitle {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--s-12);
+}
+
+.glossary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.term {
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  overflow: hidden;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-12) var(--s-16);
+  font-size: var(--t-15);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  transition: transform var(--press) var(--ease);
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:active {
+  transform: scale(0.97);
+}
+
+.sign {
+  color: var(--low);
+  font-family: var(--mono);
+  flex: none;
+}
+
+.term[open] .sign {
+  color: var(--tx);
+}
+
+.answer {
+  padding: 0 var(--s-16) var(--s-16);
+  font-size: var(--t-14);
+  color: var(--mid);
+}

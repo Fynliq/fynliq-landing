@@ -1,0 +1,38 @@
+.stage {
+  position: relative;
+  perspective: var(--persp);
+  perspective-origin: 50% 42%;
+}
+
+.world {
+  position: relative;
+  transform-style: preserve-3d;
+  /* --rx / --ry are written by useTilt on every damped frame. */
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+}
+
+.depth {
+  transform-style: preserve-3d;
+  transform: translateZ(var(--z, 0px));
+  /* `translate` composes with `transform`, so the float never clobbers the
+     depth the layer was placed at. */
+  animation: float 9s var(--ease) infinite;
+  animation-delay: var(--fd, 0ms);
+}
+
+@keyframes float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .depth {
+    animation: none;
+    translate: none;
+  }
+}

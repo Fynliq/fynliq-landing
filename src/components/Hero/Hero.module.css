@@ -1,0 +1,341 @@
+.hero {
+  position: relative;
+  padding: calc(var(--nav-h) + var(--s-40)) 0 var(--s-56);
+  /* An explicit ground is required, not decorative: `isolation` seals this
+     stacking context off from the page behind it, so without a background of
+     its own the aurora's multiply blend would have nothing to tint. */
+  background: var(--paper);
+  isolation: isolate;
+  /* The backdrop bleeds to the edges; nothing may escape sideways. */
+  overflow: hidden;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Content sits above the backdrop without either needing a negative index. */
+.inner {
+  z-index: 1;
+}
+
+/* The colour pools around the product scene and fades out before it reaches
+   the copy, so the headline sits on plain paper and the semantic greens in
+   the screen are not read against a green ground. */
+.backdrop .heroAurora {
+  mask-image: radial-gradient(68% 80% at 76% 42%, #000 0%, rgba(0, 0, 0, 0.5) 46%, transparent 76%);
+  -webkit-mask-image: radial-gradient(
+    68% 80% at 76% 42%,
+    #000 0%,
+    rgba(0, 0, 0, 0.5) 46%,
+    transparent 76%
+  );
+}
+
+/* A faint ruled field, fading out before it reaches the copy. */
+.grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(120% 90% at 70% 10%, #000 0%, transparent 72%);
+  -webkit-mask-image: radial-gradient(120% 90% at 70% 10%, #000 0%, transparent 72%);
+  opacity: 0.7;
+}
+
+.inner {
+  position: relative;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: grid;
+  gap: var(--s-40);
+  min-width: 0;
+}
+
+.inner > * {
+  min-width: 0;
+}
+
+.copy {
+  max-width: 620px;
+}
+
+/* ---- Entrance ---------------------------------------------------------- */
+/* The hero is above the fold, so it plays on load rather than on scroll. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 20px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.tag,
+.lede,
+.actions,
+.assurance {
+  animation: rise 900ms var(--ease-out) both;
+}
+
+.tag {
+  animation-delay: 60ms;
+}
+.lede {
+  animation-delay: 420ms;
+}
+.actions {
+  animation-delay: 520ms;
+}
+.assurance {
+  animation-delay: 620ms;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mid);
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  backdrop-filter: var(--blur);
+  border-radius: var(--r-pill);
+  padding: var(--s-8) var(--s-12);
+}
+
+/* A live indicator: the beta is open now. */
+.pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(14, 122, 69, 0.5);
+  animation: pulse 2.4s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(14, 122, 69, 0.5);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 9px rgba(14, 122, 69, 0);
+  }
+}
+
+.title {
+  margin-top: var(--s-20);
+  font-size: var(--t-32);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+}
+
+/* Each word rides up out of its own clipped box. */
+.word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+  margin-right: 0.24em;
+}
+
+.wordIn {
+  display: inline-block;
+  animation: word 900ms var(--ease-out) both;
+  animation-delay: calc(140ms + var(--i) * 62ms);
+}
+
+@keyframes word {
+  from {
+    transform: translate3d(0, 105%, 0) rotate(3deg);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.lede {
+  margin-top: var(--s-20);
+  font-size: var(--t-17);
+  color: var(--mid);
+  max-width: 54ch;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12);
+  margin-top: var(--s-28);
+}
+
+.assurance {
+  margin-top: var(--s-20);
+  font-size: var(--t-14);
+  color: var(--low);
+  max-width: 48ch;
+}
+
+/* ---- The 3D stage ------------------------------------------------------ */
+.stage {
+  animation: rise 1100ms var(--ease-out) both;
+  animation-delay: 300ms;
+}
+
+.phoneLayer {
+  position: relative;
+}
+
+/* Light pooling under the screen, so it sits in the scene rather than on it. */
+.phoneGlow {
+  position: absolute;
+  inset: 6% -6% -10%;
+  border-radius: 50%;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(124, 92, 255, 0.22),
+    rgba(34, 211, 238, 0.12) 45%,
+    transparent 72%
+  );
+  filter: blur(34px);
+  transform: translateZ(-40px);
+}
+
+.chip {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--glass);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--e-2), inset 0 0 0 1px var(--glass-line);
+  white-space: nowrap;
+}
+
+.chipWeekly {
+  left: 0;
+  bottom: 13%;
+}
+
+.chipDays {
+  right: 0;
+  top: 2%;
+}
+
+.chipLabel {
+  font-size: var(--t-13);
+  color: var(--low);
+  font-weight: 600;
+}
+
+.chipDays_value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--t-21);
+  letter-spacing: -0.03em;
+}
+
+/* The plate the whole scene rests on, well behind the screen. */
+.slab {
+  position: absolute;
+  inset: 8% -4% 4%;
+  border-radius: var(--r-sheet);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.14));
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+}
+
+/* ---- Facts ------------------------------------------------------------- */
+.facts {
+  display: grid;
+  gap: var(--s-16);
+  padding-top: var(--s-32);
+  border-top: 1px solid var(--line);
+}
+
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.factLabel {
+  font-size: var(--t-14);
+  color: var(--low);
+}
+
+@media (min-width: 600px) {
+  .facts {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--s-24);
+  }
+}
+
+@media (min-width: 940px) {
+  .hero {
+    padding: calc(var(--nav-h) + var(--s-56)) 0 var(--s-88);
+  }
+
+  .inner {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: var(--s-40) var(--s-56);
+  }
+
+  .title {
+    font-size: var(--t-52);
+  }
+
+  .facts {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 1200px) {
+  .inner {
+    gap: var(--s-40) var(--s-88);
+  }
+
+  /* Only once the column has slack may the chips hang past the screen. */
+  .chipWeekly {
+    left: -6%;
+  }
+
+  .chipDays {
+    right: -6%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag,
+  .lede,
+  .actions,
+  .assurance,
+  .stage,
+  .wordIn {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .pulse {
+    animation: none;
+  }
+}

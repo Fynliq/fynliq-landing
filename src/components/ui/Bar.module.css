@@ -1,0 +1,63 @@
+.wrap {
+  margin-top: var(--s-20);
+}
+
+.track {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: var(--r-pill);
+  /* Grows into place once, then holds — no layout shift, no looping. */
+  transition: width var(--sheet) var(--ease);
+}
+
+.green { background: var(--green); }
+.gold { background: var(--gold); }
+.rust { background: var(--rust); }
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12) var(--s-20);
+  margin-top: var(--s-16);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-pill);
+  flex: none;
+}
+
+/* Closed until seen, then wiped open left to right. Clipping the track leaves
+   every segment at its real width for the whole animation. */
+.track {
+  clip-path: inset(0 100% 0 0 round var(--r-pill));
+  transition: clip-path 1000ms var(--ease-out);
+}
+
+.open {
+  clip-path: inset(0 0 0 0 round var(--r-pill));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track {
+    clip-path: none;
+    transition: none;
+  }
+}

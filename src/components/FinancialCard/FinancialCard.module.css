@@ -1,0 +1,57 @@
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: grid;
+  /* Label takes the slack; the figure column is fixed so amounts line up. */
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-16);
+  padding: var(--s-12) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--tx);
+  min-width: 0;
+}
+
+.meaning {
+  display: block;
+  font-size: var(--t-13);
+  font-weight: 400;
+  color: var(--low);
+  margin-top: 2px;
+}
+
+/* Total rows sit on the sunk surface, per the handoff. */
+.total {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--s-16);
+  margin-top: var(--s-16);
+  padding: var(--s-16);
+  background: var(--sunk);
+  border-radius: var(--r-input);
+}
+
+.totalLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.foot {
+  margin-top: var(--s-16);
+  font-size: var(--t-14);
+  color: var(--mid);
+}

@@ -1,0 +1,34 @@
+.card {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-24);
+  transition:
+    transform var(--content) var(--ease-out),
+    box-shadow var(--content) var(--ease-out);
+}
+
+/* Cards rise toward the reader on hover. Pointer devices only: on a phone
+   this would fire on tap and read as a glitch. */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translate3d(0, -4px, 0);
+    box-shadow: var(--e-3);
+  }
+}
+
+.hero {
+  border-radius: var(--r-hero);
+  padding: var(--s-28);
+}
+
+.flat {
+  box-shadow: none;
+  border: 1px solid var(--line);
+}
+
+.sunk {
+  background: var(--sunk);
+  box-shadow: none;
+}

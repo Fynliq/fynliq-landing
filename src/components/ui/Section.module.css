@@ -1,0 +1,118 @@
+.section {
+  position: relative;
+  padding: var(--s-56) 0;
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding: var(--s-88) 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .section {
+    padding: var(--s-112) 0;
+  }
+}
+
+.sunk {
+  background: var(--sunk);
+}
+
+/* A hairline of the decorative spectrum where a sunk band begins, so the
+   change of surface reads as intentional rather than as a seam. */
+.sunk::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--brand-lime),
+    var(--brand-aqua) 52%,
+    var(--brand-violet),
+    transparent
+  );
+  opacity: 0.45;
+}
+
+.inner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.head {
+  max-width: 660px;
+  margin-bottom: var(--s-32);
+}
+
+/* Heading, title and lede each ride up in turn once the head is in view. */
+.eyebrow,
+.title,
+.lede {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition:
+    opacity var(--reveal) var(--ease-out),
+    transform var(--reveal) var(--ease-out);
+}
+
+.shown .eyebrow,
+.shown .title,
+.shown .lede {
+  opacity: 1;
+  transform: none;
+}
+
+.shown .title {
+  transition-delay: 90ms;
+}
+
+.shown .lede {
+  transition-delay: 170ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eyebrow,
+  .title,
+  .lede {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--low);
+  margin-bottom: var(--s-12);
+}
+
+.title {
+  font-size: var(--t-32);
+}
+
+.lede {
+  margin-top: var(--s-16);
+  font-size: var(--t-17);
+  color: var(--mid);
+  max-width: 58ch;
+}
+
+@media (min-width: 768px) {
+  .head {
+    margin-bottom: var(--s-40);
+  }
+
+  .title {
+    font-size: var(--t-40);
+  }
+}

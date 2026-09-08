@@ -1,0 +1,38 @@
+.lock {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+/* The mark is the only place lime appears. */
+.mark {
+  width: 24px;
+  height: auto;
+  flex: none;
+}
+
+.large .mark {
+  width: 32px;
+}
+
+.word {
+  font-family: var(--disp);
+  font-weight: 800;
+  font-size: var(--t-21);
+  letter-spacing: -0.04em;
+  color: var(--tx);
+}
+
+.large .word {
+  font-size: var(--t-25);
+}
+
+.beta {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--low);
+  padding-top: 2px;
+}

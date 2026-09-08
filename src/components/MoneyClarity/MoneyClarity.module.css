@@ -1,0 +1,40 @@
+.pair {
+  display: grid;
+  gap: var(--s-20);
+  align-items: stretch;
+}
+
+/* Each state is a column of its own so the two cards match height and the
+   captions beneath them sit on the same line. */
+.state {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.state > :first-child {
+  flex: 1;
+}
+
+.caption {
+  margin-top: var(--s-12);
+  padding-top: 0;
+  font-size: var(--t-13);
+  color: var(--low);
+  text-align: center;
+}
+
+@media (min-width: 600px) {
+  .pair {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-24);
+  }
+}
+
+/* Beside the explanation the column is too narrow for two cards, so the two
+   states stack and read as a before/after instead. */
+@media (min-width: 940px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}

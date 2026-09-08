@@ -1,0 +1,83 @@
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+}
+
+.groupLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-12);
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--low);
+  letter-spacing: 0.02em;
+  margin-bottom: var(--s-12);
+}
+
+.task {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--s-12);
+  padding: var(--s-16) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.task:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.task:first-child {
+  padding-top: 0;
+}
+
+/* A ring, not a checkbox — nothing here is actionable on the landing page. */
+.ring {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 0 0 2px var(--line2);
+  margin-top: 2px;
+  flex: none;
+}
+
+.ringDone {
+  background: var(--green-soft);
+  box-shadow: inset 0 0 0 2px var(--green);
+  color: var(--green);
+  font-size: var(--t-13);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.title {
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.done .title {
+  color: var(--low);
+  text-decoration: line-through;
+}
+
+.note {
+  display: block;
+  font-size: var(--t-13);
+  color: var(--low);
+  margin-top: 2px;
+}
+
+.when {
+  font-size: var(--t-13);
+  font-weight: 600;
+  white-space: nowrap;
+  padding-top: 2px;
+}
+
+.whenRust { color: var(--rust); }
+.whenGold { color: var(--gold); }
+.whenLow { color: var(--low); }

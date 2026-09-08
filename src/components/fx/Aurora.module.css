@@ -1,0 +1,37 @@
+.aurora {
+  position: absolute;
+  /* Bleeds past its container so the blur has no visible edge; the container
+     clips it. A canvas is a replaced element, so `inset` alone will NOT size
+     it — with width/height auto it falls back to its intrinsic 160x110 and
+     collapses into the corner. The percentages are load-bearing. */
+  inset: -12%;
+  width: 124%;
+  height: 124%;
+  display: block;
+  pointer-events: none;
+  /* Drawn at 160x110 and blown up: the blur is what turns three cheap radial
+     fills into a mesh gradient. */
+  filter: blur(46px);
+  z-index: 0;
+}
+
+/* On paper the field has to darken to be seen at all: multiplying the washes
+   into the page tints it, where adding light to near-white did nothing.
+   Kept deliberately low — this is atmosphere. Any stronger and the page reads
+   as green, which is the one colour that already means "money you keep". */
+.light {
+  opacity: 0.3;
+  mix-blend-mode: multiply;
+}
+
+/* On ink the colour is laid over the top, but low: the panel has to stay a
+   dark panel or the body copy on it loses its contrast. */
+.dark {
+  opacity: 0.3;
+}
+
+@media (min-width: 940px) {
+  .aurora {
+    filter: blur(64px);
+  }
+}

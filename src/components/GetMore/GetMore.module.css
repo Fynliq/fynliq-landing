@@ -1,0 +1,104 @@
+.grid {
+  display: grid;
+  gap: var(--s-20);
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  height: 100%;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+
+.title {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.body {
+  font-size: var(--t-14);
+  color: var(--mid);
+  flex: 1;
+}
+
+.quote {
+  margin: 0;
+  padding: var(--s-12) var(--s-16);
+  background: var(--sunk);
+  border-radius: var(--r-input);
+  font-size: var(--t-14);
+  color: var(--tx);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8) var(--s-16);
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+.copy {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  /* Fixed width so confirming the copy does not resize the button. */
+  min-width: 148px;
+  min-height: 44px;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  font-size: var(--t-14);
+  font-weight: 600;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.copy:hover {
+  background: var(--sunk);
+}
+
+.copy:active {
+  transform: scale(0.97);
+}
+
+.copied {
+  color: var(--green);
+}
+
+.note {
+  margin-top: var(--s-28);
+  padding: var(--s-20);
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  font-size: var(--t-14);
+  color: var(--mid);
+  max-width: 68ch;
+}
+
+@media (min-width: 700px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1100px) {
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-24);
+  }
+}
