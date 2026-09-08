@@ -1,0 +1,60 @@
+/* Film grain, drawn by the browser rather than shipped as an asset.
+   feTurbulence rasterises once into a 140px tile the compositor then repeats,
+   so the whole layer costs one texture and no JavaScript at all — a canvas
+   regenerating noise every frame would cost several megabytes of pixel writes
+   a second for the same look. */
+.grain {
+  position: absolute;
+  /* Bleeds by one tile so the position shift below never exposes an edge. */
+  inset: -140px;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* Paper is near-white, so the noise has to bite into it rather than sit on
+     top: multiply darkens, where a normal blend at this opacity vanished. */
+  mix-blend-mode: multiply;
+  opacity: 0.055;
+  /* Jumping the tile in whole steps is what reads as grain. A smooth slide
+     reads as a texture being dragged across the page instead. */
+  animation: grain 0.8s steps(1, end) infinite;
+  will-change: transform;
+}
+
+/* Eight stops, none of them a multiple of the 140px tile, so the pattern never
+   lands back on itself inside one cycle. */
+@keyframes grain {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  12.5% {
+    transform: translate3d(-11px, 7px, 0);
+  }
+  25% {
+    transform: translate3d(9px, -13px, 0);
+  }
+  37.5% {
+    transform: translate3d(-17px, -6px, 0);
+  }
+  50% {
+    transform: translate3d(13px, 11px, 0);
+  }
+  62.5% {
+    transform: translate3d(-7px, 15px, 0);
+  }
+  75% {
+    transform: translate3d(15px, -9px, 0);
+  }
+  87.5% {
+    transform: translate3d(-13px, -15px, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Still grain is still texture — only the flicker goes. */
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    animation: none;
+  }
+}

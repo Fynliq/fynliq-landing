@@ -15,6 +15,10 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* usePointerVar overwrites these; the fallbacks keep the lit patch centred
+     until the pointer first moves, and are the whole story on touch. */
+  --px: 0.5;
+  --py: 0.5;
 }
 
 /* Content sits above the backdrop without either needing a negative index. */
@@ -46,6 +50,94 @@
   mask-image: radial-gradient(120% 90% at 70% 10%, #000 0%, transparent 72%);
   -webkit-mask-image: radial-gradient(120% 90% at 70% 10%, #000 0%, transparent 72%);
   opacity: 0.7;
+}
+
+/* ---- Lit grid ---------------------------------------------------------- */
+
+/* The ruled field again, in the heavier ink, shown only through a small window
+   that follows the pointer. Masking a second layer costs one composited patch;
+   animating the first layer's colour would repaint the whole field instead. */
+.gridLit {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--line2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line2) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(
+    16% 22% at calc(var(--px) * 100%) calc(var(--py) * 100%),
+    #000 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    transparent 72%
+  );
+  -webkit-mask-image: radial-gradient(
+    16% 22% at calc(var(--px) * 100%) calc(var(--py) * 100%),
+    #000 0%,
+    rgba(0, 0, 0, 0.35) 45%,
+    transparent 72%
+  );
+}
+
+/* No pointer to follow, so there is nothing to light. */
+@media (pointer: coarse) {
+  .gridLit {
+    display: none;
+  }
+}
+
+/* ---- Sheen -------------------------------------------------------------- */
+
+/* A slow band of colour drifting through the aurora pool.
+   It tints rather than brightens, and that is not a style choice: paper is
+   #FBFAF8, so a white band laid over it changes nothing — measured invisible
+   mid-sweep before this was rewritten. Multiplying a wash of the decorative
+   hues is the only version of this that registers on light ground. */
+.sheen {
+  position: absolute;
+  inset: -20% -60%;
+  background: linear-gradient(
+    100deg,
+    transparent 38%,
+    rgba(124, 92, 255, 0.16) 46%,
+    rgba(34, 211, 238, 0.22) 52%,
+    transparent 62%
+  );
+  mix-blend-mode: multiply;
+  mask-image: radial-gradient(60% 70% at 76% 42%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(60% 70% at 76% 42%, #000 0%, transparent 78%);
+  /* Linear, deliberately. --ease is a UI curve: it dumps half the travel in
+     the first few frames, which turned the sweep into a flick. A band crossing
+     a field has to move at a constant speed to read as drifting. */
+  animation: sheen 11s linear infinite;
+  will-change: transform;
+}
+
+@keyframes sheen {
+  /* Most of the cycle is the band waiting off-stage: a sweep every 11s reads
+     as an occasional catch of light, where a constant one reads as a loader. */
+  0%,
+  62% {
+    transform: translate3d(-42%, 0, 0);
+  }
+  100% {
+    transform: translate3d(42%, 0, 0);
+  }
+}
+
+/* ---- Grain -------------------------------------------------------------- */
+
+/* Sits above the aurora and the ruling but below the copy, so the texture
+   reads as part of the paper rather than as a film over the text. */
+.heroGrain {
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheen {
+    animation: none;
+    /* Parked off the copy rather than removed, so the pool keeps its highlight. */
+    transform: translate3d(20%, 0, 0);
+  }
 }
 
 .inner {

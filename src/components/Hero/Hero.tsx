@@ -1,22 +1,30 @@
 import { Amount, Button } from '../ui';
-import { Aurora, Depth, Stage3D } from '../fx';
+import { Aurora, Depth, Grain, Stage3D } from '../fx';
 import { HomeScreen } from '../ProductPreview';
 import { breakDownAward, computeRunway, formatUSD } from '../../core';
 import { DEMO_AWARD, DEMO_RUNWAY } from '../../data/demo';
+import { usePointerVar } from '../../lib/usePointerVar';
 import styles from './Hero.module.css';
 
 const TITLE = 'Know what your aid actually leaves you.';
 const WORDS = TITLE.split(' ');
 
 export function Hero() {
+  // Publishes --px/--py on the backdrop; the lit grid reads them.
+  const backdrop = usePointerVar<HTMLDivElement>();
   const aid = breakDownAward(DEMO_AWARD);
   const runway = computeRunway(DEMO_RUNWAY, DEMO_AWARD, true);
 
   return (
     <section className={styles.hero} id="top" aria-labelledby="hero-title">
-      <div className={styles.backdrop} aria-hidden="true">
+      <div className={styles.backdrop} ref={backdrop} aria-hidden="true">
         <Aurora className={styles.heroAurora} />
         <span className={styles.grid} />
+        {/* The same ruling in a stronger ink, revealed only around the
+            pointer, so the field appears to light up under the cursor. */}
+        <span className={styles.gridLit} />
+        <span className={styles.sheen} />
+        <Grain className={styles.heroGrain} />
       </div>
 
       <div className={styles.inner}>
