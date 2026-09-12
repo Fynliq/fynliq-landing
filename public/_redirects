@@ -1,0 +1,5 @@
+# /beta and /beta/results are client-side routes with no file behind them.
+# Without this, a refresh or a shared link on either one is a 404 from the
+# host before the app ever loads. Netlify reads this file; Vercel reads the
+# equivalent rewrite in vercel.json.
+/*    /index.html   200

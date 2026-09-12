@@ -1,0 +1,239 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+.skip {
+  position: absolute;
+  left: var(--s-16);
+  top: -100px;
+  z-index: 60;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-14);
+  font-weight: 600;
+  transition: top var(--content) var(--ease);
+}
+
+.skip:focus {
+  top: var(--s-16);
+}
+
+/* Static, not fixed: the flow is a task, and a bar that follows you down a
+   form is one more thing moving while you are reading your own figures. */
+.bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.barInner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-16);
+}
+
+.home,
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  border-radius: var(--r-pill);
+  transition: transform var(--press) var(--ease), color var(--press) var(--ease);
+}
+
+.home:active,
+.back:active {
+  transform: scale(0.97);
+}
+
+.back {
+  min-height: 44px;
+  padding: var(--s-8) var(--s-12);
+  font-size: var(--t-15);
+  font-weight: 500;
+  color: var(--mid);
+  white-space: nowrap;
+}
+
+.back:hover {
+  color: var(--tx);
+  background: var(--sunk);
+}
+
+/* ---- Steps ------------------------------------------------------------ */
+
+.steps {
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+}
+
+.stepList {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-12) var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--low);
+  white-space: nowrap;
+}
+
+/* The connector between one step and the next. */
+.step:not(:last-child)::after {
+  content: '';
+  flex: 1;
+  min-width: var(--s-12);
+  height: 1px;
+  margin: 0 var(--s-4);
+  background: var(--line2);
+}
+
+.step:not(:last-child) {
+  flex: 1;
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--low);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 700;
+  transition: background-color var(--content) var(--ease), color var(--content) var(--ease);
+}
+
+.current {
+  color: var(--tx);
+}
+
+.current .dot {
+  background: var(--tx);
+  color: var(--on-dark);
+}
+
+.done {
+  color: var(--green);
+}
+
+.done .dot {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+/* Labels are the first thing to go on a narrow phone; the numbered dots and
+   the heading below carry the position on their own. */
+.stepLabel {
+  display: none;
+}
+
+@media (min-width: 560px) {
+  .stepLabel {
+    display: inline;
+  }
+}
+
+/* ---- Body ------------------------------------------------------------- */
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-32) var(--gutter) var(--s-56);
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding-top: var(--s-56);
+    padding-bottom: var(--s-88);
+  }
+}
+
+/* ---- Foot ------------------------------------------------------------- */
+
+.foot {
+  border-top: 1px solid var(--line);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-24) var(--gutter) var(--s-32);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.disclaimer {
+  font-size: var(--t-13);
+  color: var(--low);
+  max-width: 76ch;
+}
+
+.link {
+  color: var(--mid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--tx);
+}
+
+.copy {
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+/*
+ * On paper the chrome is noise: there is nothing to navigate to and no step to
+ * be on. The disclaimer stays, because a printed page about somebody's aid
+ * that does not say Fynliq is unaffiliated is a page that could be mistaken
+ * for something official.
+ */
+@media print {
+  .shell {
+    min-height: 0;
+  }
+
+  .skip,
+  .bar,
+  .steps {
+    display: none;
+  }
+
+  .main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .foot {
+    max-width: none;
+    padding: var(--s-16) 0 0;
+    break-inside: avoid;
+  }
+}

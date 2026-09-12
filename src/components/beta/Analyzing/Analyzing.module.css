@@ -1,0 +1,156 @@
+.card {
+  max-width: 720px;
+}
+
+.lede {
+  font-size: var(--t-15);
+  color: var(--mid);
+}
+
+.file {
+  font-family: var(--mono);
+  font-size: var(--t-14);
+  color: var(--tx);
+  word-break: break-all;
+}
+
+/* ---- Stages ----------------------------------------------------------- */
+
+.stages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  margin-top: var(--s-28);
+  padding: var(--s-20);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+}
+
+.stage {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  font-size: var(--t-15);
+  color: var(--low);
+  transition: color var(--content) var(--ease);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--r-pill);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 700;
+}
+
+.done {
+  color: var(--mid);
+}
+
+.done .mark {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.current {
+  color: var(--tx);
+  font-weight: 600;
+}
+
+.current .mark {
+  background: var(--tx);
+}
+
+/* The only looping animation in the flow, and it stops the moment the stage
+   advances. It says "still working" without claiming a percentage nobody
+   can actually measure. */
+.current .mark::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-pill);
+  background: var(--on-dark);
+  animation: pulse 1.2s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .current .mark::after {
+    animation: none;
+  }
+}
+
+.todo .mark {
+  color: var(--low);
+}
+
+/* ---- The shape of the answer ------------------------------------------ */
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  margin-top: var(--s-28);
+  padding-top: var(--s-24);
+  border-top: 1px solid var(--line);
+}
+
+.previewRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-12);
+  margin-top: var(--s-4);
+}
+
+/* ---- Actions ---------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-16);
+  margin-top: var(--s-28);
+}
+
+.cancel {
+  flex: none;
+  min-height: 44px;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--tx);
+  transition: transform var(--press) var(--ease), background-color var(--press) var(--ease);
+}
+
+.cancel:hover {
+  background: var(--sunk);
+}
+
+.cancel:active {
+  transform: scale(0.97);
+}
+
+.note {
+  flex: 1 1 240px;
+  font-size: var(--t-13);
+  color: var(--low);
+}

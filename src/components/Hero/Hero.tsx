@@ -53,7 +53,7 @@ export function Hero() {
           </p>
 
           <div className={styles.actions}>
-            <Button href="#join" arrow>
+            <Button href="/beta" arrow>
               Join the beta
             </Button>
             <Button href="#clarity" variant="secondary">

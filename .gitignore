@@ -5,3 +5,6 @@ dist
 *.tsbuildinfo
 
 .vercel
+
+# Scratch files the screenshot scripts create and clean up after themselves.
+docs/.tmp

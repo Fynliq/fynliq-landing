@@ -1,0 +1,226 @@
+.head {
+  max-width: 660px;
+  margin-bottom: var(--s-32);
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--low);
+  margin-bottom: var(--s-12);
+}
+
+.title {
+  font-size: var(--t-32);
+}
+
+.lede {
+  margin-top: var(--s-16);
+  font-size: var(--t-17);
+  color: var(--mid);
+  max-width: 58ch;
+}
+
+@media (min-width: 768px) {
+  .head {
+    margin-bottom: var(--s-40);
+  }
+
+  .title {
+    font-size: var(--t-40);
+  }
+}
+
+/* ---- Layout ----------------------------------------------------------- */
+
+.split {
+  display: grid;
+  gap: var(--s-24);
+  align-items: start;
+}
+
+.split > * {
+  min-width: 0;
+}
+
+@media (min-width: 940px) {
+  .split {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: var(--s-40);
+  }
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+/* ---- Messages --------------------------------------------------------- */
+
+/* The live region is always in the tree, so a message is announced when it
+   arrives rather than when the region itself appears. */
+.messages:empty {
+  display: none;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.rejection,
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  font-size: var(--t-14);
+}
+
+.rejection {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+
+.error {
+  background: var(--rust-soft);
+  color: var(--rust);
+}
+
+.glyph {
+  flex: none;
+  line-height: 1.55;
+}
+
+/* ---- Actions ---------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-16);
+}
+
+/* The landing page's Button is an anchor, and this one submits rather than
+   navigates — so it is a real <button> wearing the same clothes. */
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-family: var(--body);
+  font-size: var(--t-16);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    box-shadow var(--press) var(--ease);
+}
+
+.submit:hover:not(:disabled) {
+  background: var(--tx-hi);
+  box-shadow: var(--e-2);
+  transform: translateY(-2px);
+}
+
+.submit:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.submit:disabled {
+  background: var(--sunk);
+  color: var(--low);
+  box-shadow: none;
+  cursor: default;
+}
+
+.actionNote {
+  flex: 1 1 200px;
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+/* ---- Aside ------------------------------------------------------------ */
+
+.asideTitle {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--s-16);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: var(--s-16);
+  border-bottom: 1px solid var(--line);
+}
+
+.item:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.itemTitle {
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.itemBody {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.foot {
+  margin-top: var(--s-16);
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.rule {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.tick {
+  flex: none;
+  color: var(--green);
+  font-weight: 700;
+  line-height: 1.55;
+}

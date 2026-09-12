@@ -1,0 +1,56 @@
+/*
+ * Print.
+ *
+ * A student who gets a straight answer about their own money often needs to
+ * take it to somebody — an aid office, a parent, a counsellor. This makes that
+ * a keystroke rather than six screenshots.
+ *
+ * Only the page-level rules live here. Anything that needs to target a
+ * component sits in that component's own module, beside the screen rules it
+ * overrides, so the two can never drift apart.
+ */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+
+  html,
+  body {
+    background: #fff;
+    /* Backgrounds carry meaning here — a gold "worth a check" panel that
+       printed as white would lose the warning it exists to give. */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  /* Decoration with nothing to say on paper. */
+  canvas {
+    display: none !important;
+  }
+
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  p,
+  li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* A printed link is a dead end unless the address comes with it. */
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-family: inherit;
+    font-size: 9pt;
+    font-weight: 400;
+    color: #6b706c;
+    word-break: break-all;
+  }
+}

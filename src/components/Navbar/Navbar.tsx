@@ -63,7 +63,7 @@ export function Navbar() {
           ))}
         </nav>
 
-        <a className={styles.cta} href="#join">
+        <a className={styles.cta} href="/beta">
           Join the beta
         </a>
       </div>

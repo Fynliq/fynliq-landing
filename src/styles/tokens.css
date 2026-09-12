@@ -18,6 +18,18 @@
   /* Logo only. Never text, never UI. Used by the wordmark alone. */
   --lime: #9ce623;
 
+  /*
+   * The same three meanings, lightened for the near-black surfaces.
+   *
+   * Green, gold and rust are tuned for paper and fall to roughly 1.5:1 on
+   * --ink, which is unreadable. These are the identical vocabulary at a
+   * luminance that clears 9:1 there, so a verdict keeps its colour when it is
+   * stated on a dark panel. They are never used on a light surface.
+   */
+  --green-on-dark: #5fd39a;
+  --gold-on-dark: #e8be5e;
+  --rust-on-dark: #ff9c8f;
+
   /* ---- Surfaces -------------------------------------------------------- */
   --paper: #fbfaf8;
   --card: #ffffff;

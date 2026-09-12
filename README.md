@@ -2,19 +2,20 @@
 
 <img src="public/fynliq-mark.png" alt="Fynliq" width="72" />
 
-# Fynliq — Beta Landing Page
+# Fynliq — Beta
 
 **Know what your aid actually leaves you.**
 
-A responsive landing experience for the Fynliq beta — a tool that reads a student's
-financial aid award and shows what they keep, what they repay, what nothing is
-covering, and how long the money in their account has to last.
+The Fynliq beta: a landing page that makes the argument, and the flow behind it
+where a student uploads their own aid summary and gets their own answer back —
+what they keep, what they repay, what nothing is covering, what their school is
+actually asking for, and what to do next.
 
 [![Live](https://img.shields.io/badge/live-fynliq--landing.vercel.app-000?style=flat-square)](https://fynliq-landing.vercel.app)
 [![React](https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-23%20passing-0E7A45?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-61%20passing-0E7A45?style=flat-square)](#testing)
 
 **[View the live site →](https://fynliq-landing.vercel.app)**
 
@@ -30,6 +31,8 @@ covering, and how long the money in their account has to last.
 
 - [What this is](#what-this-is)
 - [Inside the page](#inside-the-page)
+- [The beta flow](#the-beta-flow)
+- [Connecting the document reader](#connecting-the-document-reader)
 - [Quick start](#quick-start)
 - [Stack](#stack)
 - [Architecture: three rules](#architecture-three-rules)
@@ -95,6 +98,89 @@ aid office.
 
 <br />
 
+## The beta flow
+
+Every **Join the beta** button leads to `/beta`, where a student uploads their
+own documents and gets their own answer back.
+
+```
+/            Join the beta
+/beta        Upload aid summary  →  Fynliq reads it
+/beta/results                       Personalised answer and next steps
+```
+
+![The upload step](docs/screenshots/beta-01-upload.png)
+
+**Upload** (`/beta`) takes a FAFSA Submission Summary, an award letter, a
+student account statement, or a screenshot of any of them — dropped, chosen,
+or pasted straight from the clipboard with <kbd>Ctrl</kbd>/<kbd>⌘</kbd> +
+<kbd>V</kbd>, which is the fastest thing a student can produce from a portal.
+Up to four files, since award documents run to several pages. Every refusal is
+announced in words with the fix in it; a dropzone that silently swallows a file
+is the most common way this kind of interface wastes somebody's afternoon.
+
+**Analysing** walks four named stages — reading, finding the award lines,
+checking them against the bill, writing the answer — with skeletons shaped like
+the answer that replaces them, and a cancel button that actually aborts the
+request.
+
+![The answer](docs/screenshots/beta-03-answer.png)
+
+**The answer** (`/beta/results`) opens with the conclusion, not with a
+dashboard:
+
+> **Your bill is covered — but the last $1,800 of it has to be borrowed.**
+> $6,400 of gift aid was already applied to your bill of $8,200. Accepting
+> $1,800 in loans clears the rest, and that is the figure to stop at.
+
+Then what supports it: money kept, money repaid and the uncovered gap; the
+award line by line; what the school is actually asking for this term and the
+exact amount to accept; the Student Aid Index in plain English; **what Fynliq
+could not read**, listed rather than guessed at; a glossary of the words on
+their own document; and the next steps, ordered by what it costs to skip them.
+
+![The full results page](docs/screenshots/beta-04-results-full.png)
+
+The result is held in memory and nowhere else — not in `sessionStorage`, not in
+the URL. Reloading `/beta/results` returns to the upload step rather than
+restoring somebody's financial position from disk. It prints cleanly, because a
+student who gets a straight answer usually needs to take it to somebody.
+
+### On a phone
+
+<div align="center">
+<img src="docs/screenshots/beta-mobile-upload.png" alt="The upload step on mobile" width="300" />
+<img src="docs/screenshots/beta-mobile-answer.png" alt="The answer on mobile" width="300" />
+</div>
+
+<br />
+
+## Connecting the document reader
+
+The flow is finished and runs today against a local stub. Connecting the real
+reader is one environment variable:
+
+```bash
+VITE_FYNLIQ_ANALYZE_URL=https://api.fynliq.com/v1/analyze
+```
+
+Unset, `src/beta/stubAnalyzer.ts` serves the demo student — and the results page
+says so, in a banner, at the top. A stub that dressed placeholder figures up as
+somebody's real aid would be the worst thing this product could ship, so
+`provenance: 'demo'` is part of the type and the banner is not optional.
+
+Set, the flow POSTs the files as `multipart/form-data` and validates the JSON
+that comes back before anything downstream sees it. A backend still under
+construction fails loudly at the boundary with the offending path named
+(`award.lines[2].amount: expected a finite number`) rather than quietly
+rendering `$NaN` to somebody deciding how much to borrow.
+
+**[The full request and response contract →](docs/ANALYSIS_API.md)** — with a
+worked example, the error semantics, and the three rules the frontend enforces.
+No frontend changes are needed to connect it.
+
+<br />
+
 ## Quick start
 
 ```bash
@@ -118,33 +204,47 @@ no UI library.
 ```
 src/
   core/           Money maths as pure, tested functions
+  beta/           The upload seam: file rules, the wire contract, the readers
+  router/         Three routes, sixty lines, no dependency
+  pages/          Landing · BetaUpload · BetaResults
   data/demo.ts    The one demo student, used by every preview
-  styles/         Design tokens and base layer
+  styles/         Design tokens, base layer and print
   components/
     ui/           Amount, Pill, Button, Card, Bar, Section, Skeleton, Logo
     fx/           Aurora, Coin3D, Stage3D, ScrollProgress
+    beta/         FlowShell, Dropzone, Analyzing
     Navbar/ Hero/ ProductPreview/ MoneyMetric/ FinancialCard/ AidBreakdown/
     LoanDecision/ GetMore/ TaskList/ AskPreview/ TrustSection/ CTA/ Footer/
   lib/            useReveal, useCopy, useCountUp, useScrollVar, useTilt, motion
 ```
 
-Production build: **199 kB JS** (65 kB gzipped) and **42 kB CSS** (9 kB gzipped).
+Production build: **240 kB JS** (78 kB gzipped) and **64 kB CSS** (12 kB
+gzipped) — the whole beta flow, routing included, adds 41 kB JS and 22 kB CSS
+raw over the landing page alone, and no new dependency.
+
+Routing is a single delegated click listener rather than a `<Link>` component,
+so every `<a href="/beta">` already on the page — inside `Button`, `Navbar`,
+`CTA` — routes client-side without being rewritten, and still behaves like an
+anchor for middle-click, ctrl-click and "open in new tab".
 
 <br />
 
 ## Architecture: three rules
 
 **1. All money maths lives in `core/` as tested pure functions.**
-Nothing in a component computes a dollar figure. The runway, the weekly
-safe-to-spend, the award split and the loan verdict are `if` statements and
-division in `core/runway.ts`, `core/aid.ts` and `core/loan.ts`, covered by 23
-tests. The landing page renders whatever those functions return, so the figures
-on the page and the figures in the app cannot drift apart.
+Nothing in a component computes a dollar figure — including on the results
+page, where the figures belong to a real student. The runway, the award split,
+the loan verdict, the headline answer and the next steps are `if` statements and
+division in `core/`, covered by 61 tests. Every screen renders whatever those
+functions return, so the figures on the page and the figures the reader
+extracted cannot drift apart.
 
 ```ts
-computeRunway(input, award)   // → RunwayReady | RunwayUnavailable
-breakDownAward(award)         // → { kept, repaid, uncovered, … }
-evaluateLoan(input, amount)   // → LoanVerdict ('covers' | 'extra' | 'costly')
+computeRunway(input, award)              // → RunwayReady | RunwayUnavailable
+breakDownAward(award)                    // → { kept, repaid, uncovered, … }
+evaluateLoan(input, amount)              // → LoanVerdict ('covers'|'extra'|'costly')
+analyseOutcome(analysis)                 // → headline, term balance, SAI reading
+buildNextSteps(analysis, outcome)        // → steps, ordered by what skipping costs
 ```
 
 **2. Work-study is excluded from the runway.**
@@ -230,8 +330,9 @@ source.
 npm test
 ```
 
-23 tests across four suites, covering the money maths only — the layer where a
-bug would show a student a wrong number.
+61 tests across seven suites, covering the two layers where a bug would show a
+student a wrong number: the money maths, and the boundary the student's own
+figures cross to reach it.
 
 | Suite | Covers |
 |---|---|
@@ -239,6 +340,9 @@ bug would show a student a wrong number.
 | `core/__tests__/aid.test.ts` | Award split into kept / repaid / uncovered |
 | `core/__tests__/loan.test.ts` | Loan bands and the accept-up-to ceiling |
 | `core/__tests__/money.test.ts` | Currency, deduction and range formatting |
+| `core/__tests__/analysis.test.ts` | The headline answer, the term balance, the SAI bands, and the ordering of next steps |
+| `beta/__tests__/files.test.ts` | What the upload accepts, and the words it turns a file away with |
+| `beta/__tests__/contract.test.ts` | The wire contract — doubles as an executable spec for the backend |
 
 <br />
 
@@ -252,10 +356,35 @@ vercel --prod   # promote to production
 ```
 
 Vercel auto-detects the framework: build command `vite build`, output directory
-`dist`. No configuration file is required.
+`dist`.
 
-Screenshots in this README are regenerated from the live site with
-`docs/screenshots.js` (Puppeteer driving the locally installed Chrome).
+**`/beta` and `/beta/results` are client-side routes with no file behind them**,
+so the host has to serve `index.html` for any path — otherwise a refresh or a
+shared link on either one is a 404 from the host before the app ever loads.
+That rewrite is committed for both hosts: `vercel.json` for Vercel, and
+`public/_redirects` for Netlify.
+
+To run against a document reader in development:
+
+```bash
+cp .env.example .env.local   # then fill in VITE_FYNLIQ_ANALYZE_URL
+npm run dev
+```
+
+Screenshots in this README are regenerated with Puppeteer driving the locally
+installed Chrome: `docs/screenshots.js` shoots the landing page, and
+`docs/beta-screenshots.js` clicks through the beta flow.
+
+The second one doubles as a smoke test. It joins the beta, uploads a file,
+analyses it and reads the answer exactly as a student would, and fails on a
+console error, on a horizontal overflow at 1440, 768 or 390px, or on a step that
+never arrives — including the reload of `/beta/results`, which must fall back to
+the upload step rather than show a stale or empty answer.
+
+```bash
+npm run build && npm run preview
+SHOT_URL=http://localhost:4173 node docs/beta-screenshots.js
+```
 
 <br />
 

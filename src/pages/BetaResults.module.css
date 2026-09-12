@@ -1,0 +1,576 @@
+/* ---- The preview banner ------------------------------------------------ */
+
+/*
+ * Only rendered while the document reader is a stub. It is deliberately the
+ * first thing on the page and deliberately hard to skim past: a results screen
+ * that showed placeholder figures without saying so would be the single worst
+ * thing this product could put in front of somebody.
+ */
+.demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-8);
+  margin-bottom: var(--s-24);
+  padding: var(--s-16) var(--s-20);
+  border-radius: var(--r-input);
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: var(--t-14);
+}
+
+.demoTag {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px var(--s-8);
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  color: var(--paper);
+}
+
+/* ---- The answer -------------------------------------------------------- */
+
+.panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: radial-gradient(120% 140% at 12% 0%, var(--ink-3), var(--ink) 62%);
+  color: var(--on-dark);
+  border-radius: var(--r-hero);
+  padding: var(--s-32) var(--s-24);
+  box-shadow: var(--e-3);
+  /* Replaced by the tone classes below. */
+  --accent: var(--on-dark-mid);
+}
+
+/* Colour carries the verdict here exactly as it does everywhere else — the
+   sentence inside says the same thing in words, so neither is load-bearing. */
+.green {
+  --accent: var(--green-on-dark);
+}
+
+.gold {
+  --accent: var(--gold-on-dark);
+}
+
+.rust {
+  --accent: var(--rust-on-dark);
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--accent);
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  mask-image: radial-gradient(72% 82% at 50% 50%, transparent 8%, #000 78%);
+  -webkit-mask-image: radial-gradient(72% 82% at 50% 50%, transparent 8%, #000 78%);
+}
+
+.panel > *:not(.glow) {
+  position: relative;
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.answer {
+  margin-top: var(--s-16);
+  font-size: var(--t-32);
+  color: var(--on-dark);
+  max-width: 22ch;
+}
+
+.detail {
+  margin-top: var(--s-16);
+  font-size: var(--t-17);
+  color: var(--on-dark-mid);
+  max-width: 62ch;
+}
+
+.source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-12);
+  margin-top: var(--s-24);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--on-dark-line2);
+}
+
+.sourceText {
+  flex: 1 1 260px;
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  color: var(--on-dark-low);
+  word-break: break-word;
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12);
+  margin-top: var(--s-24);
+}
+
+.print,
+.again {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: var(--s-12) var(--s-24);
+  border-radius: var(--r-pill);
+  font-family: var(--body);
+  font-size: var(--t-15);
+  font-weight: 600;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.print {
+  background: var(--paper);
+  color: var(--tx);
+}
+
+.print:hover {
+  background: var(--card);
+}
+
+.again {
+  color: var(--on-dark);
+  box-shadow: inset 0 0 0 1px var(--on-dark-line);
+}
+
+.again:hover {
+  background: var(--on-dark-wash);
+}
+
+.print:active,
+.again:active {
+  transform: scale(0.97);
+}
+
+.print:focus-visible,
+.again:focus-visible {
+  outline-color: var(--paper);
+}
+
+@media (min-width: 768px) {
+  .panel {
+    padding: var(--s-40) var(--s-40);
+  }
+
+  .answer {
+    font-size: var(--t-40);
+  }
+}
+
+/* ---- Low-confidence warning -------------------------------------------- */
+
+.warn {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-8);
+  margin-top: var(--s-20);
+  padding: var(--s-16) var(--s-20);
+  border-radius: var(--r-input);
+  background: var(--rust-soft);
+  color: var(--rust);
+  font-size: var(--t-14);
+  font-weight: 500;
+}
+
+/* ---- The three figures -------------------------------------------------- */
+
+.metrics {
+  display: grid;
+  gap: var(--s-16);
+  margin-top: var(--s-24);
+}
+
+@media (min-width: 720px) {
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---- Two columns -------------------------------------------------------- */
+
+.split {
+  display: grid;
+  gap: var(--s-20);
+  margin-top: var(--s-20);
+  align-items: start;
+}
+
+.split > * {
+  min-width: 0;
+}
+
+@media (min-width: 940px) {
+  .split {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: var(--s-24);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+  min-width: 0;
+}
+
+.cardTitle {
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--s-8);
+}
+
+.cardLede {
+  font-size: var(--t-14);
+  color: var(--mid);
+  margin-bottom: var(--s-16);
+}
+
+/* ---- Work-study, held apart from the totals ---------------------------- */
+
+.aside {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-12);
+  margin-top: var(--s-24);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--line);
+}
+
+.asideLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.asideNote {
+  display: block;
+  font-size: var(--t-13);
+  color: var(--low);
+  margin-top: 2px;
+}
+
+/* ---- The amount to accept, and the amount still short ------------------ */
+
+.ceiling,
+.gap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-top: var(--s-20);
+  padding: var(--s-20);
+  border-radius: var(--r-input);
+}
+
+.ceiling {
+  background: var(--green-soft);
+}
+
+.gap {
+  background: var(--rust-soft);
+}
+
+.ceilingTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+
+.ceilingLabel {
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--mid);
+}
+
+.ceilingBody {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+/* ---- Student Aid Index -------------------------------------------------- */
+
+.sai {
+  display: block;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-40);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  margin-bottom: var(--s-12);
+}
+
+.saiFoot {
+  margin-top: var(--s-16);
+  padding-top: var(--s-16);
+  border-top: 1px solid var(--line);
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+/* ---- What could not be read -------------------------------------------- */
+
+.unread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.unreadItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--gold-soft);
+}
+
+.unreadField {
+  font-size: var(--t-15);
+  font-weight: 600;
+  color: var(--gold);
+}
+
+.unreadWhere {
+  font-size: var(--t-13);
+  color: var(--mid);
+}
+
+/* ---- Glossary ----------------------------------------------------------- */
+
+.glossary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.term {
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  overflow: hidden;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-12) var(--s-16);
+  font-size: var(--t-15);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  min-height: 48px;
+  transition: transform var(--press) var(--ease);
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:active {
+  transform: scale(0.97);
+}
+
+.sign {
+  color: var(--low);
+  font-family: var(--mono);
+  flex: none;
+}
+
+.term[open] .sign {
+  color: var(--tx);
+}
+
+.answerBody {
+  padding: 0 var(--s-16) var(--s-16);
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+/* ---- Next steps ---------------------------------------------------------- */
+
+.next {
+  margin-top: var(--s-40);
+}
+
+.nextTitle {
+  font-size: var(--t-32);
+}
+
+.nextLede {
+  margin-top: var(--s-12);
+  font-size: var(--t-15);
+  color: var(--mid);
+  max-width: 62ch;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  margin-top: var(--s-24);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-16);
+  align-items: start;
+}
+
+.stepIndex {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 700;
+  color: var(--low);
+  padding-top: 3px;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.stepTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
+}
+
+.stepTitle {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  min-width: 0;
+}
+
+.stepWhy {
+  font-size: var(--t-14);
+  color: var(--mid);
+  max-width: 72ch;
+}
+
+.stepAction {
+  margin-top: var(--s-4);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  font-size: var(--t-14);
+  color: var(--tx);
+  max-width: 72ch;
+}
+
+@media (min-width: 768px) {
+  .nextTitle {
+    font-size: var(--t-40);
+  }
+}
+
+/* ---- Print --------------------------------------------------------------- */
+
+/*
+ * The answer panel inverts on paper. Near-black across the top of a sheet
+ * empties a toner cartridge and reads worse than the light version, so the
+ * verdict moves from the background to a heavy rule down the left edge —
+ * the same three colours, in the ink meant for paper.
+ */
+@media print {
+  .panel {
+    background: var(--card);
+    color: var(--tx);
+    border: 1px solid var(--line2);
+    border-left: 6px solid var(--accent-print, var(--tx));
+    box-shadow: none;
+    padding: var(--s-24);
+    break-inside: avoid;
+  }
+
+  .green {
+    --accent-print: var(--green);
+  }
+
+  .gold {
+    --accent-print: var(--gold);
+  }
+
+  .rust {
+    --accent-print: var(--rust);
+  }
+
+  .panel::before,
+  .glow,
+  .panelActions {
+    display: none;
+  }
+
+  .eyebrow {
+    color: var(--accent-print, var(--low));
+  }
+
+  .answer {
+    color: var(--tx);
+    max-width: none;
+  }
+
+  .detail {
+    color: var(--mid);
+  }
+
+  .source {
+    border-top-color: var(--line);
+  }
+
+  .sourceText {
+    color: var(--low);
+  }
+
+  .split,
+  .metrics {
+    /* Two columns of cards interleave badly across a page break. */
+    display: block;
+  }
+
+  .column > *,
+  .metrics > *,
+  .step {
+    margin-bottom: var(--s-12);
+  }
+
+  .next {
+    break-before: page;
+  }
+}

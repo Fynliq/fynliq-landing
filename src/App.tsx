@@ -1,61 +1,74 @@
-import { AidBreakdown } from './components/AidBreakdown/AidBreakdown';
-import { AskPreview } from './components/AskPreview/AskPreview';
-import { CTA } from './components/CTA/CTA';
-import { Footer } from './components/Footer/Footer';
-import { GetMore } from './components/GetMore/GetMore';
-import { Hero } from './components/Hero/Hero';
-import { LoanDecision } from './components/LoanDecision/LoanDecision';
-import { MoneyClarity } from './components/MoneyClarity/MoneyClarity';
-import { Navbar } from './components/Navbar/Navbar';
-import { TaskList } from './components/TaskList/TaskList';
-import { TrustSection } from './components/TrustSection/TrustSection';
-import { ScrollProgress } from './components/fx';
-import { Reveal } from './Reveal';
-import styles from './App.module.css';
+import { useCallback, useEffect, useState } from 'react';
+import { BetaResults } from './pages/BetaResults';
+import { BetaUpload } from './pages/BetaUpload';
+import { Landing } from './pages/Landing';
+import { Router, useRouter } from './router/router';
+import type { AidAnalysis } from './core';
+
+export const ROUTES = {
+  landing: '/',
+  upload: '/beta',
+  results: '/beta/results',
+} as const;
+
+const TITLES: Record<string, string> = {
+  [ROUTES.landing]: 'Fynliq — beta',
+  [ROUTES.upload]: 'Upload your aid summary — Fynliq',
+  [ROUTES.results]: 'Your aid, explained — Fynliq',
+};
 
 export function App() {
   return (
-    <>
-      <a className={styles.skip} href="#main">
-        Skip to content
-      </a>
-
-      <ScrollProgress />
-      <Navbar />
-
-      <main id="main">
-        <Hero />
-
-        {/* Full-width section wrappers only ever move on the vertical axis or
-            in depth — a horizontal reveal on a full-bleed block would widen
-            the page while it played. */}
-        <Reveal variant="tilt">
-          <MoneyClarity />
-        </Reveal>
-        <Reveal>
-          <AidBreakdown />
-        </Reveal>
-        <Reveal variant="tilt">
-          <LoanDecision />
-        </Reveal>
-        <Reveal>
-          <GetMore />
-        </Reveal>
-        <Reveal variant="tilt">
-          <TaskList />
-        </Reveal>
-        <Reveal>
-          <AskPreview />
-        </Reveal>
-        <Reveal variant="scale">
-          <TrustSection />
-        </Reveal>
-        <Reveal>
-          <CTA />
-        </Reveal>
-      </main>
-
-      <Footer />
-    </>
+    <Router>
+      <Routes />
+    </Router>
   );
+}
+
+function Routes() {
+  const { path, navigate } = useRouter();
+
+  /**
+   * The result lives here and nowhere else.
+   *
+   * Not in sessionStorage, not in a URL, not in a cache: it is somebody's
+   * financial aid position, and the only copy of it belongs in the tab they
+   * are looking at. The cost of that choice is that reloading the results URL
+   * has nothing to show — which is handled below by sending them back to the
+   * upload step rather than to an empty page.
+   */
+  const [analysis, setAnalysis] = useState<AidAnalysis | null>(null);
+
+  const onAnalysed = useCallback(
+    (result: AidAnalysis) => {
+      setAnalysis(result);
+      navigate(ROUTES.results);
+    },
+    [navigate],
+  );
+
+  const onRestart = useCallback(() => {
+    setAnalysis(null);
+    navigate(ROUTES.upload);
+  }, [navigate]);
+
+  const orphaned = path === ROUTES.results && analysis === null;
+
+  useEffect(() => {
+    if (orphaned) navigate(ROUTES.upload, { replace: true });
+  }, [orphaned, navigate]);
+
+  useEffect(() => {
+    document.title = TITLES[path] ?? TITLES[ROUTES.landing];
+  }, [path]);
+
+  if (path === ROUTES.upload || orphaned) {
+    return <BetaUpload onAnalysed={onAnalysed} />;
+  }
+
+  if (path === ROUTES.results && analysis) {
+    return <BetaResults analysis={analysis} onRestart={onRestart} />;
+  }
+
+  return <Landing />;
 }

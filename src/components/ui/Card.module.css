@@ -32,3 +32,12 @@
   background: var(--sunk);
   box-shadow: none;
 }
+
+/* A shadow is a lie on paper, and a card split across two sheets is unreadable. */
+@media print {
+  .card {
+    box-shadow: none;
+    border: 1px solid rgba(28, 29, 27, 0.18);
+    break-inside: avoid;
+  }
+}

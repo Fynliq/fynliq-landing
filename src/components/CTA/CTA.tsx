@@ -15,14 +15,14 @@ export function CTA() {
             Add your award. See what it actually leaves you.
           </h2>
           <p className={styles.body}>
-            A screenshot of your Accept/Decline page is enough to start. Fynliq reads the figures,
-            removes anything identifying before storing them, and shows you the same five screens
-            you have seen here &mdash; with your numbers in place of the demo ones.
+            A screenshot of your Accept/Decline page is enough to start. Upload it and Fynliq reads
+            the figures, then shows you the same screens you have seen here &mdash; with your
+            numbers in place of the demo ones, and what to do next in plain English.
           </p>
 
           <div className={styles.actions}>
-            <a className={styles.primary} href="mailto:hello@fynliq.com?subject=Fynliq%20beta">
-              Request beta access
+            <a className={styles.primary} href="/beta">
+              Upload your aid summary
               <span aria-hidden="true">&rarr;</span>
             </a>
             <a className={styles.secondary} href="#clarity">
