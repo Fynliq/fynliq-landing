@@ -8,3 +8,9 @@ dist
 
 # Scratch files the screenshot scripts create and clean up after themselves.
 docs/.tmp
+
+# Added by `vercel link`, which also drops a VERCEL_OIDC_TOKEN into .env.local.
+# The example file carries no secret and is the only documentation of which
+# variable connects the document reader, so it stays tracked.
+.env*
+!.env.example

@@ -1,0 +1,5 @@
+# None of this reaches the build. The screenshots alone are most of the
+# repository's weight, and uploading them on every deploy buys nothing.
+docs
+README.md
+.env.example
