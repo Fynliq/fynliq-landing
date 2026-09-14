@@ -4,3 +4,5 @@ export * from './aid';
 export * from './runway';
 export * from './loan';
 export * from './analysis';
+export * from './trending';
+export * from './ask';
