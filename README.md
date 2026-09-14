@@ -15,7 +15,7 @@ actually asking for, and what to do next.
 [![React](https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-61%20passing-0E7A45?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-162%20passing-0E7A45?style=flat-square)](#testing)
 
 **[View the live site →](https://fynliq-landing.vercel.app)**
 
@@ -32,7 +32,10 @@ actually asking for, and what to do next.
 - [What this is](#what-this-is)
 - [Inside the page](#inside-the-page)
 - [The beta flow](#the-beta-flow)
-- [Connecting the document reader](#connecting-the-document-reader)
+- [The three tabs](#the-three-tabs)
+- [How the ranking works](#how-the-ranking-works)
+- [Earn with Gradi](#earn-with-gradi)
+- [Connecting the backend](#connecting-the-backend)
 - [Quick start](#quick-start)
 - [Stack](#stack)
 - [Architecture: three rules](#architecture-three-rules)
@@ -155,7 +158,148 @@ student who gets a straight answer usually needs to take it to somebody.
 
 <br />
 
-## Connecting the document reader
+## The three tabs
+
+Bottom navigation across three pages, each leading into the next: **My Aid**,
+**Search**, **Ask Fynliq**. It is fixed at every width — a student who learns
+where the tabs are on their phone finds them in the same place on a laptop —
+and floats as a centred pill on desktop rather than stretching edge to edge.
+
+```
+/beta  /beta/results   My Aid        Upload a document, get your own answer
+/search                Search        What every student is asking, ranked
+/search/<question>                   One question, answered in full
+/ask                   Ask Fynliq    The same question, about your own money
+```
+
+![Search financial aid](docs/screenshots/search-01-hero.png)
+
+**Search** (`/search`) opens on what other students are searching for right
+now. A large search field on the ink band, categories to filter by, then two
+lists that are deliberately different lists:
+
+**Trending this week** is what *moved* — the questions rising fastest against
+last week, each with a seven-day sparkline and how steep the rise was. Usually
+something on a calendar just shifted: verification in September, the drop
+deadline a fortnight later.
+
+**Most searched** is what is *settled* — ranked by 30-day volume, with a bar
+on each row so the shape of student worry is visible and not just its order.
+The question at the top is searched four times as often as the one in fourth,
+and a numbered list alone would never say so.
+
+Under every question is the social proof the brief asked for — `842 searches
+in the past 30 days` — and the line that makes the grouping visible:
+*Grouped from 5 ways students ask it*.
+
+![An answer](docs/screenshots/search-04-answer.png)
+
+**An answer** (`/search/<question>`) opens with the conclusion, then the
+reasoning, then what to do in order. It ends on **what only your school can
+tell you**, because everything above it is a general rule and a general rule
+stated without that line reads like a promise about somebody's particular
+money.
+
+Underneath: **the phrasings this question absorbed**, with their own counts —
+the grouping proving itself rather than asking to be trusted — then a path to
+Ask Fynliq, then related questions.
+
+![Ask Fynliq](docs/screenshots/search-05-ask.png)
+
+**Ask Fynliq** (`/ask`) is the same question asked about your own money. Every
+answer is labelled `personal` or `general`: personal means it was computed from
+figures on your own document and it names the fields it read them from;
+general means it is the rule, and it says what you would need to add to make
+it personal. There is no third state where an answer sounds personal and is
+not — [the contract](docs/ASK_API.md) refuses to let the backend invent one.
+
+### On a phone
+
+<div align="center">
+<img src="docs/screenshots/search-mobile-01.png" alt="Search on mobile" width="300" />
+<img src="docs/screenshots/search-mobile-02-answer.png" alt="An answer on mobile" width="300" />
+</div>
+
+<br />
+
+## How the ranking works
+
+Nothing on the search page is ordered by hand. There is no editorial position
+anywhere in it, and no number typed into a component. Every rank, movement
+arrow, trend badge and bar length is computed in `src/core/trending.ts` from
+counts that arrive through the analytics seam — which is why the ranking can
+change daily without anybody editing a file, and why searching on the page
+moves a question up while you watch.
+
+```ts
+rankQuestions(demand)      // → rank, previousRank, movement, momentum
+selectTrending(demand)     // → what is rising, floored so noise cannot trend
+previousWindow(demand)     // → the 30-day window, slid back one week
+momentum(demand)           // → this week over last, or null when there is no baseline
+volumeShare(searches, top) // → the length of the bar on each row
+addSearch(demand, id)      // → one more search, counted immediately
+```
+
+**Most searched rises automatically.** Sort by 30-day volume, tie-break by id
+so equal volumes never shuffle between renders. Hand it larger numbers and the
+list reorders itself.
+
+**Similar searches count as one question.** "When will my refund come", "Where
+is my financial aid refund" and "Why hasn't my refund hit" all contribute to
+*When will my financial aid refund arrive?*. The backend clusters historical
+queries; `src/search/match.ts` does the same job live for the query being
+typed, so somebody phrasing it their own way still lands on the canonical
+answer — and is told which phrasing matched, rather than being silently
+redirected.
+
+**Trending is a different question from most-searched**, and is allowed to
+disagree with it. It is measured on this week against last week, with a floor:
+a question needs at least 40 searches in the week before it can appear,
+however steep its rise. Three people and a typo can double a count of two.
+
+**Position changes need no history table.** `previousRank` slides the 30-day
+window back one week and ranks on that, so it moves for exactly the same
+reason the visible ranking moves.
+
+**New demand is called new, not infinite.** A question with no searches last
+week has no ratio to report, so `momentum` returns `null` and the badge says
+"New this week" rather than dividing by zero and printing a number.
+
+Sample figures ship in `src/search/sampleAnalytics.ts` and the page **says on
+screen that they are sample figures**, the same way the results page says when
+it is showing the demo student. They obey every rule the real backend has to
+obey — the same validator runs over both.
+
+**[The full analytics contract →](docs/SEARCH_ANALYTICS_API.md)**
+
+<br />
+
+## Earn with Gradi
+
+`/gradi` — a route to money that is not borrowed, which is the argument the
+rest of the product makes about aid, made about income instead. Students can
+become creators on Gradi, a food discovery app, and the page carries the $10
+sign-up offer.
+
+![Earn with Gradi](docs/screenshots/search-06-gradi.png)
+
+There is **no earnings figure anywhere on it**. Fynliq does not know what a
+student would earn, and a product that exists to stop students being misled
+about money does not get to guess. What the page does say, in the body rather
+than in small print: this is a referral link, Gradi is a separate company
+Fynliq cannot support or pay out on, none of it touches your FAFSA or your
+award — and student income above the protection allowance can affect a future
+Student Aid Index, which is worth knowing before you start.
+
+The one coloured fill in the whole product lives here. `--partner-gradi` is a
+third party's colour on a third party's offer, declared in `tokens.css` as a
+partner brand value, used on this page and nowhere else, and deliberately
+outside the green / gold / rust vocabulary so it cannot be read as saying
+anything about money.
+
+<br />
+
+## Connecting the backend
 
 The flow is finished and runs today against a local stub. Connecting the real
 reader is one environment variable:
@@ -178,6 +322,35 @@ rendering `$NaN` to somebody deciding how much to borrow.
 **[The full request and response contract →](docs/ANALYSIS_API.md)** — with a
 worked example, the error semantics, and the three rules the frontend enforces.
 No frontend changes are needed to connect it.
+
+### The other two seams
+
+Search and Ask are built the same way, and are independent of each other and
+of the reader — connect one, two or all three.
+
+```bash
+VITE_FYNLIQ_SEARCH_URL=https://api.fynliq.com/v1/search   # docs/SEARCH_ANALYTICS_API.md
+VITE_FYNLIQ_ASK_URL=https://api.fynliq.com/v1/ask         # docs/ASK_API.md
+```
+
+| | Unset | Set |
+|---|---|---|
+| **Search** | Sample volumes, labelled as sample figures on the page | Real demand, `GET` for the ranking and `POST {url}/events` per search |
+| **Ask** | Answers composed locally from the question library plus the student's own award | The question and their `AidAnalysis` are POSTed, and the response validated |
+
+Each has a validator that fails loudly at the boundary with the offending path
+named, and a test suite that doubles as an executable spec for whoever
+implements it.
+
+The two rules those contracts exist to enforce, stated once:
+
+**Send counts, not rankings.** Every position on the search page is derived in
+`core/trending.ts`, so a ranking can never drift away from the numbers printed
+beside it.
+
+**An answer may only call itself `personal` if it names the fields of the
+student's own document it was read from.** A response claiming otherwise is
+rejected, not rendered with a caveat.
 
 <br />
 
@@ -203,29 +376,37 @@ no UI library.
 
 ```
 src/
-  core/           Money maths as pure, tested functions
+  core/           Money maths and search ranking, as pure tested functions
   beta/           The upload seam: file rules, the wire contract, the readers
-  router/         Three routes, sixty lines, no dependency
-  pages/          Landing · BetaUpload · BetaResults
+  search/         The analytics seam, the question library, and query matching
+  ask/            The answer seam: contract, local composer, HTTP asker
+  router/         Seven routes, sixty lines, no dependency
+  pages/          Landing · BetaUpload · BetaResults · Search · Answer · AskFynliq · Gradi
   data/demo.ts    The one demo student, used by every preview
   styles/         Design tokens, base layer and print
   components/
     ui/           Amount, Pill, Button, Card, Bar, Section, Skeleton, Logo
     fx/           Aurora, Coin3D, Stage3D, ScrollProgress
     beta/         FlowShell, Dropzone, Analyzing
+    nav/          TabBar, AppShell
+    search/       SearchField, TrendCard, RankRow, Sparkline
     Navbar/ Hero/ ProductPreview/ MoneyMetric/ FinancialCard/ AidBreakdown/
     LoanDecision/ GetMore/ TaskList/ AskPreview/ TrustSection/ CTA/ Footer/
   lib/            useReveal, useCopy, useCountUp, useScrollVar, useTilt, motion
 ```
 
-Production build: **240 kB JS** (78 kB gzipped) and **64 kB CSS** (12 kB
-gzipped) — the whole beta flow, routing included, adds 41 kB JS and 22 kB CSS
-raw over the landing page alone, and no new dependency.
+Production build: **322 kB JS** (106 kB gzipped) and **100 kB CSS** (18 kB
+gzipped) — the landing page, the beta flow, the three tabs, the ranking, the
+question library and the Gradi page, routing included, with **no runtime
+dependency beyond React**. The search tabs added 82 kB JS and 36 kB CSS raw,
+and nothing to `package.json`.
 
 Routing is a single delegated click listener rather than a `<Link>` component,
 so every `<a href="/beta">` already on the page — inside `Button`, `Navbar`,
-`CTA` — routes client-side without being rewritten, and still behaves like an
-anchor for middle-click, ctrl-click and "open in new tab".
+`CTA`, `TabBar` — routes client-side without being rewritten, and still behaves
+like an anchor for middle-click, ctrl-click and "open in new tab". `/search/<slug>`
+matches on a prefix; a slug nobody recognises redirects to `/search` rather than
+rendering a blank page.
 
 <br />
 
@@ -235,9 +416,14 @@ anchor for middle-click, ctrl-click and "open in new tab".
 Nothing in a component computes a dollar figure — including on the results
 page, where the figures belong to a real student. The runway, the award split,
 the loan verdict, the headline answer and the next steps are `if` statements and
-division in `core/`, covered by 61 tests. Every screen renders whatever those
+division in `core/`, covered by tests. Every screen renders whatever those
 functions return, so the figures on the page and the figures the reader
 extracted cannot drift apart.
+
+The search ranking is held to the same rule for the same reason. No component
+decides a rank, a position change, a trend or the length of a bar — those are
+arithmetic over demand, they live in `core/trending.ts`, and a ranking computed
+in three places is a ranking that disagrees with its own numbers on screen.
 
 ```ts
 computeRunway(input, award)              // → RunwayReady | RunwayUnavailable
@@ -330,8 +516,8 @@ source.
 npm test
 ```
 
-61 tests across seven suites, covering the two layers where a bug would show a
-student a wrong number: the money maths, and the boundary the student's own
+162 tests across twelve suites, covering the layers where a bug would show a
+student a wrong number or a wrong ranking: the maths, and every boundary
 figures cross to reach it.
 
 | Suite | Covers |
@@ -343,6 +529,11 @@ figures cross to reach it.
 | `core/__tests__/analysis.test.ts` | The headline answer, the term balance, the SAI bands, and the ordering of next steps |
 | `beta/__tests__/files.test.ts` | What the upload accepts, and the words it turns a file away with |
 | `beta/__tests__/contract.test.ts` | The wire contract — doubles as an executable spec for the backend |
+| `core/__tests__/trending.test.ts` | Ranking, position changes, momentum, the trend floor, and counting a search as it happens |
+| `core/__tests__/ask.test.ts` | Grounding an answer in somebody's own award — and what it refuses to personalise |
+| `search/__tests__/match.test.ts` | Query matching, including the client's own three-phrasing example resolving to one canonical question |
+| `search/__tests__/contract.test.ts` | The analytics contract, and the sample source proving it obeys the same rules |
+| `ask/__tests__/contract.test.ts` | The answer contract — including the rejection of a `personal` answer that names no fields |
 
 <br />
 
@@ -358,24 +549,32 @@ vercel --prod   # promote to production
 Vercel auto-detects the framework: build command `vite build`, output directory
 `dist`.
 
-**`/beta` and `/beta/results` are client-side routes with no file behind them**,
-so the host has to serve `index.html` for any path — otherwise a refresh or a
-shared link on either one is a 404 from the host before the app ever loads.
-That rewrite is committed for both hosts: `vercel.json` for Vercel, and
-`public/_redirects` for Netlify.
+**Every route but `/` is client-side, with no file behind it** — `/beta`,
+`/beta/results`, `/search`, `/search/<question>`, `/ask` and `/gradi` — so the
+host has to serve `index.html` for any path. Otherwise a refresh, or a shared
+link to an answer, is a 404 from the host before the app ever loads. That
+rewrite is committed for both hosts and already covers the new routes:
+`vercel.json` for Vercel, and `public/_redirects` for Netlify.
 
-To run against a document reader in development:
+To run against a backend in development:
 
 ```bash
-cp .env.example .env.local   # then fill in VITE_FYNLIQ_ANALYZE_URL
+cp .env.example .env.local   # then fill in whichever of the three you have
 npm run dev
 ```
 
 Screenshots in this README are regenerated with Puppeteer driving the locally
-installed Chrome: `docs/screenshots.js` shoots the landing page, and
-`docs/beta-screenshots.js` clicks through the beta flow.
+installed Chrome: `docs/screenshots.js` shoots the landing page,
+`docs/beta-screenshots.js` clicks through the beta flow, and
+`docs/search-screenshots.js` walks the three tabs.
 
-The second one doubles as a smoke test. It joins the beta, uploads a file,
+The last two double as smoke tests. `search-screenshots.js` types a variant
+phrasing and asserts it resolves to the canonical question, checks the tab bar
+is present and marks the right tab on every page, follows the answer through to
+Ask Fynliq, verifies the Gradi button points at the right link with `noopener`,
+and confirms an unknown question slug falls back to `/search`.
+
+`beta-screenshots.js` doubles as a smoke test too. It joins the beta, uploads a file,
 analyses it and reads the answer exactly as a student would, and fails on a
 console error, on a horizontal overflow at 1440, 768 or 390px, or on a step that
 never arrives — including the reload of `/beta/results`, which must fall back to
