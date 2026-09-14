@@ -145,6 +145,17 @@
   --brand-aqua: #22d3ee;
   --brand-violet: #7c5cff;
 
+  /* ---- Partner brand ---------------------------------------------- *
+   *
+   * Gradi's pink, used on the Gradi creator page and nowhere else. It is a
+   * third party's colour, not Fynliq's: it never marks a Fynliq state, never
+   * appears on another page, and is deliberately outside the green / gold /
+   * rust vocabulary so it cannot be read as saying anything about money.
+   * 5.19:1 against white, so the button label clears AA at body size.
+   */
+  --partner-gradi: #ce1f6e;
+  --partner-gradi-soft: #fdeaf3;
+
   /* ---- Ink: the deep surface the dark bands sit on ---------------- */
   --ink: #0d0f0e;
   --ink-2: #161a18;

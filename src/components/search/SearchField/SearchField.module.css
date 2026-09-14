@@ -1,0 +1,156 @@
+.wrap {
+  position: relative;
+  width: 100%;
+}
+
+/*
+ * The field sits on the dark hero, so it is glass over ink rather than a
+ * white box punched into it. The lift on focus is the only movement — a
+ * search box that animates while you type is a search box you fight.
+ */
+.field {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-8) var(--s-8) var(--s-8) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--glass-dark);
+  border: 1px solid var(--glass-dark-line);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  transition:
+    border-color var(--content) var(--ease),
+    background-color var(--content) var(--ease),
+    box-shadow var(--content) var(--ease);
+}
+
+.lit {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--on-dark-line);
+  box-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.8);
+}
+
+.glyph {
+  display: flex;
+  flex: none;
+  color: var(--on-dark-low);
+}
+
+.lit .glyph {
+  color: var(--on-dark-mid);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  /* Roomy on a thumb, and the row the whole page is built around. */
+  min-height: 52px;
+  padding: 0;
+  border: none;
+  background: none;
+  outline: none;
+  color: var(--on-dark);
+  font-family: var(--body);
+  font-size: var(--t-17);
+  font-weight: 500;
+  /* 16px or more, or iOS zooms the page on focus. */
+  line-height: 1.4;
+}
+
+.input::placeholder {
+  color: var(--on-dark-low);
+}
+
+/* The browser's own clear affordance, replaced by the button below. */
+.input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  color: var(--on-dark-mid);
+  font-size: var(--t-21);
+  line-height: 1;
+  transition: transform var(--press) var(--ease), background-color var(--press) var(--ease);
+}
+
+.clear:hover {
+  background: var(--on-dark-wash);
+  color: var(--on-dark);
+}
+
+.clear:active {
+  transform: scale(0.97);
+}
+
+/* ---- Suggestions ------------------------------------------------------ */
+
+/*
+ * The list is paper, not glass: it holds the questions somebody is choosing
+ * between, and that is reading, not chrome.
+ */
+.list {
+  position: absolute;
+  top: calc(100% + var(--s-8));
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: var(--s-8);
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--e-3);
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  animation: drop var(--content) var(--ease-out) both;
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s-12);
+  border-radius: var(--r-input);
+  text-align: left;
+  transition: background-color var(--press) var(--ease), transform var(--press) var(--ease);
+}
+
+.option:active {
+  transform: scale(0.99);
+}
+
+.optionOn {
+  background: var(--sunk);
+}
+
+.optionQuestion {
+  font-family: var(--disp);
+  font-size: var(--t-15);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--tx);
+}
+
+/*
+ * The line that makes the grouping visible: what you typed, and the question
+ * it is answered under.
+ */
+.optionVia {
+  font-size: var(--t-13);
+  color: var(--low);
+}

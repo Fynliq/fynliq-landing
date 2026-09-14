@@ -1,4 +1,5 @@
 import { Logo } from '../../ui';
+import { TabBar } from '../../nav/TabBar/TabBar';
 import styles from './FlowShell.module.css';
 
 const STEPS = ['Upload', 'Analyse', 'Your answer'] as const;
@@ -25,6 +26,10 @@ interface FlowShellProps {
  * bar with section anchors, and none of those anchors exist here. A student
  * part-way through uploading their own financial documents should see one way
  * out and no invitations to wander.
+ *
+ * The tab bar at the foot is the exception, and a deliberate one. Upload is
+ * the My Aid tab, so the student can always see where the other two are —
+ * and once they have their answer, Search and Ask Fynliq are where it leads.
  */
 export function FlowShell({ step, children }: FlowShellProps) {
   return (
@@ -83,6 +88,8 @@ export function FlowShell({ step, children }: FlowShellProps) {
         </p>
         <p className={styles.copy}>&copy; {new Date().getFullYear()} Fynliq</p>
       </footer>
+
+      <TabBar current="aid" />
     </div>
   );
 }

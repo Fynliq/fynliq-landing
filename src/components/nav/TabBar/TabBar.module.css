@@ -1,0 +1,111 @@
+/*
+ * The bar floats above the page rather than sitting in the flow, so every
+ * page that uses it reserves room at the bottom with `--tabbar-space`
+ * (declared on the shell). Nothing may end up underneath it.
+ */
+.bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding: var(--s-8) var(--gutter);
+  /* Clears the home indicator on iOS without adding space where there is none. */
+  padding-bottom: calc(var(--s-8) + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+}
+
+.list {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-4);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--s-4);
+  border-radius: var(--r-pill);
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--e-2);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+}
+
+/* No backdrop-filter support: a solid card is better than a transparent one. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .list {
+    background: var(--card);
+  }
+}
+
+.item {
+  min-width: 0;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  /* Comfortable on a thumb, and the same target on a mouse. */
+  min-height: 52px;
+  padding: var(--s-8) var(--s-4);
+  border-radius: var(--r-pill);
+  color: var(--low);
+  font-size: var(--t-13);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    color var(--press) var(--ease);
+}
+
+.tab:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    color: var(--tx);
+    background: rgba(28, 29, 27, 0.05);
+  }
+}
+
+/*
+ * The current tab is near-black on paper — the same treatment as a primary
+ * button, and deliberately not a coloured fill. Green, gold and rust mean
+ * things about money in this product, and a navigation tab means nothing
+ * about money.
+ */
+.on {
+  background: var(--tx);
+  color: var(--on-dark);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .on:hover {
+    background: var(--tx-hi);
+    color: var(--on-dark);
+  }
+}
+
+.icon {
+  display: block;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@media print {
+  .bar {
+    display: none;
+  }
+}

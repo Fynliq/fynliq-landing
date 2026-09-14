@@ -1,0 +1,143 @@
+.shell {
+  /* Room for the floating tab bar, plus the iOS home indicator behind it. */
+  --tabbar-space: calc(84px + env(safe-area-inset-bottom, 0px));
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+.skip {
+  position: absolute;
+  left: var(--s-16);
+  top: -100px;
+  z-index: 60;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-14);
+  font-weight: 600;
+  transition: top var(--content) var(--ease);
+}
+
+.skip:focus {
+  top: var(--s-16);
+}
+
+.bar {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.barInner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  height: var(--nav-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-16);
+}
+
+.home,
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  border-radius: var(--r-pill);
+  transition: transform var(--press) var(--ease), color var(--press) var(--ease);
+}
+
+.home:active,
+.back:active {
+  transform: scale(0.97);
+}
+
+.back {
+  min-height: 44px;
+  padding: var(--s-8) var(--s-12);
+  font-size: var(--t-15);
+  font-weight: 500;
+  color: var(--mid);
+  white-space: nowrap;
+}
+
+.back:hover {
+  color: var(--tx);
+  background: var(--sunk);
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-32) var(--gutter) var(--s-40);
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding-top: var(--s-40);
+  }
+}
+
+.foot {
+  border-top: 1px solid var(--line);
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-24) var(--gutter);
+  /* The tab bar floats over the page; nothing may end up underneath it. */
+  padding-bottom: calc(var(--s-24) + var(--tabbar-space));
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.disclaimer {
+  font-size: var(--t-13);
+  color: var(--low);
+  max-width: 76ch;
+}
+
+.link {
+  color: var(--mid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link:hover {
+  color: var(--tx);
+}
+
+.copy {
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+@media print {
+  .shell {
+    min-height: 0;
+  }
+
+  .skip,
+  .bar {
+    display: none;
+  }
+
+  .main {
+    max-width: none;
+    padding: 0;
+  }
+
+  .foot {
+    max-width: none;
+    padding: var(--s-16) 0 0;
+    break-inside: avoid;
+  }
+}

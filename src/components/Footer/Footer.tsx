@@ -15,7 +15,15 @@ const COLUMNS = [
     links: [
       { label: 'Get more', href: '#get-more' },
       { label: 'Deadlines', href: '#tasks' },
-      { label: 'Ask', href: '#ask' },
+      { label: 'Earn with Gradi', href: '/gradi' },
+    ],
+  },
+  {
+    heading: 'In the app',
+    links: [
+      { label: 'My Aid', href: '/beta' },
+      { label: 'Search financial aid', href: '/search' },
+      { label: 'Ask Fynliq', href: '/ask' },
     ],
   },
   {

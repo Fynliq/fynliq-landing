@@ -1,4 +1,7 @@
 .shell {
+  /* Room for the floating tab bar, plus the iOS home indicator behind it. */
+  --tabbar-space: calc(84px + env(safe-area-inset-bottom, 0px));
+
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -182,7 +185,8 @@
   width: 100%;
   max-width: var(--page-max);
   margin: 0 auto;
-  padding: var(--s-24) var(--gutter) var(--s-32);
+  /* The tab bar floats over the page; nothing may end up underneath it. */
+  padding: var(--s-24) var(--gutter) calc(var(--s-32) + var(--tabbar-space));
   display: flex;
   flex-direction: column;
   gap: var(--s-12);

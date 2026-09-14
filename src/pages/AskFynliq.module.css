@@ -1,0 +1,504 @@
+.page {
+  max-width: 76ch;
+  margin: 0 auto;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-bottom: var(--s-28);
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--low);
+}
+
+.title {
+  font-size: var(--t-32);
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--t-40);
+  }
+}
+
+.lede {
+  font-size: var(--t-16);
+  color: var(--mid);
+  max-width: 68ch;
+}
+
+/* ---- What it is answering from ---------------------------------------- *
+ *
+ * The most important line on the page, so it sits above the box rather than
+ * under the answer. A student should know whether they are about to get their
+ * own figures or the general rule *before* they read the answer, not after.
+ */
+.source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--s-12);
+  align-items: center;
+  padding: var(--s-16);
+  border-radius: var(--r-card);
+  background: var(--sunk);
+  margin-bottom: var(--s-16);
+}
+
+.sourceOn {
+  background: var(--green-soft);
+}
+
+.sourceGlyph {
+  font-size: var(--t-14);
+  line-height: 1;
+  color: var(--low);
+}
+
+/* Colour never carries this alone: the glyph and the sentence say it too. */
+.sourceOn .sourceGlyph {
+  color: var(--green);
+}
+
+.sourceBody {
+  min-width: 0;
+}
+
+.sourceTitle {
+  font-family: var(--disp);
+  font-size: var(--t-15);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--tx);
+}
+
+.sourceOn .sourceTitle {
+  color: var(--green);
+}
+
+.sourceNote {
+  font-size: var(--t-13);
+  color: var(--mid);
+}
+
+.sourceCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding: var(--s-8) var(--s-16);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-14);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: transform var(--press) var(--ease), background-color var(--press) var(--ease);
+}
+
+.sourceCta:hover {
+  background: var(--tx-hi);
+}
+
+.sourceCta:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 559px) {
+  .source {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sourceCta {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+/* ---- Composer ---------------------------------------------------------- */
+
+.composer {
+  padding: var(--s-16);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.box {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  resize: vertical;
+  min-height: 84px;
+  padding: 0;
+  color: var(--tx);
+  font-family: var(--body);
+  /* 16px minimum, or iOS zooms the page when it takes focus. */
+  font-size: var(--t-17);
+  line-height: 1.5;
+}
+
+.box::placeholder {
+  color: var(--low);
+}
+
+.composerFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  margin-top: var(--s-12);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--line);
+}
+
+.hint {
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+.kbd {
+  display: inline-block;
+  padding: 1px var(--s-4);
+  border-radius: 5px;
+  background: var(--sunk);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  color: var(--mid);
+}
+
+.send {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 48px;
+  padding: var(--s-12) var(--s-24);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-15);
+  font-weight: 600;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    opacity var(--press) var(--ease);
+}
+
+.send:hover:not(:disabled) {
+  background: var(--tx-hi);
+}
+
+.send:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Starting points --------------------------------------------------- */
+
+.prompts {
+  margin-top: var(--s-32);
+}
+
+.promptsTitle {
+  font-size: var(--t-17);
+  margin-bottom: var(--s-12);
+}
+
+.promptList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-8);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  text-align: left;
+  transition:
+    transform var(--press) var(--ease),
+    box-shadow var(--press) var(--ease),
+    background-color var(--press) var(--ease);
+}
+
+.prompt:hover {
+  box-shadow: inset 0 0 0 1px var(--line2), var(--e-1);
+}
+
+.prompt:active {
+  transform: scale(0.99);
+}
+
+.promptText {
+  font-size: var(--t-15);
+  font-weight: 500;
+  color: var(--tx);
+  min-width: 0;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--mid);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.promptsFoot {
+  margin-top: var(--s-12);
+  font-size: var(--t-14);
+  color: var(--low);
+}
+
+.promptsFoot a {
+  color: var(--mid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.promptsFoot a:hover {
+  color: var(--tx);
+}
+
+/* ---- The thread -------------------------------------------------------- */
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+  margin-top: var(--s-32);
+}
+
+.turn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.who {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--low);
+}
+
+.yours {
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: var(--tx);
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  padding: var(--s-24);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+/*
+ * The basis badge. `general` is the quiet state and `personal` is the one
+ * that carries the green, because an answer built from the student's own
+ * verified figures is the product working — and it ships with the tick and
+ * the sentence, never the colour alone.
+ */
+.basis {
+  align-self: flex-start;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--mid);
+  font-size: var(--t-13);
+  font-weight: 600;
+}
+
+.personal {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.paragraph {
+  font-size: var(--t-16);
+  line-height: 1.6;
+  color: var(--mid);
+}
+
+.paragraph:first-of-type {
+  color: var(--tx);
+  font-weight: 500;
+}
+
+.grounding {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-8);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  color: var(--low);
+  word-break: break-word;
+}
+
+.missing {
+  font-size: var(--t-14);
+  color: var(--gold);
+}
+
+.missing a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.error {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-8);
+  padding: var(--s-16);
+  border-radius: var(--r-card);
+  background: var(--rust-soft);
+  color: var(--rust);
+  font-size: var(--t-15);
+}
+
+/* ---- Related ----------------------------------------------------------- */
+
+.related {
+  padding-top: var(--s-8);
+}
+
+.relatedTitle {
+  font-size: var(--t-16);
+  margin-bottom: var(--s-8);
+}
+
+.relatedList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.relatedLink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+  min-height: 48px;
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  color: var(--mid);
+  font-size: var(--t-15);
+  transition: transform var(--press) var(--ease), color var(--press) var(--ease);
+}
+
+.relatedLink:hover {
+  color: var(--tx);
+}
+
+.relatedLink:active {
+  transform: scale(0.99);
+}
+
+/* ---- Back into the loop ------------------------------------------------ */
+
+.loop {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-12);
+  margin-top: var(--s-40);
+  padding: var(--s-28);
+  border-radius: var(--r-hero);
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.loopGlow {
+  position: absolute;
+  inset: -30% -10%;
+  z-index: -1;
+  opacity: 0.32;
+  filter: blur(52px);
+}
+
+.loopTitle {
+  font-size: var(--t-21);
+  max-width: 24ch;
+}
+
+@media (min-width: 768px) {
+  .loopTitle {
+    font-size: var(--t-25);
+  }
+}
+
+.loopBody {
+  font-size: var(--t-15);
+  color: var(--on-dark-mid);
+  max-width: 62ch;
+}
+
+.loopCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  margin-top: var(--s-4);
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--on-dark);
+  color: var(--tx);
+  font-size: var(--t-16);
+  font-weight: 600;
+  transition: transform var(--press) var(--ease), box-shadow var(--press) var(--ease);
+}
+
+.loopCta:hover {
+  box-shadow: var(--e-2);
+  transform: translateY(-2px);
+}
+
+.loopCta:active {
+  transform: scale(0.97);
+}

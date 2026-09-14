@@ -1,0 +1,108 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  height: 100%;
+  padding: var(--s-20);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  transition:
+    transform var(--content) var(--ease-out),
+    box-shadow var(--content) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover {
+    transform: translate3d(0, -4px, 0);
+    box-shadow: var(--e-3);
+  }
+}
+
+.card:active {
+  transform: scale(0.99);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-12);
+}
+
+/*
+ * Neutral, not green. A rising search count is not money kept, and the three
+ * semantic colours in this product are reserved for things that are. The
+ * arrow carries the direction on its own.
+ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-13);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.arrow {
+  font-size: var(--t-14);
+  line-height: 1;
+}
+
+.question {
+  font-size: var(--t-17);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--tx);
+}
+
+@media (min-width: 768px) {
+  .question {
+    font-size: var(--t-21);
+  }
+}
+
+.answer {
+  flex: 1;
+  font-size: var(--t-15);
+  line-height: 1.5;
+  color: var(--mid);
+  /* Two lines of the answer is a preview; five is the answer. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.proof {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8);
+  padding-top: var(--s-12);
+  border-top: 1px solid var(--line);
+}
+
+/* The social-proof bubble. */
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--mid);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.grouped {
+  font-size: var(--t-13);
+  color: var(--low);
+}

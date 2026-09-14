@@ -1,0 +1,293 @@
+/* ---- Hero -------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.glow {
+  position: absolute;
+  inset: -20% -10%;
+  z-index: -1;
+  opacity: 0.4;
+  filter: blur(46px);
+}
+
+.heroInner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-40) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+}
+
+@media (min-width: 768px) {
+  .heroInner {
+    padding-top: var(--s-56);
+    padding-bottom: var(--s-56);
+  }
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-dark-low);
+}
+
+.title {
+  font-size: var(--t-32);
+  line-height: 1.08;
+  max-width: 20ch;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--t-40);
+    max-width: 24ch;
+  }
+}
+
+@media (min-width: 1024px) {
+  .title {
+    font-size: var(--t-52);
+  }
+}
+
+@media (max-width: 559px) {
+  .title br {
+    display: none;
+  }
+}
+
+.lede {
+  font-size: var(--t-16);
+  color: var(--on-dark-mid);
+  max-width: 62ch;
+}
+
+@media (min-width: 768px) {
+  .lede {
+    font-size: var(--t-17);
+  }
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-8);
+  margin-top: var(--s-8);
+}
+
+/* ---- The pink button --------------------------------------------------- *
+ *
+ * The one coloured fill in the whole product, and the only place this token
+ * is used. It is Gradi's colour on Gradi's offer, sitting on a page about
+ * Gradi — it says nothing about Fynliq money, which is why it is allowed to
+ * exist beside a palette where colour otherwise always means something.
+ */
+.pink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--partner-gradi);
+  color: #ffffff;
+  font-size: var(--t-16);
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(206, 31, 110, 0.24), 0 20px 44px -18px rgba(206, 31, 110, 0.5);
+  transition:
+    transform var(--press) var(--ease),
+    box-shadow var(--press) var(--ease),
+    filter var(--press) var(--ease);
+}
+
+.pink:hover {
+  filter: brightness(1.07);
+  box-shadow: 0 4px 12px rgba(206, 31, 110, 0.28), 0 28px 60px -20px rgba(206, 31, 110, 0.58);
+  transform: translateY(-2px);
+}
+
+.pink:active {
+  transform: scale(0.97);
+}
+
+.actionNote {
+  font-size: var(--t-13);
+  color: var(--on-dark-low);
+  max-width: 48ch;
+}
+
+/* ---- Blocks ------------------------------------------------------------ */
+
+.block {
+  margin-bottom: var(--s-56);
+}
+
+.blockHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-bottom: var(--s-24);
+}
+
+.blockTitle {
+  font-size: var(--t-25);
+}
+
+@media (min-width: 768px) {
+  .blockTitle {
+    font-size: var(--t-32);
+  }
+}
+
+.blockLede {
+  font-size: var(--t-16);
+  color: var(--mid);
+  max-width: 68ch;
+}
+
+/* ---- Steps ------------------------------------------------------------- */
+
+.steps {
+  display: grid;
+  gap: var(--s-16);
+}
+
+@media (min-width: 900px) {
+  .steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-16);
+  align-items: start;
+  padding: var(--s-24);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.stepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--r-pill);
+  background: var(--partner-gradi-soft);
+  color: var(--partner-gradi);
+  font-family: var(--mono);
+  font-size: var(--t-14);
+  font-weight: 700;
+}
+
+.stepTitle {
+  font-size: var(--t-17);
+  margin-bottom: var(--s-4);
+}
+
+.stepBody {
+  font-size: var(--t-15);
+  line-height: 1.55;
+  color: var(--mid);
+}
+
+/* ---- The honest part --------------------------------------------------- */
+
+.honest {
+  display: grid;
+  gap: var(--s-16);
+}
+
+@media (min-width: 640px) {
+  .honest {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.honestCard {
+  padding: var(--s-20);
+  border-radius: var(--r-card);
+  background: var(--sunk);
+}
+
+.honestTitle {
+  font-size: var(--t-16);
+  margin-bottom: var(--s-4);
+}
+
+.honestBody {
+  font-size: var(--t-15);
+  line-height: 1.55;
+  color: var(--mid);
+}
+
+/* ---- Close ------------------------------------------------------------- */
+
+.close {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-12);
+  padding: var(--s-28);
+  border-radius: var(--r-hero);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 768px) {
+  .close {
+    padding: var(--s-40);
+  }
+}
+
+.closeTitle {
+  font-size: var(--t-25);
+  max-width: 22ch;
+}
+
+@media (min-width: 768px) {
+  .closeTitle {
+    font-size: var(--t-32);
+  }
+}
+
+.closeBody {
+  font-size: var(--t-16);
+  color: var(--mid);
+  max-width: 62ch;
+  margin-bottom: var(--s-8);
+}
+
+.closeFoot {
+  margin-top: var(--s-8);
+  font-size: var(--t-14);
+  color: var(--low);
+}
+
+.closeLink {
+  color: var(--mid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.closeLink:hover {
+  color: var(--tx);
+}

@@ -85,8 +85,10 @@
     gap: var(--s-56);
   }
 
+  /* Four columns, since the app tabs joined the footer. Auto-fit rather than
+     a fixed count so a column is never squeezed under its own headings. */
   .nav {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   }
 
   .legal {

@@ -1,0 +1,44 @@
+.spark {
+  display: block;
+  /* Stated in the markup, but the line must not stretch on a narrow card. */
+  flex: none;
+  overflow: visible;
+}
+
+.line {
+  fill: none;
+  stroke: var(--tx);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* preserveAspectRatio="none" would scale the stroke with the box. */
+  vector-effect: non-scaling-stroke;
+}
+
+.area {
+  fill: rgba(28, 29, 27, 0.07);
+  stroke: none;
+}
+
+.head {
+  fill: var(--tx);
+  stroke: var(--card);
+  stroke-width: 1.4;
+  vector-effect: non-scaling-stroke;
+}
+
+/* On the dark hero the same line has to invert to stay visible. */
+.onDark .line,
+.onDark .head {
+  stroke: var(--on-dark);
+}
+
+.onDark .head {
+  fill: var(--on-dark);
+}
+
+@media print {
+  .area {
+    fill: rgba(28, 29, 27, 0.12);
+  }
+}

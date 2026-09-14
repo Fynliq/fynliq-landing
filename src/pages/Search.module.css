@@ -1,0 +1,515 @@
+/* ---- The hero ---------------------------------------------------------- *
+ *
+ * Dark, because the search field is the one thing on the page that matters
+ * before anything is read, and a band of ink is how the rest of this product
+ * says "this is the moment". It is also what keeps the page from reading as a
+ * support centre: the reference for this brief was a white FAQ, and a white
+ * FAQ is what students already ignore.
+ */
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.glow {
+  position: absolute;
+  inset: -20% -10%;
+  z-index: -1;
+  opacity: 0.42;
+  filter: blur(46px);
+}
+
+.heroInner {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--s-40) var(--gutter) var(--s-40);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+}
+
+@media (min-width: 768px) {
+  .heroInner {
+    padding-top: var(--s-56);
+    padding-bottom: var(--s-56);
+  }
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-dark-low);
+}
+
+.title {
+  font-size: var(--t-32);
+  line-height: 1.08;
+  max-width: 18ch;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--t-40);
+    max-width: 22ch;
+  }
+}
+
+@media (min-width: 1024px) {
+  .title {
+    font-size: var(--t-52);
+  }
+}
+
+/* The line break in the heading is a phrasing choice, not a layout one, and
+   below 560px it lands in the wrong place. */
+@media (max-width: 559px) {
+  .title br {
+    display: none;
+  }
+}
+
+.lede {
+  font-size: var(--t-16);
+  color: var(--on-dark-mid);
+  max-width: 62ch;
+}
+
+@media (min-width: 768px) {
+  .lede {
+    font-size: var(--t-17);
+  }
+}
+
+.field {
+  margin-top: var(--s-8);
+  max-width: 720px;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-8) var(--s-16);
+  font-size: var(--t-13);
+  color: var(--on-dark-low);
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat:not(:last-child)::after {
+  content: '';
+  width: 3px;
+  height: 3px;
+  margin-left: var(--s-16);
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* Wrapping this row leaves a separator dangling at the end of a line. On a
+   phone it stacks instead, where the dots were carrying nothing. */
+@media (max-width: 559px) {
+  .stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-4);
+  }
+
+  .stat:not(:last-child)::after {
+    display: none;
+  }
+}
+
+/* ---- Category rail ----------------------------------------------------- */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  margin-bottom: var(--s-32);
+}
+
+/*
+ * Scrolls sideways on a phone rather than wrapping to three rows. Negative
+ * margins let the first and last chip reach the page edge, so a half-visible
+ * chip is the affordance that says there are more.
+ */
+.chips {
+  display: flex;
+  gap: var(--s-8);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: var(--s-4) var(--gutter);
+  scroll-padding: var(--gutter);
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .chips {
+    flex-wrap: wrap;
+    overflow-x: visible;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  min-height: 40px;
+  padding: var(--s-8) var(--s-16);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  box-shadow: inset 0 0 0 1px var(--line2);
+  color: var(--mid);
+  font-size: var(--t-14);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    color var(--press) var(--ease),
+    box-shadow var(--press) var(--ease);
+}
+
+.chip:hover {
+  color: var(--tx);
+  box-shadow: inset 0 0 0 1px var(--line2), var(--e-1);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chipOn {
+  background: var(--tx);
+  color: var(--on-dark);
+  box-shadow: none;
+}
+
+.chipOn:hover {
+  background: var(--tx-hi);
+  color: var(--on-dark);
+  box-shadow: var(--e-1);
+}
+
+.railNote {
+  font-size: var(--t-14);
+  color: var(--low);
+}
+
+/* ---- Blocks ------------------------------------------------------------ */
+
+.block {
+  margin-bottom: var(--s-56);
+}
+
+.blockHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin-bottom: var(--s-20);
+}
+
+.blockTitle {
+  font-size: var(--t-25);
+  letter-spacing: -0.03em;
+}
+
+@media (min-width: 768px) {
+  .blockTitle {
+    font-size: var(--t-32);
+  }
+}
+
+.blockLede {
+  font-size: var(--t-15);
+  color: var(--mid);
+  max-width: 68ch;
+}
+
+/* ---- Trending ---------------------------------------------------------- */
+
+.trending {
+  display: grid;
+  gap: var(--s-16);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .trending {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .trending {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---- Most searched ----------------------------------------------------- */
+
+.ranked {
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  padding: var(--s-8);
+}
+
+.skeletonRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-16);
+  align-items: start;
+  padding: var(--s-16) var(--s-12);
+  border-bottom: 1px solid var(--line);
+}
+
+.skeletonRow:last-child {
+  border-bottom: none;
+}
+
+.skeletonBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.empty,
+.provenance {
+  margin-top: var(--s-16);
+  font-size: var(--t-13);
+  color: var(--low);
+  max-width: 76ch;
+}
+
+/* ---- Results ----------------------------------------------------------- */
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-8);
+  padding: var(--s-20);
+  border-radius: var(--r-card);
+  background: var(--card);
+  box-shadow: var(--shadow);
+  transition:
+    transform var(--content) var(--ease-out),
+    box-shadow var(--content) var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .result:hover {
+    transform: translate3d(0, -2px, 0);
+    box-shadow: var(--e-2);
+  }
+}
+
+.result:active {
+  transform: scale(0.995);
+}
+
+.resultQuestion {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--tx);
+}
+
+@media (min-width: 768px) {
+  .resultQuestion {
+    font-size: var(--t-21);
+  }
+}
+
+/*
+ * The grouping, said out loud. Somebody who typed their own phrasing is told
+ * where it went and why, instead of being silently redirected.
+ */
+.resultVia {
+  font-size: var(--t-13);
+  color: var(--low);
+  font-style: italic;
+}
+
+.resultAnswer {
+  font-size: var(--t-15);
+  color: var(--mid);
+  max-width: 76ch;
+}
+
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--s-4) var(--s-12);
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  color: var(--mid);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.askCta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  margin-top: var(--s-16);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-size: var(--t-16);
+  font-weight: 600;
+  transition: transform var(--press) var(--ease), background-color var(--press) var(--ease);
+}
+
+.askCta:hover {
+  background: var(--tx-hi);
+}
+
+.askCta:active {
+  transform: scale(0.97);
+}
+
+/* ---- Ask Fynliq -------------------------------------------------------- */
+
+.ask {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  padding: var(--s-28);
+  border-radius: var(--r-hero);
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+@media (min-width: 768px) {
+  .ask {
+    padding: var(--s-40);
+  }
+}
+
+.askGlow {
+  position: absolute;
+  inset: -30% -10%;
+  z-index: -1;
+  opacity: 0.34;
+  filter: blur(52px);
+}
+
+.askEyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-dark-low);
+}
+
+.askTitle {
+  font-size: var(--t-25);
+  max-width: 20ch;
+}
+
+@media (min-width: 768px) {
+  .askTitle {
+    font-size: var(--t-32);
+  }
+}
+
+.askBody {
+  font-size: var(--t-15);
+  color: var(--on-dark-mid);
+  max-width: 68ch;
+}
+
+@media (min-width: 768px) {
+  .askBody {
+    font-size: var(--t-16);
+  }
+}
+
+.askActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-12);
+  margin-top: var(--s-8);
+}
+
+.askPrimary,
+.askSecondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  font-size: var(--t-16);
+  font-weight: 600;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    box-shadow var(--press) var(--ease);
+}
+
+/* Inverted: on ink the paper-coloured button is the primary one. */
+.askPrimary {
+  background: var(--on-dark);
+  color: var(--tx);
+}
+
+.askPrimary:hover {
+  box-shadow: var(--e-2);
+  transform: translateY(-2px);
+}
+
+.askPrimary:active {
+  transform: scale(0.97);
+}
+
+.askSecondary {
+  color: var(--on-dark);
+  box-shadow: inset 0 0 0 1px var(--on-dark-line);
+}
+
+.askSecondary:hover {
+  background: var(--on-dark-wash);
+}
+
+.askSecondary:active {
+  transform: scale(0.97);
+}
