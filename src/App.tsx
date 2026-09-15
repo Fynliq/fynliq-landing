@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SummaryReview } from './pages/SummaryReview';
+import { DocumentResults } from './pages/DocumentResults';
 import { Answer } from './pages/Answer';
 import { AskFynliq } from './pages/AskFynliq';
 import { BetaResults } from './pages/BetaResults';
@@ -99,7 +99,7 @@ function Routes() {
   }
 
   if ((path === ROUTES.results || path === ROUTES.upload) && analysis) {
-    if (analysis.summaryToken) return <SummaryReview analysis={analysis} onRestart={onRestart} onConfirm={() => { setAnalysis({ ...analysis, reviewed: true }); }} />;
+    if (analysis.summaryToken) return <DocumentResults analysis={analysis} onRestart={onRestart} onConfirm={() => { setAnalysis({ ...analysis, reviewed: true }); }} />;
     return <BetaResults analysis={analysis} onRestart={onRestart} />;
   }
 
