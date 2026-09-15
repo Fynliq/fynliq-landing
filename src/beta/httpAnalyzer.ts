@@ -2,7 +2,7 @@ import type { AidAnalysis } from '../core';
 import { AnalysisError, type AidAnalyzer, type AnalyzeOptions } from './analyzer';
 import { AnalysisFormatError, parseAnalysis } from './contract';
 
-/** The multipart field name every file is sent under. */
+/** JSON property containing base64-encoded files. */
 export const UPLOAD_FIELD = 'files';
 
 /**
@@ -21,8 +21,16 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
     async analyze(files: File[], options: AnalyzeOptions = {}): Promise<AidAnalysis> {
       const { signal, onStage } = options;
 
-      const body = new FormData();
-      for (const file of files) body.append(UPLOAD_FIELD, file, file.name);
+      if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected');
+      const encoded = await Promise.all(files.map(async file => {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+        const type = file.type || ({ pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' } as Record<string, string>)[extension];
+        return { name: file.name, type, data: btoa(binary) };
+      }));
+      const body = JSON.stringify({ consent: true, files: encoded });
 
       onStage?.('reading');
 
@@ -32,7 +40,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
           method: 'POST',
           body,
           signal,
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         });
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
@@ -56,7 +64,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         }
 
         throw new AnalysisError(
-          'The document reader is not responding right now. Your files were not stored — try again in a moment.',
+          'The document reader is not responding right now. Please try again in a moment.',
           'network',
         );
       }

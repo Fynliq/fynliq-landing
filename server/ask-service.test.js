@@ -4,8 +4,8 @@ import { parseAskAnswer } from '../src/ask/contract';
 
 const options = { apiKey: 'test-only', model: 'test-model' };
 describe('live Ask service contract', () => {
-  it('returns the exact frontend contract without sending analysis upstream', async () => {
-    const result = await answerQuestion({ question: ' hello ', analysis: { secret: 'not-forwarded' } }, {
+  it('returns the exact frontend contract for a general question', async () => {
+    const result = await answerQuestion({ question: ' hello ', analysis: null }, {
       ...options, fetchImpl: async (_url, request) => {
         const body = JSON.parse(request.body);
         expect(body.input).toBe('hello');

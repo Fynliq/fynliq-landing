@@ -14,10 +14,10 @@ describe('triageFiles', () => {
   it('accepts the formats a portal actually produces', () => {
     const { accepted, rejected } = triageFiles(
       [],
-      [file('summary.pdf'), file('award.PNG'), file('page.heic'), file('scan.jpeg')],
+      [file('summary.pdf'), file('award.PNG'), file('scan.jpeg')],
     );
 
-    expect(accepted).toHaveLength(4);
+    expect(accepted).toHaveLength(3);
     expect(rejected).toHaveLength(0);
   });
 
@@ -46,7 +46,7 @@ describe('triageFiles', () => {
     const { rejected } = triageFiles([], [file('scan.pdf', MAX_BYTES + 1)]);
 
     expect(rejected[0].reason).toBe('size');
-    expect(rejected[0].message).toContain('10.0 MB');
+    expect(rejected[0].message).toContain('2.8 MB');
   });
 
   it('does not add the same file twice', () => {

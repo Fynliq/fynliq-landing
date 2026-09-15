@@ -4,9 +4,12 @@ import { formatSearches, searchProof, formatMovement } from '../core';
 import { CATEGORY_LABEL, questionById, type Question } from '../search/library';
 import { useSearchDemand } from '../search/SearchProvider';
 import styles from './Answer.module.css';
+import type { AidAnalysis } from '../core';
+import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
 
 interface AnswerProps {
   question: Question;
+  analysis: AidAnalysis | null;
 }
 
 /**
@@ -23,7 +26,7 @@ interface AnswerProps {
  * a general rule, and a general rule stated without that line reads like a
  * promise about somebody's particular money.
  */
-export function Answer({ question }: AnswerProps) {
+export function Answer({ question, analysis }: AnswerProps) {
   const { byId, record } = useSearchDemand();
   const demand = byId.get(question.id);
 
@@ -53,6 +56,7 @@ export function Answer({ question }: AnswerProps) {
         </div>
 
         <h1 className={styles.title}>{question.question}</h1>
+        <PersonalizedAnswer analysis={analysis} question={question.question} />
 
         {/* The answer, before the explanation of it. */}
         <p className={styles.lead}>{question.answer}</p>

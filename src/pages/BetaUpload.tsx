@@ -33,7 +33,7 @@ const WHAT_TO_UPLOAD = [
 ];
 
 const PRIVACY = [
-  'Your files are read to produce the answer on the next screen, and are not published or sold.',
+  'Your files are sent to OpenAI for extraction. Fynliq does not save them in a database; OpenAI processing and retention policies apply.',
   'Fynliq is not connected to FAFSA, your school or any lender, and cannot change anything on your account.',
   'Figures the document does not state are left blank. Nothing is estimated to fill a gap.',
 ];
@@ -45,6 +45,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   const [rejections, setRejections] = useState<Rejection[]>([]);
   const [stage, setStage] = useState<AnalyzeStage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
 
   const abort = useRef<AbortController | null>(null);
   const working = stage !== null;
@@ -67,7 +68,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   }, []);
 
   async function start() {
-    if (files.length === 0 || working) return;
+    if (files.length === 0 || working || (analyzer.connected && !consent)) return;
 
     const controller = new AbortController();
     abort.current = controller;
@@ -94,7 +95,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
       setError(
         thrown instanceof AnalysisError
           ? thrown.message
-          : 'Something went wrong reading your document. Your files were not stored — try again.',
+          : 'Something went wrong reading your document. Please try again.',
       );
     } finally {
       abort.current = null;
@@ -110,8 +111,8 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         </h1>
         <p className={styles.lede}>
           {working
-            ? 'Hold on a moment. Nothing on the next screen is invented — every figure comes from what you just uploaded, and anything Fynliq cannot read is listed as unread rather than filled in.'
-            : 'Add your FAFSA Submission Summary, your award letter, or a screenshot of either. Fynliq reads the figures and tells you, in plain English, what your grants, loans, Student Aid Index and school balance actually mean — and what to do next.'}
+            ? 'Reading your documents. You will review the extracted fields before receiving a personalized explanation.'
+            : 'Add your FAFSA Submission Summary, school award letter, and account statement. Use current documents for the same student and period. AI can make mistakes, so check the extracted fields against your originals.'}
         </p>
       </div>
 
@@ -152,11 +153,12 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               </div>
 
               <div className={styles.actions}>
+                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send these documents to OpenAI for AI processing. I have removed Social Security numbers, birth dates and account identifiers. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
                 <button
                   type="button"
                   className={styles.submit}
                   onClick={start}
-                  disabled={files.length === 0}
+                  disabled={files.length === 0 || (analyzer.connected && !consent)}
                 >
                   Analyse my aid
                   <span aria-hidden="true">&rarr;</span>

@@ -135,7 +135,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
           <div className={styles.sourceBody}>
             <p className={styles.sourceTitle}>
               {analysis
-                ? `Answering from your ${analysis.document.fileNames.length === 1 ? 'document' : 'documents'}`
+                ? analysis.summaryToken && !analysis.reviewed ? 'Review your extracted fields first' : `Answering from your ${analysis.document.fileNames.length === 1 ? 'document' : 'documents'}`
                 : 'No aid documents added yet'}
             </p>
             <p className={styles.sourceNote}>
@@ -144,6 +144,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
                 : 'Answers below will be the general rule, the same for everyone. Add your aid summary once and the same questions get answered with your own figures.'}
             </p>
           </div>
+          {analysis?.summaryToken && !analysis.reviewed && <a className={styles.sourceCta} href="/beta/results">Review fields →</a>}
           {!analysis && (
             <a className={styles.sourceCta} href="/beta">
               Upload <span aria-hidden="true">&rarr;</span>
@@ -164,6 +165,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
           </label>
           <textarea
             id="ask-box"
+            maxLength={2000}
             ref={box}
             className={styles.box}
             rows={3}

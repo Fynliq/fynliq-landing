@@ -101,11 +101,11 @@ function parseLine(value: unknown, path: string): AwardLine {
   };
 }
 
-function parseAward(value: unknown, path: string): Award {
+function parseAward(value: unknown, path: string, summaryOnly = false): Award {
   const award = object(value, path);
   const lines = array(award.lines, `${path}.lines`);
 
-  if (lines.length === 0) {
+  if (lines.length === 0 && !summaryOnly) {
     throw new AnalysisFormatError(`${path}.lines`, 'an award with no lines is not a result');
   }
 
@@ -155,7 +155,15 @@ export function parseAnalysis(value: unknown): AidAnalysis {
     throw new AnalysisFormatError('document.confidence', 'expected a value between 0 and 1');
   }
 
+  const summaryOnly = typeof root.summaryToken === 'string' && Array.isArray(root.summaryFacts) && root.summaryFacts.length > 0;
+  const summaryFacts = summaryOnly ? array(root.summaryFacts, 'summaryFacts').map((value, i) => {
+    const fact = object(value, `summaryFacts[${i}]`);
+    return { id: str(fact.id, 'id'), field: str(fact.field, 'field'), label: str(fact.label, 'label'), value: str(fact.value, 'value'), page: num(fact.page, 'page'), document: num(fact.document, 'document'), kind: str(fact.kind, 'kind'), period: str(fact.period, 'period'), estimated: bool(fact.estimated, 'estimated'), quote: str(fact.quote, 'quote') };
+  }) : undefined;
   return {
+    summaryFacts,
+    summaryToken: summaryOnly ? str(root.summaryToken, 'summaryToken') : undefined,
+    reviewed: false,
     provenance: 'document',
     document: {
       fileNames: array(document.fileNames, 'document.fileNames').map((name, i) =>
@@ -170,7 +178,7 @@ export function parseAnalysis(value: unknown): AidAnalysis {
       school: nullableStr(student.school, 'student.school'),
     },
     sai: nullableNum(root.sai, 'sai'),
-    award: parseAward(root.award, 'award'),
+    award: parseAward(root.award, 'award', summaryOnly),
     semester: parseSemester(root.semester ?? null, 'semester'),
     unread: array(root.unread ?? [], 'unread').map((entry, i) =>
       parseUnread(entry, `unread[${i}]`),

@@ -1,25 +1,30 @@
-# Live Ask on fynliq-beta-review
+# Document-based answers in the review beta
 
-Target: Fynliq/fynliq-landing, production branch feat/search-tabs-gradi.
+Repository: Fynliq/fynliq-landing. Integration branch: feat/connect-ask-backend.
+Preview: https://fynliq-landing-git-feat-connect-ask-backend-fynq.vercel.app/beta
 
-The existing Ask page now calls the same project's `/api/ask` in production. Local Vite development continues to use the existing composer unless VITE_FYNLIQ_ASK_URL is set. No new UI is substituted. Search and document analysis are unchanged.
+## Server settings
 
-## Vercel setup
+In FYNQ / fynliq-landing, add OPENAI_API_KEY and OPENAI_MODEL as server-only environment variables for Preview. The local API account successfully tested gpt-5.6-luna. Never use a VITE_ prefix for secrets, commit an .env file, or put credentials in frontend settings. Redeploy after setting variables. Leave VITE_FYNLIQ_ANALYZE_URL and VITE_FYNLIQ_ASK_URL unset to use same-origin /api/analyze and /api/ask.
 
-In the existing fynliq-beta-review project, open Settings → Environment Variables. Add server-only OPENAI_API_KEY and OPENAI_MODEL to the deployment environment. Use a model available to the API account; the prior local backend used gpt-5.6-luna, whose access still needs verification. Do not prefix either setting with VITE_. Do not commit the key or a .env file.
+## Upload and review contract
 
-Leave VITE_FYNLIQ_ASK_URL unset to use /api/ask, or explicitly set it to /api/ask. Remove any stale localhost/old-backend override. Redeploy after settings change. Keep deployment protection enabled for the review beta and configure Vercel Firewall request limits before opening to public traffic. The in-memory 10 requests/minute backstop is per instance and does not provide a global spending cap.
+POST /api/analyze accepts JSON {consent:true,files:[{name,type,data}]} where data is base64, with 1–3 PDF/PNG/JPEG/WEBP files totaling at most 2,800,000 decoded bytes. Both frontend and server enforce limits; server also checks file signatures. Documents are sent to OpenAI with storage disabled. This does not eliminate provider retention policies. Fynliq does not persist uploaded files or extracted reads in a database or browser storage.
 
-## Exact behavior
+The reader extracts facts from FAFSA Submission Summaries, award letters and student account statements, preserving document number, page, quotation, period and estimate labels. Unreadable, conflicting or unsupported results are rejected. The existing AidAnalysis response adds summaryFacts and a one-hour signed summaryToken; empty award lines are allowed for this review flow. Missing fields are never converted into zero-valued awards or bills.
 
-POST /api/ask receives `{question, analysis}` and returns the existing paragraphs/basis/grounding/missing/relatedIds contract. This first live service answers general questions only; analysis is not forwarded to OpenAI. The response always says basis=general, contains no citations, and explains that personalized document analysis is not connected yet. The endpoint never claims to have read uploaded documents.
+Students compare the extracted fields against originals and confirm before personal answers. The summary stays in React memory across My Aid, Search and Ask; refresh clears it. Signed summaries expire after one hour. This signature prevents client edits to the extracted facts; it does not prove that AI extraction is accurate.
 
-Questions are trimmed and limited to 2,000 characters; request payloads are limited to 64 KB. Requests time out at the provider after 20 seconds. Keys and provider errors are never sent to the browser. Provider response storage is disabled; that setting is not a claim of zero provider retention.
+## Answer contract
 
-The /ask path remains the React page. /api/ask is the backend function. Vercel routing checks files/functions before falling back to index.html, so the API is not swallowed by the single-page-app fallback.
+POST /api/ask accepts {question,analysis:null} for general answers, or {question,analysis:{reviewed:true,summaryToken}} for personal answers. It returns {paragraphs,basis,grounding,missing,relatedIds}. Questions are limited to 2,000 characters; the route has a 64 KB payload cap. Only verified signed facts go to the provider; client-submitted financial fields are ignored.
 
-## Verify
+My Aid has a detailed explanation action, Search has a personal answer action for the entered or selected question, and Ask uses the same service. Personal answers include source quotations. Unknown fact references and unsupported dollar amounts are rejected. Missing details are explained instead of invented. Review and automated checks reduce errors but cannot guarantee semantic accuracy. School confirmation is still needed for final aid, deadlines and refunds.
 
-Run npm test and npm run build. Deploy the integration branch as a preview, confirm /ask renders, then submit one general question. Verify the answer badge says general, an answer appears, and no provider key is present in frontend assets. GET /api/ask should return 405, never index.html. Only then promote/merge into feat/search-tabs-gradi.
+## Validation and deployment
 
-References: https://vercel.com/docs/functions/runtimes/node-js and https://developers.openai.com/api/docs/quickstart
+191 automated tests passed and the production bundle built successfully during implementation. A real-provider smoke test with three fictional PDF documents extracted nine expected fields and answered an overview, balance question and missing refund-date question with citations. No real student records were used.
+
+The per-instance in-memory limits (3 uploads and 10 questions per minute per IP) are only backstops, not global abuse or spending controls. Use deployment protection and appropriate Vercel Firewall and provider spending controls for the beta before inviting public traffic. No authentication, saved student history or durable document storage is implemented.
+
+Verify the deployed preview after its server variables are configured: upload fictional documents, review facts, request an overview, navigate through Search and Ask without refreshing, and check source references. /api/ask and /api/analyze must respond as functions, not index.html. Production promotion is separate from preview validation.

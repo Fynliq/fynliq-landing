@@ -45,6 +45,9 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
 export type Provenance = 'document' | 'demo';
 
 export interface AidAnalysis {
+  summaryFacts?: { id: string; field: string; label: string; value: string; page: number; document: number; kind: string; period: string; estimated: boolean; quote: string }[];
+  summaryToken?: string;
+  reviewed?: boolean;
   provenance: Provenance;
   document: {
     /** The files this was read from, echoed back so the student can confirm. */

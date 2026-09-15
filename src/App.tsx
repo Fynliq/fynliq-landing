@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { SummaryReview } from './pages/SummaryReview';
 import { Answer } from './pages/Answer';
 import { AskFynliq } from './pages/AskFynliq';
 import { BetaResults } from './pages/BetaResults';
@@ -93,11 +94,12 @@ function Routes() {
       : (TITLES[path] ?? TITLES[ROUTES.landing]);
   }, [path, question]);
 
-  if (path === ROUTES.upload || orphaned) {
+  if ((path === ROUTES.upload && !analysis) || orphaned) {
     return <BetaUpload onAnalysed={onAnalysed} />;
   }
 
-  if (path === ROUTES.results && analysis) {
+  if ((path === ROUTES.results || path === ROUTES.upload) && analysis) {
+    if (analysis.summaryToken) return <SummaryReview analysis={analysis} onRestart={onRestart} onConfirm={() => { setAnalysis({ ...analysis, reviewed: true }); }} />;
     return <BetaResults analysis={analysis} onRestart={onRestart} />;
   }
 
@@ -112,7 +114,7 @@ function Routes() {
    */
   if (path === ROUTES.search || question) {
     return (
-      <SearchProvider>{question ? <Answer question={question} /> : <Search />}</SearchProvider>
+        <SearchProvider>{question ? <Answer key={question.id} question={question} analysis={analysis} /> : <Search analysis={analysis} />}</SearchProvider>
     );
   }
 

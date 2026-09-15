@@ -1,6 +1,6 @@
 import { answerQuestion } from '../server/ask-service.js';
 
-export const config = { maxDuration: 30 };
+export const config = { maxDuration: 60 };
 // A per-instance backstop only; configure Vercel Firewall limits before public use.
 const buckets = new Map();
 export default async function handler(req, res) {
