@@ -69,6 +69,6 @@ export interface Asker {
   ask(question: string, analysis: AidAnalysis | null, options?: AskOptions): Promise<AskAnswer>;
 }
 
-export function createAsker(endpoint = import.meta.env.VITE_FYNLIQ_ASK_URL): Asker {
+export function createAsker(endpoint = import.meta.env.VITE_FYNLIQ_ASK_URL ?? (import.meta.env.PROD ? '/api/ask' : undefined)): Asker {
   return endpoint ? httpAsker(endpoint) : stubAsker();
 }
