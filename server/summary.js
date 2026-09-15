@@ -33,6 +33,11 @@ export function validateSummary(data, fileCount = 3) {
     // The extracted value must actually appear in the quoted evidence.
     const normalize = text => text.toLowerCase().replace(/[$,\s]/g, '');
     if (!normalize(f.quote).includes(normalize(f.value))) throw Error('Unsupported value');
+    const numericValue = normalize(f.value);
+    if (/^-?\d+(?:\.\d+)?$/.test(numericValue)) {
+      const exactNumber = new RegExp(`(^|[^\\d.+-])${numericValue.replace('.', '\\.')}($|[^\\d.])`);
+      if (!exactNumber.test(normalize(f.quote))) throw Error('Value is only part of a quoted number');
+    }
     const key = `${f.field}|${normalize(f.label)}|${normalize(f.period)}`;
     if (seen.has(key) && seen.get(key) !== normalize(f.value)) throw Error('Conflicting values');
     seen.set(key, normalize(f.value));
@@ -42,7 +47,7 @@ export function validateSummary(data, fileCount = 3) {
     }
     if (['estimatedPellGrant', 'grantOffer', 'scholarshipOffer', 'subsidizedLoanOffer', 'unsubsidizedLoanOffer', 'workStudyOffer', 'costOfAttendance', 'schoolBill', 'paymentApplied', 'balanceDue', 'creditBalance'].includes(f.field)) {
       const n = Number(f.value.replace(/[$,\s]/g, ''));
-      if (!Number.isFinite(n) || n < 0 || n > 10000000) throw Error('Invalid monetary value');
+      if (!/^\d+(?:\.\d{1,2})?$/.test(numericValue) || !Number.isFinite(n) || n < 0 || n > 10000000) throw Error('Invalid monetary value');
     }
     return { id: `f${index + 1}`, field: f.field, label: f.label.trim(), value: f.value.trim(), page: f.page, document: f.document, kind: f.kind,
       period: f.period.trim() || 'Not stated', estimated: f.field === 'estimatedPellGrant' || (f.kind === 'fafsa-submission-summary' && /Offer$/.test(f.field)) || f.estimated, quote: f.quote.trim() };

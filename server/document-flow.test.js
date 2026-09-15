@@ -39,6 +39,11 @@ describe('document evidence and authenticity', () => {
     expect(() => validateSummary({supported:false,conflicts:[],facts:[]})).toThrow();
     expect(() => validateSummary({supported:true,conflicts:[],facts:[]})).toThrow();
   });
+  it('rejects values that match only part of a quoted amount', () => {
+    const data = fixture();
+    data.facts[1] = {...data.facts[1], value: '700', quote: 'Estimated Pell Grant $7,000'};
+    expect(() => validateSummary(data)).toThrow();
+  });
   it('verifies signatures and rejects tampering, expiry and another key', () => {
     const facts=validateSummary(fixture()); const token=signSummary(facts,secret,1000);
     expect(verifySummary(token,secret,2000)).toEqual(facts);

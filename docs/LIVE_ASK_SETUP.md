@@ -23,7 +23,7 @@ My Aid has a detailed explanation action, Search has a personal answer action fo
 
 ## Validation and deployment
 
-191 automated tests passed and the production bundle built successfully during implementation. A real-provider smoke test with three fictional PDF documents extracted nine expected fields and answered an overview, balance question and missing refund-date question with citations. No real student records were used.
+192 automated tests passed and the production bundle built successfully during implementation. A real-provider smoke test with three fictional PDF documents extracted nine expected fields and answered an overview, balance question and missing refund-date question with citations. No real student records were used.
 
 The per-instance in-memory limits (3 uploads and 10 questions per minute per IP) are only backstops, not global abuse or spending controls. Use deployment protection and appropriate Vercel Firewall and provider spending controls for the beta before inviting public traffic. No authentication, saved student history or durable document storage is implemented.
 
