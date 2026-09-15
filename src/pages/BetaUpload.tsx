@@ -111,7 +111,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         </h1>
         <p className={styles.lede}>
           {working
-            ? 'Reading your documents. You will review the extracted fields before receiving a personalized explanation.'
+            ? 'Reading your documents and preparing your My Aid dashboard, with your answer, aid breakdown and next steps.'
             : 'Add your FAFSA Submission Summary, school award letter, and account statement. Use current documents for the same student and period. AI can make mistakes, so check the extracted fields against your originals.'}
         </p>
       </div>
