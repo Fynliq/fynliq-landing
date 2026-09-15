@@ -73,7 +73,7 @@ export function Analyzing({ stage, fileNames, onCancel }: AnalyzingProps) {
           Cancel
         </button>
         <p className={styles.note}>
-          Cancelling stops the read. Your files stay on this page and go nowhere else.
+          Cancelling stops this page from waiting. Files already sent for AI processing may continue to be processed.
         </p>
       </div>
     </Card>
