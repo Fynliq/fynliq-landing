@@ -5,7 +5,7 @@ import { Aurora } from '../components/fx';
 import { AskError, createAsker, type AskAnswer } from '../ask/asker';
 import { questionById, QUESTIONS, type Question } from '../search/library';
 import { useSearchDemand } from '../search/SearchProvider';
-import { searchProof, type AidAnalysis } from '../core';
+import { type AidAnalysis } from '../core';
 import styles from './AskFynliq.module.css';
 
 interface AskFynliqProps {
@@ -32,7 +32,11 @@ const PROMPT_COUNT = 4;
  */
 export function AskFynliq({ analysis }: AskFynliqProps) {
   const asker = useMemo(() => createAsker(), []);
-  const { ranked, byId, record } = useSearchDemand();
+  const { ranked, record } = useSearchDemand();
+  const [mode, setMode] = useState<'general' | 'personal'>(analysis?.reviewed ? 'personal' : 'general');
+  const [reviewedToken, setReviewedToken] = useState<string | null>(null);
+  const canPersonalize = Boolean(analysis?.summaryToken && (analysis.reviewed || reviewedToken === analysis.summaryToken));
+  const personal = mode === 'personal' && canPersonalize;
 
   const [question, setQuestion] = useState('');
   const [asked, setAsked] = useState<string | null>(null);
@@ -56,9 +60,9 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
   const ask = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (trimmed.length === 0 || thinking) return;
+      if (trimmed.length === 0 || abort.current) return;
+      if (trimmed.length > 2000) { setError('Please keep your question under 2,000 characters.'); return; }
 
-      abort.current?.abort();
       const controller = new AbortController();
       abort.current = controller;
 
@@ -66,28 +70,29 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
       setAnswer(null);
       setError(null);
       setThinking(true);
+      const timer = window.setTimeout(() => controller.abort(), 55000);
 
       // A question put here is demand like any other, and counts toward the
       // same ranking the search page draws.
       record({ query: trimmed, questionId: null, kind: 'search' });
 
       try {
-        const result = await asker.ask(trimmed, analysis, { signal: controller.signal });
+        const result = await asker.ask(trimmed, personal && analysis ? { ...analysis, reviewed: true } : null, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setAnswer(result);
       } catch (thrown) {
-        if (thrown instanceof AskError && thrown.kind === 'cancelled') return;
+        if (abort.current !== controller) return;
         setError(
-          thrown instanceof AskError
+          controller.signal.aborted ? 'That took too long. Please try again.' : thrown instanceof AskError
             ? thrown.message
             : 'Something went wrong answering that. Try again in a moment.',
         );
       } finally {
-        if (!controller.signal.aborted) setThinking(false);
-        abort.current = null;
+        window.clearTimeout(timer);
+        if (abort.current === controller) { setThinking(false); abort.current = null; }
       }
     },
-    [analysis, asker, record, thinking],
+    [analysis, asker, record, personal],
   );
 
   /*
@@ -101,14 +106,13 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
     const incoming = new URLSearchParams(window.location.search).get('q');
     if (!incoming) return;
 
-    setQuestion(incoming);
-    void ask(incoming);
+    setQuestion(incoming.slice(0, 2000));
     window.history.replaceState({}, '', window.location.pathname);
     // Deliberately once: this is a handoff, not a subscription.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => () => abort.current?.abort(), []);
+  useEffect(() => () => { abort.current?.abort(); abort.current = null; }, []);
 
   const related = (answer?.relatedIds ?? [])
     .map((id) => questionById(id))
@@ -119,38 +123,43 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
       <div className={styles.page}>
         <header className={styles.head}>
           <span className={styles.eyebrow}>Ask Fynliq</span>
-          <h1 className={styles.title}>Ask about your own money.</h1>
+          <h1 className={styles.title}>Make sense of your financial aid.</h1>
           <p className={styles.lede}>
-            Put it in your own words. Fynliq answers from the aid documents you have added, names
-            the lines it read them from, and tells you when your document does not contain what the
-            answer needs rather than filling the gap.
+            Ask a general question, or use your reviewed documents for an answer about your own aid.
+            Missing amounts and dates stay unknown.
           </p>
         </header>
 
         {/* ---- What it is answering from ---------------------------- */}
-        <div className={`${styles.source} ${analysis ? styles.sourceOn : ''}`}>
+        <div className={`${styles.source} ${personal ? styles.sourceOn : ''}`}>
           <span className={styles.sourceGlyph} aria-hidden="true">
-            {analysis ? '✓' : '○'}
+            {personal ? '✓' : '○'}
           </span>
           <div className={styles.sourceBody}>
             <p className={styles.sourceTitle}>
-              {analysis
-                ? analysis.summaryToken && !analysis.reviewed ? 'Review your extracted fields first' : `Answering from your ${analysis.document.fileNames.length === 1 ? 'document' : 'documents'}`
-                : 'No aid documents added yet'}
+              {personal ? 'Using your reviewed documents' : 'General questions are ready'}
             </p>
             <p className={styles.sourceNote}>
-              {analysis
-                ? `Read from ${analysis.document.fileNames.join(', ')}. Anything Fynliq could not read is left out of the answer rather than estimated.`
-                : 'Answers below will be the general rule, the same for everyone. Add your aid summary once and the same questions get answered with your own figures.'}
+              {personal && analysis ? `Using ${analysis.document.fileNames.join(', ')}. Answers include document references.` : 'You can ask now without uploading or reviewing anything. General answers do not use your personal figures.'}
             </p>
           </div>
-          {analysis?.summaryToken && !analysis.reviewed && <a className={styles.sourceCta} href="/beta/results">Review fields →</a>}
           {!analysis && (
             <a className={styles.sourceCta} href="/beta">
               Upload <span aria-hidden="true">&rarr;</span>
             </a>
           )}
         </div>
+        <fieldset className={styles.modes} disabled={thinking}>
+          <legend>Answer using</legend>
+          <label><input type="radio" name="answer-mode" checked={!personal} onChange={() => setMode('general')} /> General information</label>
+          <label><input type="radio" name="answer-mode" checked={personal} disabled={!canPersonalize} onChange={() => setMode('personal')} /> My documents</label>
+        </fieldset>
+        {analysis?.summaryToken && !canPersonalize && <details className={styles.review}>
+          <summary>Use my uploaded documents — review here</summary>
+          <p>Compare these extracted fields with your originals. If anything is incorrect, upload a clearer copy from My Aid.</p>
+          <ul>{analysis.summaryFacts?.map(f => <li key={f.id}><strong>{f.label}: {f.value}</strong>{f.estimated ? ' (estimate)' : ''}<p>{f.period} · {analysis.document.fileNames[f.document - 1]} · page {f.page}</p><blockquote>{f.quote}</blockquote></li>)}</ul>
+          <label><input type="checkbox" disabled={thinking} onChange={e => { setReviewedToken(e.target.checked ? analysis.summaryToken! : null); if (e.target.checked) setMode('personal'); }} /> I checked these fields against my originals and they match.</label>
+        </details>}
 
         {/* ---- The composer ------------------------------------------ */}
         <form
@@ -175,7 +184,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
             onKeyDown={(event) => {
               // Enter sends; shift+enter is a new line. A question is one
               // sentence far more often than it is a paragraph.
-              if (event.key === 'Enter' && !event.shiftKey) {
+              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 void ask(question);
               }
@@ -193,7 +202,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
               className={styles.send}
               disabled={question.trim().length === 0 || thinking}
             >
-              {thinking ? 'Reading…' : 'Ask Fynliq'}
+              {thinking ? 'Preparing answer…' : 'Ask Fynliq'}
               <span aria-hidden="true">&rarr;</span>
             </button>
           </div>
@@ -203,11 +212,10 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
         {!asked && (
           <section className={styles.prompts} aria-labelledby="prompts-title">
             <h2 id="prompts-title" className={styles.promptsTitle}>
-              What students are asking most
+              Questions to get started
             </h2>
             <ul className={styles.promptList}>
               {prompts.map((entry) => {
-                const demand = byId.get(entry.id);
                 return (
                   <li key={entry.id}>
                     <button
@@ -220,9 +228,6 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
                       }}
                     >
                       <span className={styles.promptText}>{entry.question}</span>
-                      {demand && demand.searches30d > 0 && (
-                        <span className={styles.bubble}>{searchProof(demand.searches30d)}</span>
-                      )}
                     </button>
                   </li>
                 );
@@ -247,7 +252,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
 
               {thinking && (
                 <div className={styles.answer}>
-                  <span className="srOnly">Reading your aid</span>
+                  <span className="srOnly">Preparing your answer</span>
                   <Skeleton height="17px" />
                   <Skeleton height="17px" />
                   <Skeleton height="17px" width="84%" />
@@ -256,9 +261,9 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
               )}
 
               {error && (
-                <p className={styles.error}>
+                <div><p className={styles.error} role="alert">
                   <span aria-hidden="true">&#9888;</span> {error}
-                </p>
+                </p><button type="button" className={styles.sourceCta} onClick={() => void ask(asked)}>Try again</button><p className={styles.sourceNote}>If your document read has expired, upload it again in My Aid. You can still switch to General information above.</p></div>
               )}
 
               {answer && !thinking && (
@@ -271,7 +276,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
                   <p className={`${styles.basis} ${answer.basis === 'personal' ? styles.personal : ''}`}>
                     {answer.basis === 'personal'
                       ? 'Answered from your own documents'
-                      : 'General rule — not from your documents'}
+                      : 'General explanation — not a personal determination'}
                   </p>
 
                   {answer.paragraphs.map((paragraph) => (
@@ -281,16 +286,12 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
                   ))}
 
                   {answer.grounding.length > 0 && (
-                    <p className={styles.grounding}>
-                      <span aria-hidden="true">&#9679;</span> Read from{' '}
-                      {answer.grounding.join(' · ')}
-                    </p>
+                    <details className={styles.references}><summary>Document references</summary><ul>{answer.grounding.map((source, i) => <li key={i}>{source}</li>)}</ul></details>
                   )}
 
                   {answer.missing && (
                     <p className={styles.missing}>
-                      To answer this with your own figures, Fynliq needs {answer.missing}.{' '}
-                      <a href="/beta">Add it &rarr;</a>
+                      {answer.missing}{' '}
                     </p>
                   )}
                 </div>
@@ -321,11 +322,10 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
             <Aurora tone="dark" />
           </div>
           <h2 id="loop-title" className={styles.loopTitle}>
-            {QUESTIONS.length} questions, ranked by how many students are searching them.
+            Explore {QUESTIONS.length} common financial aid questions.
           </h2>
           <p className={styles.loopBody}>
-            Before you ask, it is worth seeing whether it is already answered &mdash; and what else
-            students in your position are worrying about this week.
+            Browse explanations of grants, loans, bills and refunds.
           </p>
           <a className={styles.loopCta} href="/search">
             Search financial aid <span aria-hidden="true">&rarr;</span>
