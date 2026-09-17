@@ -11,6 +11,7 @@ import { Router, useRouter } from './router/router';
 import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
 import type { AidAnalysis } from './core';
+import { SiteAnalytics } from './analytics/SiteAnalytics';
 
 export const ROUTES = {
   landing: '/',
@@ -37,6 +38,7 @@ export function App() {
   return (
     <Router>
       <Routes />
+      <SiteAnalytics />
     </Router>
   );
 }
