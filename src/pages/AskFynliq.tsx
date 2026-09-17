@@ -281,7 +281,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
 
                   {answer.paragraphs.map((paragraph) => (
                     <p key={paragraph} className={styles.paragraph}>
-                      {paragraph}
+                      {paragraph.split(/(\*\*[^*]+\*\*)/g).map((part, index) => part.startsWith('**') && part.endsWith('**') ? <strong key={index}>{part.slice(2, -2)}</strong> : part)}
                     </p>
                   ))}
 

@@ -354,6 +354,7 @@
 }
 
 .paragraph {
+  white-space: pre-line;
   font-size: var(--t-16);
   line-height: 1.6;
   color: var(--mid);
