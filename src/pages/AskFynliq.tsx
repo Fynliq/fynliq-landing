@@ -7,6 +7,7 @@ import { questionById, QUESTIONS, type Question } from '../search/library';
 import { useSearchDemand } from '../search/SearchProvider';
 import { type AidAnalysis } from '../core';
 import styles from './AskFynliq.module.css';
+import { useAccount, SaveAccountButton } from '../accounts/AccountProvider';
 
 interface AskFynliqProps {
   /** The student's own read, or `null` when they have not uploaded anything. */
@@ -31,6 +32,7 @@ const PROMPT_COUNT = 4;
  * the seam refuses to let the backend invent one.
  */
 export function AskFynliq({ analysis }: AskFynliqProps) {
+  const account = useAccount();
   const asker = useMemo(() => createAsker(), []);
   const { ranked, record } = useSearchDemand();
   const [mode, setMode] = useState<'general' | 'personal'>(analysis?.reviewed ? 'personal' : 'general');
@@ -80,6 +82,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
         const result = await asker.ask(trimmed, personal && analysis ? { ...analysis, reviewed: true } : null, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setAnswer(result);
+        account.question(trimmed, result);
       } catch (thrown) {
         if (abort.current !== controller) return;
         setError(
@@ -92,7 +95,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
         if (abort.current === controller) { setThinking(false); abort.current = null; }
       }
     },
-    [analysis, asker, record, personal],
+    [analysis, asker, record, personal, account],
   );
 
   /*
@@ -294,6 +297,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
                       {answer.missing}{' '}
                     </p>
                   )}
+                  <SaveAccountButton />
                 </div>
               )}
             </div>

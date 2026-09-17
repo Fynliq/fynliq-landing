@@ -1,4 +1,5 @@
 import { Logo } from '../../ui';
+import { AccountButton } from '../../../accounts/AccountProvider';
 import { TabBar, type TabId } from '../TabBar/TabBar';
 import styles from './AppShell.module.css';
 
@@ -37,6 +38,7 @@ export function AppShell({ tab, banner, children }: AppShellProps) {
           <a className={styles.back} href="/">
             <span aria-hidden="true">&larr;</span> Back to the site
           </a>
+          <AccountButton />
         </div>
       </header>
 

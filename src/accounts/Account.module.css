@@ -1,0 +1,11 @@
+.panel { position:fixed; inset:5vh 0 auto; margin:auto; width:min(540px,calc(100% - 32px)); max-height:85vh; overflow:auto; border:1px solid var(--line); border-radius:24px; padding:28px; background:var(--paper,#fbfaf8); color:var(--ink,#1c211d); box-shadow:0 20px 80px #0005; z-index:1000; }
+.panel h2 { margin:0 24px 16px 0; }
+.panel::backdrop { background:#0005; }
+.panel p { margin:12px 0; line-height:1.6; }
+.panel button,.button { border:1px solid var(--line,#ddd); border-radius:24px; padding:10px 18px; background:var(--ink,#1c211d); color:white; cursor:pointer; font:inherit; margin:4px; }
+.panel button:disabled { opacity:.6; cursor:wait; }
+.panel label { display:block; margin:14px 0; }
+.panel input { display:block; box-sizing:border-box; width:100%; padding:12px; border:1px solid #aaa; border-radius:10px; background:white; color:#1c211d; font:inherit; }
+.panel .close { position:absolute; right:12px; top:12px; padding:4px 12px; }
+.panel section { border-top:1px solid var(--line,#ddd); margin-top:18px; padding-top:12px; }
+@media print {.panel,.button {display:none;}}

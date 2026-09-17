@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Analyzing } from '../components/beta/Analyzing/Analyzing';
 import { Dropzone } from '../components/beta/Dropzone/Dropzone';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
@@ -11,6 +11,8 @@ import {
 import { triageFiles, type Rejection } from '../beta/files';
 import type { AidAnalysis } from '../core';
 import styles from './BetaUpload.module.css';
+import { useAccount } from '../accounts/AccountProvider';
+import { accountsEnabled } from '../accounts/client';
 
 interface BetaUploadProps {
   /** Handed the finished read. The route change is the caller's business. */
@@ -33,12 +35,13 @@ const WHAT_TO_UPLOAD = [
 ];
 
 const PRIVACY = [
-  'Your files are sent to OpenAI for extraction. Fynliq does not save them in a database; OpenAI processing and retention policies apply.',
+  accountsEnabled ? 'Your files are sent to OpenAI for extraction. If you choose Save this to Fynliq and confirm, your files, summary and selected questions are stored privately in your Supabase-backed account. OpenAI processing and retention policies apply.' : 'Your files are sent to OpenAI for extraction. Fynliq does not save them in a database; OpenAI processing and retention policies apply.',
   'Fynliq is not connected to FAFSA, your school or any lender, and cannot change anything on your account.',
   'Figures the document does not state are left blank. Nothing is estimated to fill a gap.',
 ];
 
 export function BetaUpload({ onAnalysed }: BetaUploadProps) {
+  const account = useAccount();
   const analyzer = useMemo(() => createAnalyzer(), []);
 
   const [files, setFiles] = useState<File[]>([]);
@@ -48,6 +51,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   const [consent, setConsent] = useState(false);
 
   const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => { abort.current?.abort(); }, []);
   const working = stage !== null;
 
   const handleAdd = useCallback(
@@ -82,6 +86,9 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         signal: controller.signal,
         onStage: setStage,
       });
+      if (controller.signal.aborted) return;
+      await account.capture(analysis, files);
+      if (controller.signal.aborted) return;
       onAnalysed(analysis);
     } catch (thrown) {
       // Cancelling is something the student chose. It is not an error, and it

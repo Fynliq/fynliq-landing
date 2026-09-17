@@ -12,6 +12,7 @@ import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
 import type { AidAnalysis } from './core';
 import { SiteAnalytics } from './analytics/SiteAnalytics';
+import { AccountProvider, AccountButton } from './accounts/AccountProvider';
 
 export const ROUTES = {
   landing: '/',
@@ -36,10 +37,10 @@ const TITLES: Record<string, string> = {
 
 export function App() {
   return (
-    <Router>
+    <AccountProvider><Router>
       <Routes />
       <SiteAnalytics />
-    </Router>
+    </Router></AccountProvider>
   );
 }
 
@@ -60,6 +61,13 @@ function Routes() {
    * honest about having nothing when somebody lands on it first.
    */
   const [analysis, setAnalysis] = useState<AidAnalysis | null>(null);
+  useEffect(() => {
+    const clear = () => { setAnalysis(null); navigate('/'); };
+    const load = (event: Event) => { setAnalysis((event as CustomEvent<AidAnalysis>).detail); navigate('/beta/results'); };
+    window.addEventListener('fynliq:clear-private', clear);
+    window.addEventListener('fynliq:load-document', load);
+    return () => { window.removeEventListener('fynliq:clear-private', clear); window.removeEventListener('fynliq:load-document', load); };
+  }, [navigate]);
 
   const onAnalysed = useCallback(
     (result: AidAnalysis) => {
@@ -132,5 +140,6 @@ function Routes() {
     return <Gradi />;
   }
 
+  if (path === '/account') return <main style={{padding:'80px 24px',textAlign:'center'}}><h1>Your Fynliq account</h1><AccountButton /><p><a href="/beta">Continue to My Aid</a></p></main>;
   return <Landing />;
 }

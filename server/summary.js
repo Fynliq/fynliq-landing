@@ -57,12 +57,15 @@ export function validateSummary(data, fileCount = 3) {
 function signature(body, secret) {
   return createHmac('sha256', secret).update('fynliq-summary-v1:' + body).digest('base64url');
 }
-export function signSummary(facts, secret, now = Date.now()) {
+export function signSummary(facts, secret, now = Date.now(), fileHashes) {
   if (!secret) throw Error('Missing signing key');
-  const body = Buffer.from(JSON.stringify({ facts, exp: now + 3600000 })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ facts, exp: now + 3600000, ...(fileHashes ? { fileHashes } : {}) })).toString('base64url');
   return `${body}.${signature(body, secret)}`;
 }
 export function verifySummary(token, secret, now = Date.now()) {
+  return verifySummaryEnvelope(token,secret,now).facts;
+}
+export function verifySummaryEnvelope(token, secret, now = Date.now()) {
   if (!secret || typeof token !== 'string' || token.length > 60000) throw Error('Invalid summary');
   const parts = token.split('.');
   if (parts.length !== 2) throw Error('Invalid summary');
@@ -71,5 +74,5 @@ export function verifySummary(token, secret, now = Date.now()) {
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) throw Error('Invalid summary');
   const data = JSON.parse(Buffer.from(parts[0], 'base64url').toString());
   if (!Number.isFinite(data.exp) || now >= data.exp) throw Error('Expired summary');
-  return validateSummary({ supported: true, conflicts: [], facts: data.facts });
+  return {facts:validateSummary({ supported: true, conflicts: [], facts: data.facts }),fileHashes:data.fileHashes};
 }

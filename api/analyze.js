@@ -1,6 +1,7 @@
 import { structuredResponse } from '../server/provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
+import { createHash } from 'node:crypto';
 
 export const config = { maxDuration: 60 };
 export default async function handler(req, res) {
@@ -14,6 +15,7 @@ export default async function handler(req, res) {
   if (!Array.isArray(files) || !files.length || files.length > 3 || body.consent !== true) return res.status(400).send('Upload 1–3 documents and accept AI processing.');
   let total = 0;
   const attachments = [];
+  const fileHashes = [];
   for (const file of files) {
   if (!file || !['application/pdf', 'image/png', 'image/jpeg', 'image/webp'].includes(file.type) ||
     typeof file.data !== 'string' || file.data.length > 4000000 || !/^[A-Za-z0-9+/]+={0,2}$/.test(file.data) ||
@@ -25,6 +27,7 @@ export default async function handler(req, res) {
     : bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
   total += bytes.length;
   if (!validMagic || !bytes.length || total > 2800000) return res.status(415).send('Use supported documents totaling no more than 2.8 MB.');
+    fileHashes.push(createHash('sha256').update(bytes).digest('hex'));
     const dataUrl = `data:${file.type};base64,${file.data}`;
     const attachment = file.type === 'application/pdf' ? { type: 'input_file', filename: `document-${attachments.length + 1}.pdf`, file_data: dataUrl }
       : { type: 'input_image', image_url: dataUrl };
@@ -42,7 +45,7 @@ export default async function handler(req, res) {
       student: { firstName: null, school: null }, sai: sai ? Number(sai.value.replace(/[$,\s]/g, '')) : null,
       award: { year: facts.find(f => f.field === 'awardYear')?.value ?? 'Not stated', source: 'Uploaded aid documents', costOfAttendance: null, lines: [] },
       semester: null, unread: [{ field: 'Any figures not shown in the reviewed fields', where: 'Your original documents or school financial aid office.' }],
-      summaryFacts: facts, summaryToken: signSummary(facts, process.env.OPENAI_API_KEY),
+      summaryFacts: facts, summaryToken: signSummary(facts, process.env.OPENAI_API_KEY, Date.now(), fileHashes),
     });
   } catch { return res.status(422).send('Could not reliably read these documents, or values conflict. Upload clearer, current documents for the same student and period.'); }
 }

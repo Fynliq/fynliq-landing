@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SaveAccountButton } from '../accounts/AccountProvider';
 import type { AidAnalysis } from '../core';
 import { documentDashboard, factAmount, type DocumentFact } from '../core/documentDashboard';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
@@ -38,7 +39,7 @@ export function DocumentResults({ analysis, onConfirm, onRestart }: { analysis: 
       <h1 id="answer" className={styles.answer}>{dashboard.headline}</h1>
       <p className={styles.detail}>{dashboard.detail}</p>
       <div className={styles.source}><p className={styles.sourceText}>Read from {analysis.document.fileNames.join(', ')} · {new Date(analysis.document.readAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p><Pill tone={analysis.reviewed ? 'green' : 'gold'}>{analysis.reviewed ? 'Fields reviewed' : 'Check extracted figures'}</Pill></div>
-      <div className={styles.panelActions}><button className={styles.print} onClick={() => window.print()}>Save or print this</button><button className={styles.again} onClick={onRestart}>Upload a different document</button></div>
+      <div className={styles.panelActions}><button className={styles.print} onClick={() => window.print()}>Save or print this</button><SaveAccountButton /><button className={styles.again} onClick={onRestart}>Upload a different document</button></div>
     </section>
     {!analysis.reviewed && <p className={styles.warn}>Check the extracted figures against your originals below. This explanation is based on an AI read and may contain errors.</p>}
     <ul className={styles.metrics}>
