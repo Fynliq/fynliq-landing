@@ -34,7 +34,7 @@ const PROMPT_COUNT = 4;
 export function AskFynliq({ analysis }: AskFynliqProps) {
   const account = useAccount();
   const asker = useMemo(() => createAsker(), []);
-  const { ranked, record } = useSearchDemand();
+  const { ranked } = useSearchDemand();
   const [mode, setMode] = useState<'general' | 'personal'>(analysis?.reviewed ? 'personal' : 'general');
   const [reviewedToken, setReviewedToken] = useState<string | null>(null);
   const canPersonalize = Boolean(analysis?.summaryToken && (analysis.reviewed || reviewedToken === analysis.summaryToken));
@@ -63,7 +63,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
     async (text: string) => {
       const trimmed = text.trim();
       if (trimmed.length === 0 || abort.current) return;
-      if (trimmed.length > 2000) { setError('Please keep your question under 2,000 characters.'); return; }
+      if (trimmed.length > 1000) { setError('Please keep your question under 1,000 characters.'); return; }
 
       const controller = new AbortController();
       abort.current = controller;
@@ -74,15 +74,15 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
       setThinking(true);
       const timer = window.setTimeout(() => controller.abort(), 55000);
 
-      // A question put here is demand like any other, and counts toward the
-      // same ranking the search page draws.
-      record({ query: trimmed, questionId: null, kind: 'search' });
+
 
       try {
+        await account.ensureGuest();
+        if (controller.signal.aborted) return;
         const result = await asker.ask(trimmed, personal && analysis ? { ...analysis, reviewed: true } : null, { signal: controller.signal });
         if (controller.signal.aborted) return;
         setAnswer(result);
-        account.question(trimmed, result);
+
       } catch (thrown) {
         if (abort.current !== controller) return;
         setError(
@@ -95,25 +95,8 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
         if (abort.current === controller) { setThinking(false); abort.current = null; }
       }
     },
-    [analysis, asker, record, personal, account],
+    [analysis, asker, personal, account],
   );
-
-  /*
-   * A question arrived from the answer page as `?q=`.
-   *
-   * Read once, on mount, and then cleared out of the URL — leaving it there
-   * would mean a refresh silently re-asks a question the student has already
-   * had answered, and a shared link would carry somebody's question with it.
-   */
-  useEffect(() => {
-    const incoming = new URLSearchParams(window.location.search).get('q');
-    if (!incoming) return;
-
-    setQuestion(incoming.slice(0, 2000));
-    window.history.replaceState({}, '', window.location.pathname);
-    // Deliberately once: this is a handoff, not a subscription.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => () => { abort.current?.abort(); abort.current = null; }, []);
 
@@ -164,6 +147,9 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
           <label><input type="checkbox" disabled={thinking} onChange={e => { setReviewedToken(e.target.checked ? analysis.summaryToken! : null); if (e.target.checked) setMode('personal'); }} /> I checked these fields against my originals and they match.</label>
         </details>}
 
+        <p className={styles.sourceNote}>Your question is sent to OpenAI to generate an answer. Fynliq does not intentionally store your question or AI response. Do not include Social Security numbers, FSA login information, tax IDs, bank account numbers, passwords, or other highly sensitive information.</p>
+
+
         {/* ---- The composer ------------------------------------------ */}
         <form
           className={styles.composer}
@@ -177,7 +163,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
           </label>
           <textarea
             id="ask-box"
-            maxLength={2000}
+            maxLength={1000}
             ref={box}
             className={styles.box}
             rows={3}

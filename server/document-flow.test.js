@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { validateSummary, signSummary, verifySummary } from './summary';
 import { answerQuestion } from './ask-service';
 import analyze from '../api/analyze';
-import { parseAnalysis } from '../src/beta/contract';
 import { parseAskAnswer } from '../src/ask/contract';
 
 const secret = 'test-only-not-a-real-api-key';
@@ -76,21 +75,10 @@ describe('personalized answers', () => {
   });
 });
 
-describe('upload route to frontend contract', () => {
-  it('returns a signed review result without inventing award totals', async () => {
-    vi.stubEnv('OPENAI_API_KEY',secret); vi.stubEnv('OPENAI_MODEL','test'); vi.stubGlobal('fetch',provider(fixture()));
-    const req={method:'POST',headers:{'x-forwarded-for':'test-flow'},body:{consent:true,files:[1,2,3].map(i=>({name:`doc-${i}.pdf`,type:'application/pdf',data:Buffer.from('%PDF-1.7 synthetic fixture').toString('base64')}))}};
-    const res=response(); await analyze(req,res); expect(res.statusCode).toBe(200);
-    const parsed=parseAnalysis(res.body); expect(parsed.award.lines).toEqual([]); expect(parsed.semester).toBeNull(); expect(parsed.reviewed).toBe(false); expect(parsed.summaryFacts).toHaveLength(4);
-    expect(verifySummary(parsed.summaryToken,secret)).toHaveLength(4);
-  });
-  it('rejects unsupported files before any provider request', async () => {
-    vi.stubEnv('OPENAI_API_KEY',secret);vi.stubEnv('OPENAI_MODEL','test'); const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
-    const res=response(); await analyze({method:'POST',headers:{'x-forwarded-for':'test-type'},body:{consent:true,files:[{name:'fake.pdf',type:'application/pdf',data:Buffer.from('not a PDF').toString('base64')}] }},res);
-    expect(res.statusCode).toBe(415);expect(fetchMock).not.toHaveBeenCalled();
-  });
-  it('requires explicit upload consent', async () => {
-    vi.stubEnv('OPENAI_API_KEY',secret);vi.stubEnv('OPENAI_MODEL','test'); const res=response();
-    await analyze({method:'POST',headers:{},body:{files:[]}},res);expect(res.statusCode).toBe(400);
+describe('Phase 1 upload boundary', () => {
+  it('blocks all raw files without calling OpenAI', async () => {
+    const call=vi.fn();vi.stubGlobal('fetch',call);
+    const res=response();await analyze({method:'POST',headers:{},body:{consent:true,files:[{type:'application/pdf',data:'synthetic'}]}},res);
+    expect(res.statusCode).toBe(503);expect(call).not.toHaveBeenCalled();
   });
 });

@@ -135,7 +135,7 @@ export function Answer({ question, analysis }: AnswerProps) {
           <div className={styles.askActions}>
             <a
               className={styles.askPrimary}
-              href={`/ask?q=${encodeURIComponent(question.question)}`}
+              href="/ask"
             >
               Ask this about my aid <span aria-hidden="true">&rarr;</span>
             </a>

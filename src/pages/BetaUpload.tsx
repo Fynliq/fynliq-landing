@@ -12,7 +12,6 @@ import { triageFiles, type Rejection } from '../beta/files';
 import type { AidAnalysis } from '../core';
 import styles from './BetaUpload.module.css';
 import { useAccount } from '../accounts/AccountProvider';
-import { accountsEnabled } from '../accounts/client';
 
 interface BetaUploadProps {
   /** Handed the finished read. The route change is the caller's business. */
@@ -35,7 +34,7 @@ const WHAT_TO_UPLOAD = [
 ];
 
 const PRIVACY = [
-  accountsEnabled ? 'Your files are sent to OpenAI for extraction. If you choose Save this to Fynliq and confirm, your files, summary and selected questions are stored privately in your Supabase-backed account. OpenAI processing and retention policies apply.' : 'Your files are sent to OpenAI for extraction. Fynliq does not save them in a database; OpenAI processing and retention policies apply.',
+  'Document processing is temporarily unavailable while privacy checks are added. Do not upload sensitive files. Invited students can use Ask Fynliq for general questions.',
   'Fynliq is not connected to FAFSA, your school or any lender, and cannot change anything on your account.',
   'Figures the document does not state are left blank. Nothing is estimated to fill a gap.',
 ];

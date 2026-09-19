@@ -1,7 +1,6 @@
 import { describe,it,expect,vi } from 'vitest';
 import { authenticatedUser,ownedRecord,accountBody,accountClients } from './account-auth.js';
-import { anonymousIdentity } from '../api/activity.js';
-import { createHmac } from 'node:crypto';
+import { token } from './beta.js';
 
 describe('private account boundary',()=>{
   it('fails closed when accounts are unconfigured',()=>{expect(()=>accountClients({})).toThrow('not available');});
@@ -25,10 +24,8 @@ describe('private account boundary',()=>{
     expect(()=>accountBody({headers:{'content-type':'application/json'},body:'bad json'})).toThrow();
     expect(()=>accountBody({headers:{'content-type':'application/json'},body:{data:'x'.repeat(100)}},20)).toThrow();
   });
-  it('does not accept a forged anonymous identity cookie',()=>{
-    const secret='s'.repeat(32),id='12345678-1234-4234-8234-123456789abc';
-    expect(anonymousIdentity(`fynliq_visitor=${id}.forged`,secret)).not.toBe(id);
-    const signature=createHmac('sha256',secret).update(id).digest('base64url');
-    expect(anonymousIdentity(`fynliq_visitor=${id}.${signature}`,secret)).toBe(id);
+  it('rejects malformed guest session cookies',()=>{
+    expect(token({headers:{cookie:'__Host-fynliq_beta=forged'}})).toBeNull();
+    expect(token({headers:{cookie:'fynliq_visitor=forged'}})).toBeNull();
   });
 });

@@ -11,7 +11,7 @@ import { Router, useRouter } from './router/router';
 import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
 import type { AidAnalysis } from './core';
-import { SiteAnalytics } from './analytics/SiteAnalytics';
+import { BetaAdmin } from './pages/BetaAdmin';
 import { AccountProvider, AccountButton } from './accounts/AccountProvider';
 
 export const ROUTES = {
@@ -39,7 +39,7 @@ export function App() {
   return (
     <AccountProvider><Router>
       <Routes />
-      <SiteAnalytics />
+
     </Router></AccountProvider>
   );
 }
@@ -140,6 +140,7 @@ function Routes() {
     return <Gradi />;
   }
 
-  if (path === '/account') return <main style={{padding:'80px 24px',textAlign:'center'}}><h1>Your Fynliq account</h1><AccountButton /><p><a href="/beta">Continue to My Aid</a></p></main>;
+  if (path === '/admin') return <BetaAdmin />;
+  if (path === '/account') return <main style={{padding:'80px 24px',textAlign:'center'}}><h1>Your Fynliq guest session</h1><AccountButton /><p><a href="/beta">Continue to My Aid</a></p></main>;
   return <Landing />;
 }

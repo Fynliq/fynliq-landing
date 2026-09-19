@@ -59,16 +59,4 @@ export async function loadDocument(db,user,id,signingKey) {
   return { id:row.id, analysis:{...row.analysis,summaryToken:signSummary(row.analysis.summaryFacts,signingKey,Date.now(),row.files.map(f=>f.hash))}, files:row.files.map((f,index)=>({name:f.name,index})) };
 }
 
-export async function saveQuestion(db,user,input) {
-  requireId(input.id); requireId(input.conversationId);
-  if (typeof input.question !== 'string' || !input.question.trim() || input.question.length>2000 || !input.answer || !Array.isArray(input.answer.paragraphs) || JSON.stringify(input.answer).length>30000) throw new AccountError(400,'Invalid conversation.');
-  const existing = check(await db.from('fynliq_questions').select('id').eq('user_id',user.id).eq('id',input.id).maybeSingle());
-  if (existing) return {id:existing.id};
-  // Composite foreign key prevents associating a question with somebody else's conversation.
-  check(await db.from('fynliq_conversations').upsert({id:input.conversationId,user_id:user.id},{onConflict:'id',ignoreDuplicates:true}));
-  await ownedRecord(db,'fynliq_conversations',user.id,input.conversationId);
-  const result = await db.from('fynliq_questions').upsert({id:input.id,user_id:user.id,conversation_id:input.conversationId,question:input.question,answer:input.answer},{onConflict:'id',ignoreDuplicates:true});
-  check(result);
-  await ownedRecord(db,'fynliq_questions',user.id,input.id);
-  return {id:input.id};
-}
+export async function saveQuestion() { throw new AccountError(410, 'Question and answer saving is disabled for this beta.'); }

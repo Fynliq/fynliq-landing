@@ -1,33 +1,28 @@
-import { answerQuestion } from '../server/ask-service.js';
-
-export const config = { maxDuration: 60 };
-// A per-instance backstop only; configure Vercel Firewall limits before public use.
-const buckets = new Map();
-export default async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store');
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).send('Use POST to ask a question.');
-  }
-  if (!(req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')) {
-    return res.status(415).send('Send your question as JSON.');
-  }
-  let payload;
+import {answerQuestion} from '../server/ask-service.js';
+import {containsHighRiskPII,PRIVACY_MESSAGE} from '../server/privacy.js';
+import {clients,session,sameOrigin,body,rpc,rate,positive,fail,BetaError,cookie,token} from '../server/beta.js';
+export const config={maxDuration:60};
+export function createAskHandler(dependencies={}) {return async(req,res)=>{
+  res.setHeader('Cache-Control','no-store');
   try {
-    const raw = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? null);
-    if (Buffer.byteLength(raw, 'utf8') > 65536) return res.status(413).send('That question is too large. Please shorten it.');
-    payload = JSON.parse(raw);
-  } catch { return res.status(400).send('The question could not be read. Please try again.'); }
-  const now = Date.now();
-  for (const [key, bucket] of buckets) if (bucket.until <= now) buckets.delete(key);
-  const ip = String(req.headers['x-forwarded-for'] ?? req.socket?.remoteAddress ?? 'unknown').split(',')[0].trim();
-  const bucket = buckets.get(ip) ?? { count: 0, until: now + 60000 };
-  if (bucket.count >= 10) {
-    res.setHeader('Retry-After', String(Math.ceil((bucket.until - now) / 1000)));
-    return res.status(429).send('Please wait a minute before asking more questions.');
-  }
-  bucket.count++; buckets.set(ip, bucket);
-  const result = await answerQuestion(payload, { apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL });
-  if (result.error) return res.status(result.status).send(result.error);
-  return res.status(200).json(result.body);
-}
+    if(req.method!=='POST')throw new BetaError(405,'Use POST to ask a question.');
+    const env=dependencies.env||process.env,{db}=(dependencies.clients||clients)(env);
+    const user=await session(req,db,env);sameOrigin(req,env);await rate(db,req,'ask',10,env);
+    const payload=body(req);
+    if(typeof payload?.question!=='string'||!payload.question.trim()||payload.question.trim().length>1000)throw new BetaError(400,'Please enter a question between 1 and 1,000 characters.');
+    if(containsHighRiskPII(payload.question))throw new BetaError(422,PRIVACY_MESSAGE);
+    if(!env.OPENAI_API_KEY||!env.OPENAI_MODEL)throw new BetaError(503,'The answer service is not configured yet.');
+    const cap=positive(env.OPENAI_MAX_OUTPUT_TOKENS,1200,4000);
+    const reservation=await rpc(db,'beta_reserve_question',{p_user:user.user_id,p_session:user.id,
+      p_global:positive(env.BETA_MAX_QUESTIONS_PER_DAY,10000),p_daily:positive(env.ASK_USER_MAX_PER_DAY,50),p_minute:positive(env.ASK_USER_MAX_PER_MINUTE,8)});
+    if(!reservation.allowed)throw new BetaError(429,'The beta question limit has been reached. Please try again later.');
+    res.setHeader('Set-Cookie',cookie(token(req),30*24*60*60));
+    let result;
+    try{result=await (dependencies.answer||answerQuestion)(payload,{apiKey:env.OPENAI_API_KEY,model:env.OPENAI_MODEL,maxOutputTokens:cap});}
+    catch{result={status:502,error:'The answer service is temporarily unavailable.'};}
+    await rpc(db,'beta_finish_question',{p_id:reservation.id,p_success:!result.error});
+    if(result.error)return res.status(result.status).send(result.error);
+    return res.status(200).json(result.body);
+  }catch(error){return fail(res,error);}
+};}
+export default createAskHandler();
