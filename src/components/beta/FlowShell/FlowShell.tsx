@@ -1,5 +1,4 @@
 import { Logo } from '../../ui';
-import { AccountButton } from '../../../accounts/AccountProvider';
 import { TabBar } from '../../nav/TabBar/TabBar';
 import styles from './FlowShell.module.css';
 
@@ -47,7 +46,6 @@ export function FlowShell({ step, children }: FlowShellProps) {
           <a className={styles.back} href="/">
             <span aria-hidden="true">&larr;</span> Back to the site
           </a>
-          <AccountButton />
         </div>
       </header>
 
