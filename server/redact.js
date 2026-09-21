@@ -4,8 +4,9 @@
 // Two jobs, in this order:
 //  1. Drop every line that is about the person rather than the aid: names,
 //     addresses, birth dates, IDs, contact details, income and tax figures.
-//  2. From what is left, keep only lines about Pell, scholarships and grants,
-//     Direct Loans, the SAI, and the school bill / balance.
+//  2. From what is left, keep lines about aid (Pell, scholarships, grants,
+//     Direct Loans, SAI, bill / balance) and any line that prints a dollar
+//     amount, since phone layouts often split a label from its amount.
 // Then any identifier-shaped token that survived is blacked out anyway.
 //
 // This is a conservative filter, not a guarantee. The server re-runs it and
@@ -26,6 +27,10 @@ const PERSONAL_LINE = [
   /\b(?:e-?mail|phone|mobile|cell|telephone|tel\.?|fax)\b/i,
   /\b(?:username|user\s*name|password|passcode|pin|fsa\s*id|login|security\s+question)\b/i,
   /\b(?:adjusted\s+gross|agi|income|wages|earnings|assets|net\s+worth|tax(?:es)?\s+paid|tax\s+return|1040|w-?2|child\s+support|household\s+size|number\s+in\s+college|marital|citizenship|gender|sex|race|ethnicity)\b/i,
+  // FAFSA Submission Summary financial and family sections: not aid, and private.
+  /\b(?:taxable|untaxed|ira|pension|annuit(?:y|ies)|distributions?|dividends?|interest\s+income|investments?|real\s+estate|business|farm|cash|savings|checking|net\s+value|alimony|education\s+credits?|exclusion|foreign\s+earned|worth)\b/i,
+  /\b(?:foster|homeless|ward\s+of\s+the\s+court|emancipat\w*|orphan|dependency|dependent\s+status|veteran|active\s+duty|military|deceased|divorced|married|separated|widowed|guardian\w*|incarcerat\w*|disabilit\w*|snap|medicaid|tanf|wic|ssi|housing\s+assistance|reduced\s+price|free\s+lunch|federal\s+benefits?)\b/i,
+  /\b(?:welcome|hello|hi|signed\s+in\s+as|logged\s+in\s+as|my\s+profile|profile|dear)\b/i,
 ];
 
 /** Lines must mention one of these to be kept at all. */
@@ -43,7 +48,16 @@ const AID_LINE = [
   /\b20\d\d\s*[-–\/]\s*(?:20)?\d\d\b/,
   /\b(?:balance|amount\s+due|total\s+due|due\s+now|credit\s+balance|charges?|tuition|fees|payments?\s+(?:applied|received)|statement\s+total|total\s+(?:charges|credits|aid|awards?|offered))\b/i,
   /\b(?:financial\s+aid|aid\s+offer|award\s+letter|award\s+summary|offered|accepted)\b/i,
+  /\b(?:awards?|aid|offers?|amount|total|status|term|semester|quarter|disburse\w*|estimated|eligib\w*|cost\s+of\s+attendance|coa|fseog|seog|teach|perkins|plus|institutional|waiver|stipend|fellowship|gift\s+aid|self-help|declined|pending|net\s+cost)\b/i,
 ];
+
+/**
+ * A line that prints a dollar amount: "$3,698.00", "3,698.00", "1,250".
+ * Kept even without an aid word, because phone layouts often put the label
+ * and the amount on different lines. Personal lines are removed before this
+ * test runs, and identifiers are blacked out after it.
+ */
+const MONEY = /\$\s?\d|\b\d{1,3}(?:,\d{3})+(?:\.\d{2})?\b|\b\d+\.\d{2}\b/;
 
 /** A line that is only an amount, as happens when a table splits label and value. */
 const AMOUNT = String.raw`[-(]?\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\)?|[-(]?\$?\s?\d+(?:\.\d{2})?\)?`;
@@ -108,7 +122,7 @@ export function redactPage(text) {
     // personal is enough to drop it.
     if (PERSONAL_LINE.some((re) => re.test(line) || re.test(fixed))) { count('personal'); previousWasAid = false; continue; }
 
-    const isAid = AID_LINE.some((re) => re.test(fixed));
+    const isAid = AID_LINE.some((re) => re.test(fixed)) || MONEY.test(fixed);
     const isTrailingAmount = previousWasAid && AMOUNT_ONLY.test(fixed);
     if (!isAid && !isTrailingAmount) { count('unrelated'); previousWasAid = false; continue; }
 
@@ -117,7 +131,7 @@ export function redactPage(text) {
       safe = safe.replace(pattern, () => { count(key); return REDACTED; });
     }
     kept.push(safe);
-    previousWasAid = isAid;
+    previousWasAid = true;
   }
 
   return { text: kept.join('\n'), removed, keptLines: kept.length };

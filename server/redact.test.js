@@ -89,4 +89,43 @@ describe('OCR cleanup', () => {
     const t = redactPage('Federal Pell Grant\n$3,698.00 $3,697.00 $7,395.00\nWelcome back').text;
     expect(t).toBe('Federal Pell Grant\n$3,698.00 $3,697.00 $7,395.00');
   });
+
+  it('keeps an iPhone card layout where labels and amounts sit on separate lines', () => {
+    const card = [
+      'Welcome, Jordan Testperson',
+      'Jordan Testperson',
+      'Federal Pell Grant',
+      'Fall 2026',
+      '$3,698.00',
+      'Spring 2027',
+      '$3,697.00',
+      'Amount: $7,395.00',
+      'Direct Subsidized Loan',
+      '$3,500.00',
+      'Accepted',
+    ].join('\n');
+    const t = redactPage(card).text;
+    for (const v of ['$3,698.00', '$3,697.00', '$7,395.00', '$3,500.00', 'Federal Pell Grant', 'Direct Subsidized Loan']) expect(t).toContain(v);
+    expect(t).not.toContain('Jordan');
+    expect(t).not.toContain('Welcome');
+  });
+
+  it('drops FAFSA income, asset and family-status lines but keeps SAI and Pell', () => {
+    const fss = [
+      'Student Aid Index (SAI): 1500',
+      'Estimated Federal Pell Grant: $5,895',
+      'Adjusted gross income $41,200',
+      'Untaxed IRA distributions $0',
+      'Taxable scholarships and grants $0',
+      'Child support received $1,200',
+      'Cash, savings and checking $900',
+      'Received SNAP benefits: Yes',
+      'Foster care: No',
+      'Household size 4',
+    ].join('\n');
+    const t = redactPage(fss).text;
+    expect(t).toContain('Student Aid Index (SAI): 1500');
+    expect(t).toContain('Estimated Federal Pell Grant: $5,895');
+    for (const gone of ['41,200', 'IRA', 'Taxable', '1,200', 'savings', 'SNAP', 'Foster', 'Household']) expect(t).not.toContain(gone);
+  });
 });

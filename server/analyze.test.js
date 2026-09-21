@@ -167,11 +167,28 @@ describe('reading real-world screenshots', () => {
     try {
       const res = await run(['Federal Pell Grant Fall 2026 $3,698'], [fact({ value: '$1', quote: 'something else' })]);
       expect(res.statusCode).toBe(422);
-      expect(res.body).toMatch(/\(ref: [a-z+-]+\)/);
+      expect(res.body).toMatch(/\(ref: [a-z0-9+-]+\)/);
       expect(res.body).not.toContain('3,698');
     } finally { console.log = original; }
     expect(logs.join('\n')).toContain('Document reader:');
     expect(logs.join('\n')).not.toContain('Pell');
     expect(logs.join('\n')).not.toContain('IMG_0001');
+  });
+
+  it('marks an empty model answer so a failed screenshot can be diagnosed without content', async () => {
+    const res = await run(['Federal Pell Grant\nFall 2026\n$3,698.00'], []);
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatch(/ref: [a-z0-9+-]*model-empty/);
+    expect(res.body).toMatch(/lines-\d+/);
+    expect(res.body).not.toContain('3,698');
+  });
+
+  it('reads a figure whose label, term and amount were on separate lines', async () => {
+    const res = await run(['Federal Pell Grant\nFall 2026\n$3,698.00\nSpring 2027\n$3,697.00'], [
+      fact({ value: '$3,698.00', quote: 'Federal Pell Grant Fall 2026 $3,698.00' }),
+      fact({ value: '$3,697.00', period: 'Spring 2027', quote: 'Federal Pell Grant Spring 2027 $3,697.00' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.length).toBe(2);
   });
 });
