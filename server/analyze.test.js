@@ -51,14 +51,15 @@ describe('document reader', () => {
     expect(sent).toContain('Federal Pell Grant Fall 2026 $3,698');
   });
 
-  it('asks OpenAI only for Pell, scholarships, loans, SAI and balance fields', async () => {
+  it('asks OpenAI only for aid figures (Pell, grants, scholarships, loans, work-study, cost, SAI, bill)', async () => {
     vi.stubEnv('OPENAI_API_KEY', secret); vi.stubEnv('OPENAI_MODEL', 'test');
     const seen = [];
     vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts }, seen));
     await analyze(request({ consent: true, documents }), response());
     const fieldEnum = seen[0].text.format.schema.properties.facts.items.properties.field.enum;
     expect(fieldEnum).toEqual(READER_FIELDS);
-    expect(fieldEnum).not.toContain('workStudyOffer');
+    expect(fieldEnum).not.toContain('verificationStatus');
+    expect(fieldEnum).not.toContain('disbursementDate');
     expect(seen[0].store).toBe(false);
   });
 
@@ -190,5 +191,53 @@ describe('reading real-world screenshots', () => {
     ]);
     expect(res.statusCode).toBe(200);
     expect(res.body.summaryFacts.length).toBe(2);
+  });
+});
+
+describe('a portal table split across two screenshots', () => {
+  // Invented figures. One screenshot shows the names, the other (scrolled
+  // sideways) shows the amounts for the same rows.
+  const NAMES = 'Award Description/Category Decision\nFEDERAL PELL 1 GRANT\nAccept\nGrant\nUGRD INSTITUTIONAL GRANT 12\nFED DIRECT LOAN-SUBSIDIZED 1\nLoan\nTotals 15,800.00 10,300.00';
+  const AMOUNTS = 'Reduce Offered Accepted\npt 6,100.00 6,100.00\npt 4,200.00 4,200.00\nct 3,500.00 0.00\nct 2,000.00 0.00';
+  const send = async (docs, modelFacts) => {
+    vi.stubEnv('OPENAI_API_KEY', secret); vi.stubEnv('OPENAI_MODEL', 'test');
+    vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts: modelFacts }));
+    const res = response();
+    await analyze(request({ consent: true, documents: docs }), res);
+    return res;
+  };
+  const f = (over) => ({ field: 'grantOffer', label: 'Federal Pell Grant', value: '6,100.00', page: 1, document: 1, kind: 'award-letter', period: 'Not stated', estimated: false, quote: 'FEDERAL PELL 1 GRANT 6,100.00', ...over });
+
+  it('accepts amounts matched to names from the other screenshot', async () => {
+    const res = await send([{ name: 'IMG_1.png', pages: [NAMES] }, { name: 'IMG_2.png', pages: [AMOUNTS] }], [
+      f({}),
+      f({ label: 'Institutional Grant', value: '4,200.00', quote: 'UGRD INSTITUTIONAL GRANT 12 4,200.00' }),
+      f({ field: 'subsidizedLoanOffer', label: 'Direct Subsidized Loan', value: '3,500.00', quote: 'FED DIRECT LOAN-SUBSIDIZED 1 3,500.00' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.map((x) => x.value)).toEqual(['6,100.00', '4,200.00', '3,500.00']);
+  });
+
+  it('still refuses an amount printed in neither screenshot', async () => {
+    const res = await send([{ name: 'IMG_1.png', pages: [NAMES] }, { name: 'IMG_2.png', pages: [AMOUNTS] }], [f({ value: '9,999.00', quote: 'FEDERAL PELL 1 GRANT 9,999.00' })]);
+    expect(res.statusCode).toBe(422);
+  });
+
+  it('explains that the amounts screenshot needs the names screenshot', async () => {
+    const res = await send([{ name: 'IMG_2.png', pages: [AMOUNTS] }], []);
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatch(/award names/);
+    expect(res.body).toMatch(/together/);
+  });
+
+  it('explains that the names screenshot needs the amounts screenshot', async () => {
+    const res = await send([{ name: 'IMG_1.png', pages: [NAMES] }], []);
+    expect(res.statusCode).toBe(422);
+    expect(res.body).toMatch(/scrolls sideways/);
+  });
+
+  it('removes the avatar initials from a portal header', async () => {
+    const { redactPage } = await import('./redact.js');
+    expect(redactPage('< Accept/Decline JM )\nFED DIRECT LOAN-SUBSIDIZED 1 SAI').text).toBe('< Accept/Decline [removed] )\nFED DIRECT LOAN-SUBSIDIZED 1 SAI');
   });
 });

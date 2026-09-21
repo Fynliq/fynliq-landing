@@ -36,6 +36,7 @@ const PERSONAL_LINE = [
 /** Lines must mention one of these to be kept at all. */
 const AID_LINE = [
   /\bpell\b/i,
+  /\b(?:offered|accepted|accept|decline|reduced?|up\s+to|work[-\s]?study|you\s+may\s+be\s+eligible)\b/i,
   /\bscholarships?\b/i,
   /\bgrants?\b/i,
   /\bdirect\b/i,
@@ -97,6 +98,11 @@ const TOKEN_PATTERNS = [
   ['identifier', /(?:[*xX•]{2,}[-\s]?){1,4}\d{2,}/g],
 ];
 
+// Two- or three-letter capitals standing alone are usually an avatar's
+// initials ("JM" in a portal header). Common aid and form acronyms are kept.
+const ACRONYMS = new Set(['SAI', 'COA', 'EFC', 'FSEOG', 'SEOG', 'PLUS', 'FED', 'FWS', 'UG', 'US', 'USD', 'GPA', 'AID', 'SUB', 'TAP', 'CAL', 'ROTC', 'YTD', 'AM', 'PM', 'FY', 'AY', 'ID', 'NA', 'TBA', 'TBD', 'EST', 'PT', 'FT', 'TX']);
+const INITIALS = /\b[A-Z]{2,3}\b/g;
+
 const clean = (text) =>
   String(text ?? '')
     .normalize('NFKC')
@@ -130,6 +136,7 @@ export function redactPage(text) {
     for (const [key, pattern] of TOKEN_PATTERNS) {
       safe = safe.replace(pattern, () => { count(key); return REDACTED; });
     }
+    safe = safe.replace(INITIALS, (token) => (ACRONYMS.has(token) ? token : (count('initials'), REDACTED)));
     kept.push(safe);
     previousWasAid = true;
   }

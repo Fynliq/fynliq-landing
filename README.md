@@ -11,13 +11,13 @@ where a student uploads their own aid summary and gets their own answer back —
 what they keep, what they repay, what nothing is covering, what their school is
 actually asking for, and what to do next.
 
-[![Live](https://img.shields.io/badge/live-fynliq--landing.vercel.app-000?style=flat-square)](https://fynliq-landing.vercel.app)
+[![Live](https://img.shields.io/badge/live-fynliq--landing--nine.vercel.app-000?style=flat-square)](https://fynliq-landing-nine.vercel.app)
 [![React](https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-162%20passing-0E7A45?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-203%20passing-0E7A45?style=flat-square)](#testing)
 
-**[View the live site →](https://fynliq-landing.vercel.app)**
+**[View the live site →](https://fynliq-landing-nine.vercel.app)**
 
 </div>
 
@@ -31,6 +31,7 @@ actually asking for, and what to do next.
 
 - [What this is](#what-this-is)
 - [Inside the page](#inside-the-page)
+- [The account](#the-account)
 - [The beta flow](#the-beta-flow)
 - [The three tabs](#the-three-tabs)
 - [How the ranking works](#how-the-ranking-works)
@@ -101,13 +102,62 @@ aid office.
 
 <br />
 
+## The account
+
+Everything a student does with their own money is behind one log-in.
+
+```
+/            Join the beta  ──►  /login   ──►  /signup
+                                    │             │
+                                    └──────┬──────┘
+                                           ▼
+                                  /beta   the upload page
+                                  /search and the other two tabs
+                                  /ask
+```
+
+![The log-in page](docs/screenshots/auth-01-login.png)
+
+**Pressing Join the beta anywhere on the site now lands on `/login`.** Not the
+upload page, and not a modal over it — the gate is on the route, so every
+entrance leads through the same door and there is no path in that forgets to
+check. Signing up lands straight on the upload page, with Search and Ask
+Fynliq open behind it.
+
+![Creating an account](docs/screenshots/auth-03-signup.png)
+
+An email address and a password. No school, no phone number, no card, and no
+"tell us about yourself" step between a student and the thing they came for.
+
+The password rules are stated before they are typed against, and tick as they
+are met, rather than being sprung on submit. A refused log-in says *"that
+email and password do not match an account"* whichever half was wrong, because
+naming the half tells a stranger which addresses have signed up.
+
+**What is gated, and what is not.** `/beta`, `/search` and `/ask` are behind
+the account; the landing page and the Gradi page stay public, because they are
+how somebody decides whether to sign up at all. The whole rule is one array in
+`src/App.tsx` — moving a page either way is a line, not a refactor.
+
+**Logging out empties the tab.** The analysis is held in memory and nowhere
+else, and it goes when the session does. A shared library laptop does not show
+the last student's award to the next one.
+
+Until the account service is connected, accounts live in the browser —
+PBKDF2-SHA-256 over a per-account salt, compared in constant time, passwords
+never stored — and the log-in page says so on screen rather than implying a
+server that is not there. **[The full contract →](docs/AUTH_API.md)**
+
+<br />
+
 ## The beta flow
 
 Every **Join the beta** button leads to `/beta`, where a student uploads their
-own documents and gets their own answer back.
+own documents and gets their own answer back — by way of [the
+account](#the-account), which is where a student without one lands first.
 
 ```
-/            Join the beta
+/            Join the beta  →  /login  →  /signup
 /beta        Upload aid summary  →  Fynliq reads it
 /beta/results                       Personalised answer and next steps
 ```
@@ -323,18 +373,20 @@ rendering `$NaN` to somebody deciding how much to borrow.
 worked example, the error semantics, and the three rules the frontend enforces.
 No frontend changes are needed to connect it.
 
-### The other two seams
+### The other three seams
 
-Search and Ask are built the same way, and are independent of each other and
-of the reader — connect one, two or all three.
+Accounts, Search and Ask are built the same way, and are independent of each
+other and of the reader — connect one, or all four.
 
 ```bash
+VITE_FYNLIQ_AUTH_URL=https://api.fynliq.com/v1/auth       # docs/AUTH_API.md
 VITE_FYNLIQ_SEARCH_URL=https://api.fynliq.com/v1/search   # docs/SEARCH_ANALYTICS_API.md
 VITE_FYNLIQ_ASK_URL=https://api.fynliq.com/v1/ask         # docs/ASK_API.md
 ```
 
 | | Unset | Set |
 |---|---|---|
+| **Accounts** | Accounts live in the browser, hashed with PBKDF2, and the log-in page says so | `POST {url}/signup`, `POST {url}/login`, `GET {url}/session`, and the session validated |
 | **Search** | Sample volumes, labelled as sample figures on the page | Real demand, `GET` for the ranking and `POST {url}/events` per search |
 | **Ask** | Answers composed locally from the question library plus the student's own award | The question and their `AidAnalysis` are POSTed, and the response validated |
 
@@ -342,7 +394,11 @@ Each has a validator that fails loudly at the boundary with the offending path
 named, and a test suite that doubles as an executable spec for whoever
 implements it.
 
-The two rules those contracts exist to enforce, stated once:
+The three rules those contracts exist to enforce, stated once:
+
+**A `401` means "wrong", never "wrong password" or "no such account".** The
+frontend shows one sentence for both and ignores your body on a `401`, because
+naming which half failed tells a stranger which addresses have signed up.
 
 **Send counts, not rankings.** Every position on the search page is derived in
 `core/trending.ts`, so a ranking can never drift away from the numbers printed
@@ -366,6 +422,11 @@ npm test          # the money maths
 
 Requires Node 18+. No environment variables, no API keys, no backend — the page
 runs entirely from the demo dataset in `src/data/demo.ts`.
+
+The three tabs are behind [an account](#the-account), so the first thing to do
+on a fresh clone is press **Join the beta** and create one. It is kept in your
+browser until `VITE_FYNLIQ_AUTH_URL` points somewhere; clearing site data is
+how you start over.
 
 <br />
 
@@ -516,9 +577,9 @@ source.
 npm test
 ```
 
-162 tests across twelve suites, covering the layers where a bug would show a
-student a wrong number or a wrong ranking: the maths, and every boundary
-figures cross to reach it.
+203 tests across fourteen suites, covering the layers where a bug would show a
+student a wrong number, a wrong ranking, or somebody else's aid: the maths,
+and every boundary figures cross to reach it.
 
 | Suite | Covers |
 |---|---|
@@ -534,6 +595,8 @@ figures cross to reach it.
 | `search/__tests__/match.test.ts` | Query matching, including the client's own three-phrasing example resolving to one canonical question |
 | `search/__tests__/contract.test.ts` | The analytics contract, and the sample source proving it obeys the same rules |
 | `ask/__tests__/contract.test.ts` | The answer contract — including the rejection of a `personal` answer that names no fields |
+| `auth/__tests__/validate.test.ts` | What makes an email address and a password acceptable, and the words each refusal uses |
+| `auth/__tests__/contract.test.ts` | The session contract, including expiry on the boundary and the refusal of an un-normalised address |
 
 <br />
 
@@ -549,8 +612,9 @@ vercel --prod   # promote to production
 Vercel auto-detects the framework: build command `vite build`, output directory
 `dist`.
 
-**Every route but `/` is client-side, with no file behind it** — `/beta`,
-`/beta/results`, `/search`, `/search/<question>`, `/ask` and `/gradi` — so the
+**Every route but `/` is client-side, with no file behind it** — `/login`,
+`/signup`, `/beta`, `/beta/results`, `/search`, `/search/<question>`, `/ask`
+and `/gradi` — so the
 host has to serve `index.html` for any path. Otherwise a refresh, or a shared
 link to an answer, is a 404 from the host before the app ever loads. That
 rewrite is committed for both hosts and already covers the new routes:
@@ -559,7 +623,7 @@ rewrite is committed for both hosts and already covers the new routes:
 To run against a backend in development:
 
 ```bash
-cp .env.example .env.local   # then fill in whichever of the three you have
+cp .env.example .env.local   # then fill in whichever of the four you have
 npm run dev
 ```
 

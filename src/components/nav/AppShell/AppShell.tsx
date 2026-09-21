@@ -1,3 +1,4 @@
+import { AccountButton } from '../../auth/AccountButton/AccountButton';
 import { Logo } from '../../ui';
 import { TabBar, type TabId } from '../TabBar/TabBar';
 import styles from './AppShell.module.css';
@@ -34,9 +35,15 @@ export function AppShell({ tab, banner, children }: AppShellProps) {
           <a className={styles.home} href="/" aria-label="Fynliq, back to the home page">
             <Logo beta />
           </a>
-          <a className={styles.back} href="/">
-            <span aria-hidden="true">&larr;</span> Back to the site
-          </a>
+          <div className={styles.right}>
+            <a className={styles.back} href="/" aria-label="Back to the site">
+              <span aria-hidden="true">&larr;</span>
+              <span className={styles.backLabel} aria-hidden="true">
+                Back to the site
+              </span>
+            </a>
+            <AccountButton />
+          </div>
         </div>
       </header>
 

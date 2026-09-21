@@ -1,7 +1,4 @@
 .shell {
-  /* Room for the floating tab bar, plus the iOS home indicator behind it. */
-  --tabbar-space: calc(84px + env(safe-area-inset-bottom, 0px));
-
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -27,6 +24,8 @@
   top: var(--s-16);
 }
 
+/* Static, as in the beta flow: a bar that follows you down a form you are
+   typing a password into is one more thing moving while you concentrate. */
 .bar {
   border-bottom: 1px solid var(--line);
   background: var(--paper);
@@ -50,7 +49,9 @@
   align-items: center;
   gap: var(--s-8);
   border-radius: var(--r-pill);
-  transition: transform var(--press) var(--ease), color var(--press) var(--ease);
+  transition:
+    transform var(--press) var(--ease),
+    color var(--press) var(--ease);
 }
 
 .home:active,
@@ -72,29 +73,12 @@
   background: var(--sunk);
 }
 
-/* The account row sits opposite the wordmark: where you are going back to,
-   and who you are here as. */
-.right {
-  display: flex;
-  align-items: center;
-  gap: var(--s-8);
-  min-width: 0;
-}
-
-/* Under 600px the bar carries the logo, the way back and the way out, and
-   only two of those fit as words. The arrow keeps its accessible name. */
-.backLabel {
-  display: none;
-}
-
-@media (min-width: 600px) {
-  .backLabel {
-    display: inline;
-  }
-}
+/* ---- Body ------------------------------------------------------------- */
 
 .main {
   flex: 1;
+  display: flex;
+  align-items: center;
   width: 100%;
   max-width: var(--page-max);
   margin: 0 auto;
@@ -103,18 +87,73 @@
 
 @media (min-width: 768px) {
   .main {
-    padding-top: var(--s-40);
+    padding-top: var(--s-56);
+    padding-bottom: var(--s-56);
   }
 }
+
+.split {
+  width: 100%;
+  display: grid;
+  gap: var(--s-24);
+  align-items: center;
+}
+
+.split > * {
+  min-width: 0;
+}
+
+/*
+ * The form stays centred and narrow until there is genuinely room for a
+ * second column. A log-in form stretched across a laptop is a form whose
+ * fields are a foot wide.
+ */
+.form {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+@media (min-width: 940px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--s-56);
+  }
+
+  .form {
+    margin: 0;
+    max-width: 480px;
+    justify-self: end;
+    width: 100%;
+  }
+
+  .aside {
+    justify-self: start;
+    max-width: 420px;
+  }
+}
+
+/* The panel is context, not instruction: below the fold on a phone it would
+   be read by nobody, and above the form it would delay the one thing the
+   page is for. */
+.aside {
+  display: none;
+}
+
+@media (min-width: 940px) {
+  .aside {
+    display: block;
+  }
+}
+
+/* ---- Foot ------------------------------------------------------------- */
 
 .foot {
   border-top: 1px solid var(--line);
   width: 100%;
   max-width: var(--page-max);
   margin: 0 auto;
-  padding: var(--s-24) var(--gutter);
-  /* The tab bar floats over the page; nothing may end up underneath it. */
-  padding-bottom: calc(var(--s-24) + var(--tabbar-space));
+  padding: var(--s-24) var(--gutter) var(--s-32);
   display: flex;
   flex-direction: column;
   gap: var(--s-12);
@@ -139,26 +178,4 @@
 .copy {
   font-size: var(--t-13);
   color: var(--low);
-}
-
-@media print {
-  .shell {
-    min-height: 0;
-  }
-
-  .skip,
-  .bar {
-    display: none;
-  }
-
-  .main {
-    max-width: none;
-    padding: 0;
-  }
-
-  .foot {
-    max-width: none;
-    padding: var(--s-16) 0 0;
-    break-inside: avoid;
-  }
 }

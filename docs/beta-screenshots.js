@@ -16,6 +16,7 @@ import puppeteer from 'puppeteer-core';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { signUp } from './account.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'screenshots');
@@ -90,10 +91,15 @@ const upload = sampleFile();
 const page = await browser.newPage();
 watch(page, 'desktop');
 await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 2 });
+// 0. The flow is behind an account now, so get through the door first. The
+//    account journey itself is covered by docs/auth-screenshots.js.
+await signUp(page, URL);
+
 await page.goto(URL, { waitUntil: 'networkidle2', timeout: 60_000 });
 await page.evaluate(() => document.fonts.ready);
 
-// 1. Join the beta, from the navbar, as a student would.
+// 1. Join the beta, from the navbar, as a student would. Already logged in,
+//    so this goes straight through rather than by way of the log-in page.
 await page.click('header a[href="/beta"]');
 await expectRoute(page, '/beta', 'join');
 await page.evaluate(() => document.fonts.ready);
@@ -152,6 +158,8 @@ for (const width of [390, 768]) {
   const m = await browser.newPage();
   watch(m, `mobile ${width}`);
   await m.setViewport({ width, height: 844, deviceScaleFactor: width === 390 ? 3 : 2, isMobile: width === 390 });
+  // A new page is a new browser context as far as the session store goes.
+  await signUp(m, URL);
   await m.goto(`${URL}/beta`, { waitUntil: 'networkidle2', timeout: 60_000 });
   await m.evaluate(() => document.fonts.ready);
   await sleep(400);

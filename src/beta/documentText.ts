@@ -16,8 +16,12 @@ export type ReadProgress = (message: string) => void;
 type Ocr = (image: Blob | HTMLCanvasElement) => Promise<string>;
 
 async function createOcr(): Promise<{ read: Ocr; done: () => Promise<void> }> {
-  const { createWorker } = await import('tesseract.js');
+  const { createWorker, PSM } = await import('tesseract.js');
   const worker = await createWorker('eng');
+  // Read the page as one block so each table row stays on one line
+  // ("Federal Pell Grant 7,395.00 7,395.00"), which is how phone portals
+  // lay out aid tables. Auto layout splits columns apart.
+  await worker.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_BLOCK, preserve_interword_spaces: '1' });
   return {
     read: async (image) => (await worker.recognize(image)).data.text,
     done: async () => { await worker.terminate(); },
@@ -33,7 +37,7 @@ async function createOcr(): Promise<{ read: Ocr; done: () => Promise<void> }> {
 async function prepareImage(file: Blob): Promise<HTMLCanvasElement | Blob> {
   if (typeof createImageBitmap !== 'function') return file;
   const bitmap = await createImageBitmap(file);
-  const scale = bitmap.width < 1000 ? 2 : 1;
+  const scale = bitmap.width < 800 ? 2 : 1;
   const canvas = document.createElement('canvas');
   canvas.width = bitmap.width * scale;
   canvas.height = bitmap.height * scale;

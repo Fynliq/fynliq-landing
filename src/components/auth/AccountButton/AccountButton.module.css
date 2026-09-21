@@ -1,0 +1,55 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+}
+
+.who {
+  display: none;
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-14);
+  font-weight: 500;
+  color: var(--low);
+}
+
+/* The address is reassurance, and reassurance is the first thing to go when
+   the bar runs out of room. The button never goes. */
+@media (min-width: 600px) {
+  .who {
+    display: inline;
+  }
+}
+
+.out {
+  min-height: 44px;
+  padding: var(--s-8) var(--s-16);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line2);
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--mid);
+  white-space: nowrap;
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    color var(--press) var(--ease);
+}
+
+.out:hover {
+  background: var(--sunk);
+  color: var(--tx);
+}
+
+.out:active {
+  transform: scale(0.97);
+}
+
+@media print {
+  .wrap {
+    display: none;
+  }
+}

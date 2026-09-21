@@ -1,7 +1,9 @@
 import {useEffect,useState} from 'react';
 type MetricRow={user_id:string;signup_date:string;last_active:string|null;questions:number;successful_answers:number;is_returning:boolean};
 type Series={period:string;users:number}[];
-type Metrics=Record<string,unknown>&{users:MetricRow[];signups_by_day:Series;signups_by_week:Series;signups_by_month:Series};
+type AccountRow={email:string;created_at:string;last_login_at:string|null;login_count:number;questions:number};
+type AccountMetrics={total_accounts:number;accounts_today:number;accounts_7_days:number;accounts_30_days:number;logins_today:number;active_accounts_7_days:number;accounts_by_day:{period:string;accounts:number}[];accounts:AccountRow[]};
+type Metrics=Record<string,unknown>&{users:MetricRow[];signups_by_day:Series;signups_by_week:Series;signups_by_month:Series;accounts?:AccountMetrics|null};
 export function BetaAdmin(){
  const [email,setEmail]=useState(''),[code,setCode]=useState(''),[sent,setSent]=useState(false);
  const [data,setData]=useState<Metrics|null>(null),[error,setError]=useState('');
@@ -10,6 +12,8 @@ export function BetaAdmin(){
  return <main style={{padding:'40px',maxWidth:1200,margin:'auto'}}><h1>Fynliq beta usage</h1>{!data&&<form onSubmit={e=>{e.preventDefault();void signIn();}}><label>Administrator email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>{sent&&<label>Email code<input required autoComplete="one-time-code" value={code} onChange={e=>setCode(e.target.value)}/></label>}<button>{sent?'Verify code':'Send sign-in code'}</button></form>}
  {error&&<p role="alert">{error}</p>}
  {data&&<>
+ <section><h2>Accounts (log-in page)</h2>{data.accounts?<><dl>{([['total_accounts','Total accounts'],['accounts_today','New accounts today'],['accounts_7_days','New accounts, last 7 days'],['accounts_30_days','New accounts, last 30 days'],['logins_today','Log-ins today'],['active_accounts_7_days','Accounts that logged in, last 7 days']] as const).map(([key,label])=><div key={key}><dt>{label}</dt><dd>{data.accounts?.[key]}</dd></div>)}</dl>
+ <table><thead><tr><th>Email</th><th>Signed up</th><th>Last log-in</th><th>Log-ins</th><th>Questions asked</th></tr></thead><tbody>{data.accounts.accounts.map(a=><tr key={a.email}><td>{a.email}</td><td>{a.created_at}</td><td>{a.last_login_at||'Never'}</td><td>{a.login_count}</td><td>{a.questions}</td></tr>)}</tbody></table></>:<p>Account tracking is not set up yet: run supabase/migrations/202609210001_accounts_tracking.sql in the Supabase SQL editor.</p>}</section>
  <p>DAU counts question submissions today (UTC). WAU and MAU count distinct users submitting questions in the last 7 and 30 days. Returning means questions on at least two distinct UTC days. IDs represent guest browsers, not verified people. Page views and login alone do not count.</p>
  <dl>{[['total_signups','Total guest signups'],['activated_users','Activated users'],['returning_users','Returning users'],['dau','DAU'],['wau','WAU'],['mau','MAU'],['total_questions','Total questions'],['successful_answers','Successful answers'],['failed_answers','Failed answers'],['pending_answers','Pending answers'],['questions_per_user','Questions per user'],['new_today','New users today'],['new_7_days','New users: 7 days'],['new_30_days','New users: 30 days']].map(([key,label])=><div key={key}><dt>{label}</dt><dd>{String(data[key]??0)}</dd></div>)}</dl>
  {(['day','week','month'] as const).map(period=><section key={period}><h2>Signups by {period} (UTC)</h2><table><thead><tr><th>Period</th><th>New users</th></tr></thead><tbody>{data[`signups_by_${period}`].map(row=><tr key={row.period}><td>{row.period}</td><td>{row.users}</td></tr>)}</tbody></table></section>)}

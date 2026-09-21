@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
 import { Logo } from '../ui';
 import styles from './Navbar.module.css';
 
@@ -12,6 +13,7 @@ const LINKS = [
 ] as const;
 
 export function Navbar() {
+  const { session } = useAuth();
   const [lifted, setLifted] = useState(false);
   const [current, setCurrent] = useState<string>('');
 
@@ -63,8 +65,17 @@ export function Navbar() {
           ))}
         </nav>
 
+        {/*
+          One button, and it always points at /beta.
+
+          A returning student needs no separate "Log in" link: the gate sends
+          anybody without an account to the log-in page anyway, so a second
+          button here would lead to the same screen and only make the bar
+          harder to read. What does change is the label — "Join the beta" is
+          a strange thing to read once you have joined.
+        */}
         <a className={styles.cta} href="/beta">
-          Join the beta
+          {session ? 'My aid' : 'Join the beta'}
         </a>
       </div>
     </header>

@@ -1,4 +1,4 @@
-import type { AidAnalysis } from '../core';
+import { analysisFromFacts, type AidAnalysis } from '../core';
 import { AnalysisError, type AidAnalyzer, type AnalyzeOptions } from './analyzer';
 import { AnalysisFormatError, parseAnalysis } from './contract';
 import { readDocuments } from './documentText';
@@ -95,7 +95,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       }
 
       try {
-        return parseAnalysis(payload);
+        return analysisFromFacts(parseAnalysis(payload));
       } catch (error) {
         if (error instanceof AnalysisFormatError) {
           throw new AnalysisError(error.message, 'format');
