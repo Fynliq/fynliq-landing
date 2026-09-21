@@ -68,6 +68,7 @@ describe('account log-in', () => {
     await createAccountHandler('session', { env, clients: () => c })({ method: 'GET', headers: { cookie } }, restored);
     expect(restored.statusCode).toBe(200);
     expect(restored.body.account.email).toBe('sam@school.edu');
+    expect(restored.headers['Set-Cookie']).toMatch(/Max-Age=34560000/);
     expect(c.db.calls.filter(([n]) => n === 'account_start_session')).toHaveLength(2);
   });
 

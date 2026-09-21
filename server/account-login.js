@@ -8,10 +8,12 @@
 import { clients, rpc, sameOrigin, body, session as guestSession, hash, newSession, rate, BetaError } from './beta.js';
 
 export const ACCOUNT_COOKIE = '__Host-fynliq_account';
-const THIRTY_DAYS = 30 * 24 * 60 * 60;
+// Browsers cap cookie lifetimes at about 400 days. Every visit renews both
+// the cookie and the database session, so an account in use stays logged in.
+const STAY_LOGGED_IN = 400 * 24 * 60 * 60;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function accountCookie(value, seconds = THIRTY_DAYS) {
+export function accountCookie(value, seconds = STAY_LOGGED_IN) {
   return `${ACCOUNT_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${seconds}`;
 }
 
@@ -60,6 +62,7 @@ export function createAccountHandler(action, dependencies = {}) {
         const value = accountToken(req);
         const row = value ? await rpc(db, 'account_session', { p_hash: hash(value) }) : null;
         if (!row) return res.status(401).send('Not logged in.');
+        res.setHeader('Set-Cookie', accountCookie(value));
         // Keep attributing this browser's questions to the account.
         const guest = await guestId(req, db, env);
         if (guest) await rpc(db, 'account_link_guest', { p_user: row.user_id, p_guest: guest }).catch(() => {});
