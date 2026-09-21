@@ -14,3 +14,6 @@ docs/.tmp
 # variable connects the document reader, so it stays tracked.
 .env*
 !.env.example
+
+# Worktrees checked out by editor tooling.
+.kilo/
