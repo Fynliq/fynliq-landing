@@ -6,3 +6,4 @@ export declare function redactDocuments(documents: { name?: string; pages: strin
   keptLines: number;
   removed: Record<string, number>;
 }[];
+export declare function fixOcrNumbers(line: string): string;

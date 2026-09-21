@@ -46,7 +46,24 @@ const AID_LINE = [
 ];
 
 /** A line that is only an amount, as happens when a table splits label and value. */
-const AMOUNT_ONLY = /^\s*[-(]?\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\)?\s*$|^\s*[-(]?\$?\s?\d+(?:\.\d{2})?\)?\s*$/;
+const AMOUNT = String.raw`[-(]?\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\)?|[-(]?\$?\s?\d+(?:\.\d{2})?\)?`;
+const AMOUNT_ONLY = new RegExp(`^\\s*(?:${AMOUNT})(?:\\s+(?:${AMOUNT})){0,5}\\s*$`);
+
+/**
+ * Screenshots go through OCR, which misreads digits in predictable ways:
+ * "S3,698" for "$3,698", "$l,750" for "$1,750", "2O26" for "2026", "−1500"
+ * for "-1500". Fix those inside number-shaped tokens only, so the figures the
+ * reader sees match what the student's screen actually said.
+ */
+export function fixOcrNumbers(line) {
+  return String(line)
+    .replace(/[\u2212\u2012\u2013\u2014](?=\s?\$?\d)/g, '-')
+    .replace(/(^|[\s(:])S(?=\d{1,3}(?:[,.]\d{3})*(?:\.\d{2})?\b)/g, '$1$')
+    .replace(/\$\s+(?=\d)/g, '$')
+    .replace(/(?<![A-Za-z])\$?[0-9OoIl|][0-9OoIl|,.]*[0-9OoIl|](?![A-Za-z])/g, (token) =>
+      token.replace(/[^0-9]/g, '').length >= 2 ? token.replace(/[Oo]/g, '0').replace(/[Il|]/g, '1') : token,
+    );
+}
 
 /** Token-level patterns blacked out even on kept lines. Order matters. */
 const TOKEN_PATTERNS = [
@@ -86,13 +103,16 @@ export function redactPage(text) {
   let previousWasAid = false;
   for (const line of lines) {
     if (line.length > 300) { count('overlong'); previousWasAid = false; continue; }
-    if (PERSONAL_LINE.some((re) => re.test(line))) { count('personal'); previousWasAid = false; continue; }
+    const fixed = fixOcrNumbers(line);
+    // Checked on both the raw and the OCR-corrected line: either one looking
+    // personal is enough to drop it.
+    if (PERSONAL_LINE.some((re) => re.test(line) || re.test(fixed))) { count('personal'); previousWasAid = false; continue; }
 
-    const isAid = AID_LINE.some((re) => re.test(line));
-    const isTrailingAmount = previousWasAid && AMOUNT_ONLY.test(line);
+    const isAid = AID_LINE.some((re) => re.test(fixed));
+    const isTrailingAmount = previousWasAid && AMOUNT_ONLY.test(fixed);
     if (!isAid && !isTrailingAmount) { count('unrelated'); previousWasAid = false; continue; }
 
-    let safe = line;
+    let safe = fixed;
     for (const [key, pattern] of TOKEN_PATTERNS) {
       safe = safe.replace(pattern, () => { count(key); return REDACTED; });
     }

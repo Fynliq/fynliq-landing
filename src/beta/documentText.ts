@@ -24,6 +24,39 @@ async function createOcr(): Promise<{ read: Ocr; done: () => Promise<void> }> {
   };
 }
 
+/**
+ * Makes a screenshot easier for OCR to read. Phone screenshots are often in
+ * dark mode, and OCR reads light text on a dark background badly, so the image
+ * is converted to grayscale and inverted when it is mostly dark. Small images
+ * are scaled up. Runs entirely on the device.
+ */
+async function prepareImage(file: Blob): Promise<HTMLCanvasElement | Blob> {
+  if (typeof createImageBitmap !== 'function') return file;
+  const bitmap = await createImageBitmap(file);
+  const scale = bitmap.width < 1000 ? 2 : 1;
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width * scale;
+  canvas.height = bitmap.height * scale;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) { bitmap.close(); return file; }
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const image = context.getImageData(0, 0, canvas.width, canvas.height);
+  const px = image.data;
+  let total = 0;
+  for (let i = 0; i < px.length; i += 4) {
+    const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+    px[i] = px[i + 1] = px[i + 2] = gray;
+    total += gray;
+  }
+  if (total / (px.length / 4) < 128) {
+    for (let i = 0; i < px.length; i += 4) px[i] = px[i + 1] = px[i + 2] = 255 - px[i];
+  }
+  context.putImageData(image, 0, 0);
+  return canvas;
+}
+
 interface PositionedText { str: string; x: number; y: number }
 
 /** Rebuilds visual lines from pdf.js text items, which arrive as loose fragments. */
@@ -103,7 +136,7 @@ export async function readDocuments(files: File[], progress: ReadProgress = () =
         results.push(await readPdf(file, progress, ocr));
       } else {
         progress(`Reading ${file.name}`);
-        results.push([await (await ocr())(file)]);
+        results.push([await (await ocr())(await prepareImage(file))]);
       }
     }
     return results;

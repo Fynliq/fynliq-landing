@@ -102,3 +102,76 @@ describe('document reader', () => {
     expect(res.statusCode).toBe(422);
   });
 });
+
+describe('reading real-world screenshots', () => {
+  const doc = (pages) => [{ name: 'IMG_0001.png', pages }];
+  const run = async (pages, modelFacts, extra = {}) => {
+    vi.stubEnv('OPENAI_API_KEY', secret); vi.stubEnv('OPENAI_MODEL', 'test');
+    vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts: modelFacts, ...extra }));
+    const res = response();
+    await analyze(request({ consent: true, documents: doc(pages) }), res);
+    return res;
+  };
+  const fact = (over) => ({ field: 'grantOffer', label: 'Federal Pell Grant', value: '$3,698', page: 1, document: 1, kind: 'award-letter', period: 'Fall 2026', estimated: false, quote: 'Federal Pell Grant Fall 2026 $3,698', ...over });
+
+  it('accepts "$3,698" when the screenshot says "$3,698.00"', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 $3,698.00'], [fact({ quote: 'Federal Pell Grant Fall 2026 $3,698.00' })]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts[0].value).toBe('$3,698.00');
+  });
+
+  it('repairs OCR slips like "S3,698" and "$l,750" in the quote', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 S3,698\nDirect Subsidized Loan $l,750'], [
+      fact({ quote: 'Federal Pell Grant Fall 2026 S3,698' }),
+      fact({ field: 'subsidizedLoanOffer', label: 'Direct Subsidized Loan', value: '$1,750', period: 'Not stated', quote: 'Direct Subsidized Loan $l,750' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.map((f) => f.value)).toEqual(['$3,698', '$1,750']);
+  });
+
+  it('keeps the good figures when one figure is bad, instead of failing everything', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 $3,698\nPresidential Scholarship $2,500'], [
+      fact({}),
+      fact({ field: 'scholarshipOffer', label: 'Scholarship', value: '$2,500', period: 'Not stated', quote: 'Scholarship: see portal' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.map((f) => f.field)).toEqual(['grantOffer']);
+  });
+
+  it('does not throw away the read because the model listed a possible conflict', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 $3,698'], [fact({})], { conflicts: ['Pell may differ from FAFSA estimate'] });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('drops a figure that is not printed anywhere in the document, even if quoted', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 $3,698'], [
+      fact({}),
+      fact({ field: 'scholarshipOffer', label: 'Scholarship', value: '$9,999', period: 'Not stated', quote: 'Scholarship $9,999' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.map((f) => f.value)).toEqual(['$3,698']);
+  });
+
+  it('drops both figures when the same line has two different amounts, keeps the rest', async () => {
+    const res = await run(['Federal Pell Grant Fall 2026 $3,698\nFederal Pell Grant Fall 2026 $3,000\nPresidential Scholarship $2,500'], [
+      fact({}),
+      fact({ value: '$3,000', quote: 'Federal Pell Grant Fall 2026 $3,000' }),
+      fact({ field: 'scholarshipOffer', label: 'Presidential Scholarship', value: '$2,500', period: 'Not stated', quote: 'Presidential Scholarship $2,500' }),
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.summaryFacts.map((f) => f.field)).toEqual(['scholarshipOffer']);
+  });
+
+  it('explains a total failure with a content-free reference code', async () => {
+    const logs = []; const original = console.log; console.log = (...a) => logs.push(a.join(' '));
+    try {
+      const res = await run(['Federal Pell Grant Fall 2026 $3,698'], [fact({ value: '$1', quote: 'something else' })]);
+      expect(res.statusCode).toBe(422);
+      expect(res.body).toMatch(/\(ref: [a-z+-]+\)/);
+      expect(res.body).not.toContain('3,698');
+    } finally { console.log = original; }
+    expect(logs.join('\n')).toContain('Document reader:');
+    expect(logs.join('\n')).not.toContain('Pell');
+    expect(logs.join('\n')).not.toContain('IMG_0001');
+  });
+});

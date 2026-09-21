@@ -75,3 +75,18 @@ describe('redaction', () => {
     expect(JSON.stringify(doc.removed)).not.toMatch(/\d{3}-\d{2}/);
   });
 });
+
+describe('OCR cleanup', () => {
+  it('fixes common digit misreads inside amounts only', async () => {
+    const { fixOcrNumbers } = await import('./redact');
+    expect(fixOcrNumbers('Federal Pell Grant S3,698.00')).toBe('Federal Pell Grant $3,698.00');
+    expect(fixOcrNumbers('Direct Loan $l,750')).toBe('Direct Loan $1,750');
+    expect(fixOcrNumbers('Fall 2O26')).toBe('Fall 2026');
+    expect(fixOcrNumbers('SAI: −1500')).toBe('SAI: -1500');
+    expect(fixOcrNumbers('Olivia Scholarship')).toBe('Olivia Scholarship');
+  });
+  it('keeps a row of amounts under an aid label, as tables produce', () => {
+    const t = redactPage('Federal Pell Grant\n$3,698.00 $3,697.00 $7,395.00\nWelcome back').text;
+    expect(t).toBe('Federal Pell Grant\n$3,698.00 $3,697.00 $7,395.00');
+  });
+});
