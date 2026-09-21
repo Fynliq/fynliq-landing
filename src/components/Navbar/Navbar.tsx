@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Logo } from '../ui';
 import styles from './Navbar.module.css';
-import { AccountButton } from '../../accounts/AccountProvider';
 
 const LINKS = [
   { href: '#clarity', label: 'Your money' },
@@ -67,7 +66,6 @@ export function Navbar() {
         <a className={styles.cta} href="/beta">
           Join the beta
         </a>
-        <AccountButton />
       </div>
     </header>
   );
