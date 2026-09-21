@@ -161,6 +161,27 @@
   }
 }
 
+/* The account row sits opposite the wordmark: where you are going back to,
+   and who you are here as. */
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--s-8);
+  min-width: 0;
+}
+
+/* Under 600px the bar carries the logo, the way back and the way out, and
+   only two of those fit as words. The arrow keeps its accessible name. */
+.backLabel {
+  display: none;
+}
+
+@media (min-width: 600px) {
+  .backLabel {
+    display: inline;
+  }
+}
+
 /* ---- Body ------------------------------------------------------------- */
 
 .main {

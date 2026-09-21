@@ -1,6 +1,6 @@
-# Every route but / is client-side, with no file behind it: /beta,
-# /beta/results, /search, /search/<question>, /ask and /gradi. Without this, a
-# refresh — or a shared link to an answer — is a 404 from the host before the
-# app ever loads. Netlify reads this file; Vercel reads the equivalent rewrite
-# in vercel.json.
+# Every route but / is client-side, with no file behind it: /login, /signup,
+# /beta, /beta/results, /search, /search/<question>, /ask and /gradi. Without
+# this, a refresh — or a shared link to an answer — is a 404 from the host
+# before the app ever loads. Netlify reads this file; Vercel reads the
+# equivalent rewrite in vercel.json.
 /*    /index.html   200

@@ -22,6 +22,7 @@ import puppeteer from 'puppeteer-core';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { signUp } from './account.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.join(HERE, 'screenshots');
@@ -100,6 +101,9 @@ fs.mkdirSync(OUT, { recursive: true });
 const page = await browser.newPage();
 watch(page, 'desktop');
 await page.setViewport({ width: 1440, height: 1000, deviceScaleFactor: 2 });
+// The three tabs are behind an account now. The account journey itself is
+// covered by docs/auth-screenshots.js; here it is just the way in.
+await signUp(page, URL);
 await page.goto(`${URL}/search`, { waitUntil: 'networkidle2', timeout: 60_000 });
 await page.evaluate(() => document.fonts.ready);
 // The ranking arrives from the analytics seam; skeletons come first.
@@ -244,6 +248,8 @@ for (const width of [390, 768]) {
     deviceScaleFactor: width === 390 ? 3 : 2,
     isMobile: width === 390,
   });
+
+  await signUp(m, URL);
 
   for (const route of ['/search', '/search/when-will-my-financial-aid-refund-arrive', '/ask', '/gradi']) {
     await m.goto(`${URL}${route}`, { waitUntil: 'networkidle2', timeout: 60_000 });
