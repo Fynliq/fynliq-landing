@@ -36,7 +36,9 @@ export function validateSummary(data, fileCount = 3) {
     const numericValue = normalize(f.value);
     if (/^-?\d+(?:\.\d+)?$/.test(numericValue)) {
       const exactNumber = new RegExp(`(^|[^\\d.+-])${numericValue.replace('.', '\\.')}($|[^\\d.])`);
-      if (!exactNumber.test(normalize(f.quote))) throw Error('Value is only part of a quoted number');
+      // Keep spaces here: "Fall 2026 $3,698" must not collapse into "20263698".
+      const spaced = f.quote.toLowerCase().replace(/[$,]/g, '').replace(/\s+/g, ' ');
+      if (!exactNumber.test(spaced)) throw Error('Value is only part of a quoted number');
     }
     const key = `${f.field}|${normalize(f.label)}|${normalize(f.period)}`;
     if (seen.has(key) && seen.get(key) !== normalize(f.value)) throw Error('Conflicting values');

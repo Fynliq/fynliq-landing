@@ -75,10 +75,24 @@ describe('personalized answers', () => {
   });
 });
 
-describe('Phase 1 upload boundary', () => {
-  it('blocks all raw files without calling OpenAI', async () => {
+describe('upload boundary', () => {
+  it('refuses raw files without calling OpenAI', async () => {
+    vi.stubEnv('OPENAI_API_KEY', secret); vi.stubEnv('OPENAI_MODEL', 'test');
     const call=vi.fn();vi.stubGlobal('fetch',call);
     const res=response();await analyze({method:'POST',headers:{},body:{consent:true,files:[{type:'application/pdf',data:'synthetic'}]}},res);
-    expect(res.statusCode).toBe(503);expect(call).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(400);expect(call).not.toHaveBeenCalled();
+  });
+});
+
+describe('figures next to a year', () => {
+  it('accepts an amount printed right after a term and year', () => {
+    const data = fixture();
+    data.facts[2] = { ...data.facts[2], value: '$3,698', quote: 'Federal Pell Grant Fall 2026 $3,698' };
+    expect(validateSummary(data)[2].value).toBe('$3,698');
+  });
+  it('still rejects a value that is only part of a printed number', () => {
+    const data = fixture();
+    data.facts[2] = { ...data.facts[2], value: '369', quote: 'Federal Pell Grant Fall 2026 $3,698' };
+    expect(() => validateSummary(data)).toThrow();
   });
 });

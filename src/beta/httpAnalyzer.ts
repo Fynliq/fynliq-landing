@@ -1,9 +1,11 @@
 import type { AidAnalysis } from '../core';
 import { AnalysisError, type AidAnalyzer, type AnalyzeOptions } from './analyzer';
 import { AnalysisFormatError, parseAnalysis } from './contract';
+import { readDocuments } from './documentText';
+import { redactDocuments } from '../../server/redact.js';
 
-/** JSON property containing base64-encoded files. */
-export const UPLOAD_FIELD = 'files';
+/** JSON property containing the redacted text of each document. */
+export const UPLOAD_FIELD = 'documents';
 
 /**
  * Posts the student's files to the document reader and validates what comes
@@ -22,17 +24,31 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       const { signal, onStage } = options;
 
       if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected');
-      const encoded = await Promise.all(files.map(async file => {
-        const bytes = new Uint8Array(await file.arrayBuffer());
-        let binary = '';
-        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-        const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
-        const type = file.type || ({ pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' } as Record<string, string>)[extension];
-        return { name: file.name, type, data: btoa(binary) };
-      }));
-      const body = JSON.stringify({ consent: true, files: encoded });
 
+      // 1. Read each file on this device. The file itself is never uploaded.
       onStage?.('reading');
+      let pages: string[][];
+      try {
+        pages = await readDocuments(files);
+      } catch {
+        if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
+        throw new AnalysisError('Fynliq could not open one of these files. Try a PDF or a clear screenshot of your aid page.', 'rejected');
+      }
+      if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
+
+      // 2. Black out personal details and keep only the aid lines, still on this device.
+      onStage?.('extracting');
+      const redacted = redactDocuments(pages.map((p) => ({ pages: p })));
+      if (redacted.every((doc) => doc.keptLines === 0)) {
+        throw new AnalysisError('Fynliq could not find Pell Grant, scholarship, loan, SAI or balance figures in these files. Try a clearer screenshot of your aid summary.', 'rejected');
+      }
+      const body = JSON.stringify({
+        consent: true,
+        documents: files.map((file, i) => ({ name: file.name, pages: redacted[i].pages })),
+      });
+
+      // 3. Only the redacted aid lines are sent to be read.
+      onStage?.('checking');
 
       let response: Response;
       try {

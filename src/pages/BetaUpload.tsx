@@ -34,7 +34,7 @@ const WHAT_TO_UPLOAD = [
 ];
 
 const PRIVACY = [
-  'Document processing is temporarily unavailable while privacy checks are added. Do not upload sensitive files. Invited students can use Ask Fynliq for general questions.',
+  'Your file is read on your own device and is never uploaded. Names, Social Security numbers, birth dates, addresses, emails, phone numbers and ID or account numbers are blacked out first, and only the Pell Grant, scholarship, loan, SAI and balance lines are sent to OpenAI to be read.',
   'Fynliq is not connected to FAFSA, your school or any lender, and cannot change anything on your account.',
   'Figures the document does not state are left blank. Nothing is estimated to fill a gap.',
 ];
@@ -159,7 +159,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               </div>
 
               <div className={styles.actions}>
-                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send these documents to OpenAI for AI processing. I have removed Social Security numbers, birth dates and account identifiers. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
+                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send the aid lines from these documents to OpenAI for AI processing. Personal details are removed on this device first, but automated removal can miss something. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
                 <button
                   type="button"
                   className={styles.submit}
