@@ -1,8 +1,42 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/api/(.*)", "status": 404 },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "src": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "fynliq-landing-nine.vercel.app"
+        }
+      ],
+      "status": 308,
+      "headers": {
+        "Location": "https://www.fynliq.com/$1"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "fynliq-landing.vercel.app"
+        }
+      ],
+      "status": 308,
+      "headers": {
+        "Location": "https://www.fynliq.com/$1"
+      }
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/api/(.*)",
+      "status": 404
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ]
 }
