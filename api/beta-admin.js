@@ -8,7 +8,8 @@ export function createAdminHandler(dependencies={}){return async(req,res)=>{
     const metrics=await rpc(db,'beta_metrics');
     // Account sign-ups and log-ins (null until the accounts migration is applied).
     const accounts=await rpc(db,'account_metrics').catch(()=>null);
-    return res.json({...metrics,accounts});
+    const uploads=await rpc(db,'upload_metrics').catch(()=>null);
+    return res.json({...metrics,accounts,uploads});
   }catch(error){return fail(res,error);}
 };}
 export default createAdminHandler();

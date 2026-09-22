@@ -241,3 +241,30 @@ describe('a portal table split across two screenshots', () => {
     expect(redactPage('< Accept/Decline JM )\nFED DIRECT LOAN-SUBSIDIZED 1 SAI').text).toBe('< Accept/Decline [removed] )\nFED DIRECT LOAN-SUBSIDIZED 1 SAI');
   });
 });
+
+describe('upload tracking', () => {
+  it('records the outcome and counts of each read, never the content', async () => {
+    const { setUploadTracker } = await import('../api/analyze.js');
+    const seen = [];
+    setUploadTracker(async (_req, event) => { seen.push(event); });
+    try {
+      vi.stubEnv('OPENAI_API_KEY', secret); vi.stubEnv('OPENAI_MODEL', 'test');
+      vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts }));
+      await analyze(request({ consent: true, documents }), response());
+      vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts: [] }));
+      await analyze(request({ consent: true, documents: [{ name: 'IMG_1.png', pages: ['Federal Pell Grant\nFall 2026\n$3,698.00'] }] }), response());
+      await analyze(request({ consent: true, documents: [{ name: 'x.png', pages: ['Hello world'] }] }), response());
+    } finally { setUploadTracker(async () => {}); }
+    expect(seen.map((e) => e.outcome)).toEqual(['read', 'unreadable', 'no_aid_lines']);
+    expect(seen[0]).toEqual({ outcome: 'read', files: 3, figures: 4 });
+    expect(seen[1].reason).toMatch(/^[a-z0-9+-]+$/);
+    const stored = JSON.stringify(seen);
+    for (const v of ['Pell', '3,698', 'IMG_1', 'Jordan', 'fafsa']) expect(stored).not.toContain(v);
+  });
+
+  it('never lets tracking break an upload', async () => {
+    const { recordUpload } = await import('../server/upload-tracking.js');
+    expect(await recordUpload({ headers: {} }, { outcome: 'read', files: 1 })).toBeUndefined();
+    await recordUpload({ headers: {} }, { outcome: 'read', files: 1 }, { clients: () => { throw new Error('db down'); } });
+  });
+});

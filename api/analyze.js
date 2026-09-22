@@ -10,6 +10,11 @@ import { summarySchema, validateSummary, signSummary } from '../server/summary.j
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
 import { PrivacyError, PRIVACY_MESSAGE } from '../server/privacy.js';
+import { recordUpload } from '../server/upload-tracking.js';
+
+// Swappable in tests; records outcomes only, never document content.
+let track = recordUpload;
+export function setUploadTracker(fn) { track = fn; }
 
 export const config = { maxDuration: 60 };
 
@@ -197,6 +202,7 @@ export default async function handler(req, res) {
   // Defence in depth: whatever the browser did, redact again here.
   const redacted = redactDocuments(documents);
   if (redacted.every((d) => d.keptLines === 0)) {
+    await track(req, { outcome: 'no_aid_lines', files: documents.length });
     return bad(res, 422, 'Fynliq could not find Pell Grant, scholarship, loan, SAI or balance figures in these files. Try a clearer screenshot of your aid summary.');
   }
 
@@ -209,9 +215,13 @@ export default async function handler(req, res) {
     extracted = await structuredResponse(input, INSTRUCTIONS, readerSchema,
       { apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL, maxOutputTokens: 3000 });
   } catch (error) {
-    if (error instanceof PrivacyError) return bad(res, 400, PRIVACY_MESSAGE);
+    if (error instanceof PrivacyError) {
+      await track(req, { outcome: 'privacy_blocked', files: documents.length });
+      return bad(res, 400, PRIVACY_MESSAGE);
+    }
     // Never log the error body: it can echo document text.
     console.error('Document reader provider error:', error?.name ?? 'Error');
+    await track(req, { outcome: 'reader_error', files: documents.length });
     return bad(res, 502, 'The document reader is not responding right now. Please try again in a moment.');
   }
 
@@ -239,9 +249,11 @@ export default async function handler(req, res) {
     let message = 'Fynliq could not read the aid figures clearly enough in this screenshot. Try a sharper screenshot of just the award table, with the page zoomed in.';
     if (!names && amounts) message = 'This screenshot shows amounts but not the award names next to them, so Fynliq cannot tell which is which. Upload it together with a screenshot that shows the award names (you can choose up to 3 files at once).';
     else if (names && !rowAmounts) message = 'This screenshot shows the award names but not the amount for each one. If your aid table scrolls sideways, take a second screenshot of the amounts and upload both together.';
+    await track(req, { outcome: 'unreadable', files: documents.length, reason: ref });
     return bad(res, 422, `${message} (ref: ${ref})`);
   }
 
+  await track(req, { outcome: 'read', files: documents.length, figures: facts.length });
   const sai = facts.find((f) => f.field === 'sai');
   return res.json({
     document: { kind: facts[0].kind, fileNames: documents.map((d) => d.name), readAt: new Date().toISOString(), confidence: 0.6 },
