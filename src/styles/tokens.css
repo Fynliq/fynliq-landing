@@ -156,6 +156,23 @@
   --partner-gradi: #ce1f6e;
   --partner-gradi-soft: #fdeaf3;
 
+  /*
+   * Gradi's coral, which is the fill on the sign-up walkthrough. Same rule as
+   * the pink above: a third party's colour, on a third party's offer, never
+   * marking a Fynliq state.
+   *
+   * White on this coral is 3.47:1. That clears AA for large text and does not
+   * clear it for body text, so the walkthrough's hero sets its one paragraph
+   * at 21px and above and keeps it pure white rather than the translucent
+   * --on-dark-mid. Everything below the hero is ink on white and compliant.
+   * If the coral has to clear AA at body size, darken this one value to
+   * around #c1121f and nothing else needs to move.
+   */
+  --partner-coral: #f74a5a;
+  /* 5.480:1 against white: safe for the figures and the copy-code label. */
+  --partner-coral-ink: #d81b37;
+  --partner-coral-soft: #fde8eb;
+
   /* ---- Ink: the deep surface the dark bands sit on ---------------- */
   --ink: #0d0f0e;
   --ink-2: #161a18;

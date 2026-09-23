@@ -15,7 +15,7 @@ actually asking for, and what to do next.
 [![React](https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
-[![Tests](https://img.shields.io/badge/tests-203%20passing-0E7A45?style=flat-square)](#testing)
+[![Tests](https://img.shields.io/badge/tests-221%20passing-0E7A45?style=flat-square)](#testing)
 
 **[View the live site →](https://fynliq-landing-nine.vercel.app)**
 
@@ -349,6 +349,44 @@ anything about money.
 
 <br />
 
+### The walkthrough
+
+`/gradi/start` — the same offer, for a student who has already agreed with the
+argument and is now trying to actually do it. `/gradi` is the case; this is the
+checklist.
+
+![Make your first $10](docs/screenshots/gradi-start-01-hero.png)
+
+Six steps, in somebody else's app, and the student is switching between two
+apps and losing their place. So the page **remembers which steps are ticked**,
+in `localStorage`, per browser, sent nowhere. The stored value is read back
+defensively: an index pointing past the end of a shortened list is dropped
+rather than trusted, because a checklist that throws on a stale key would take
+the whole page with it, and the page is the only route to the money.
+
+![The six steps](docs/screenshots/gradi-start-02-steps.png)
+
+**The $5 appears wherever the $10 does** — in the hero, in step two, in the
+questions and in the terms — and the terms say plainly that the $5 is gone
+whether or not the likes ever arrive. A page that leads with a payout and
+buries the fee is the kind of page this product exists to argue against.
+
+There is still **no earnings figure**. The $10 is a fixed sum on a referral
+link, not a guess at what a creator makes, and nothing turns it into a rate.
+
+The referral relationship is answered under *Does Fynliq get anything?*, in the
+student's own words rather than in small print. Both calls to action carry
+`rel="sponsored"`, and `docs/gradi-screenshots.js` fails the build if either
+one stops doing so.
+
+The link, the code and both figures live in `src/gradi/offer.ts` — one place,
+so the two Gradi pages can never point at different offers. **Confirm
+`GRADI_CODE` against what Gradi actually issued before launch:** a code invented
+here is a code Gradi has never heard of, and the student would enter it, be
+credited nothing, and have no way of knowing why.
+
+<br />
+
 ## Connecting the backend
 
 The flow is finished and runs today against a local stub. Connecting the real
@@ -577,7 +615,7 @@ source.
 npm test
 ```
 
-203 tests across fourteen suites, covering the layers where a bug would show a
+221 tests across fifteen suites, covering the layers where a bug would show a
 student a wrong number, a wrong ranking, or somebody else's aid: the maths,
 and every boundary figures cross to reach it.
 
@@ -619,8 +657,8 @@ Vercel auto-detects the framework: build command `vite build`, output directory
 `dist`.
 
 **Every route but `/` is client-side, with no file behind it** — `/login`,
-`/signup`, `/beta`, `/beta/results`, `/search`, `/search/<question>`, `/ask`
-and `/gradi` — so the
+`/signup`, `/beta`, `/beta/results`, `/search`, `/search/<question>`, `/ask`,
+`/gradi` and `/gradi/start` — so the
 host has to serve `index.html` for any path. Otherwise a refresh, or a shared
 link to an answer, is a 404 from the host before the app ever loads. That
 rewrite is committed for both hosts and already covers the new routes:
@@ -636,7 +674,8 @@ npm run dev
 Screenshots in this README are regenerated with Puppeteer driving the locally
 installed Chrome: `docs/screenshots.js` shoots the landing page,
 `docs/beta-screenshots.js` clicks through the beta flow, and
-`docs/search-screenshots.js` walks the three tabs.
+`docs/search-screenshots.js` walks the three tabs, and
+`docs/gradi-screenshots.js` works through the Gradi checklist.
 
 The last two double as smoke tests. `search-screenshots.js` types a variant
 phrasing and asserts it resolves to the canonical question, checks the tab bar

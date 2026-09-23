@@ -1,0 +1,655 @@
+/*
+ * The Gradi walkthrough.
+ *
+ * One narrow column the whole way down, because the page is a checklist being
+ * worked through on a phone in one hand with Gradi open in the other. Nothing
+ * here goes two-up on desktop: a second column would only put a step out of
+ * the reading order.
+ */
+
+.column {
+  width: 100%;
+  max-width: 660px;
+  margin-inline: auto;
+}
+
+/* ---- Hero -------------------------------------------------------------- */
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--partner-coral);
+  color: #fff;
+  text-align: center;
+}
+
+/* The lighter disc the design carries in the top-right of the fill. */
+.hero::after {
+  content: '';
+  position: absolute;
+  top: -22%;
+  right: -12%;
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.heroInner {
+  composes: column;
+  padding: var(--s-40) var(--gutter) var(--s-56);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-16);
+}
+
+@media (min-width: 768px) {
+  .heroInner {
+    padding-top: var(--s-56);
+  }
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+}
+
+.mark {
+  width: auto;
+  height: 44px;
+}
+
+.times {
+  font-size: var(--t-17);
+  opacity: 0.7;
+}
+
+.partner {
+  font-size: var(--t-25);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.badge {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: var(--s-8) var(--s-20);
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.title {
+  font-size: var(--t-40);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  max-width: 14ch;
+  margin: var(--s-4) 0 0;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--t-52);
+  }
+}
+
+/*
+ * Pure white and 21px and up, never the translucent --on-dark-mid: white on
+ * this coral is 3.47:1, which clears AA at large sizes only. See the note on
+ * --partner-coral in tokens.css.
+ */
+.lede {
+  font-size: var(--t-21);
+  line-height: 1.4;
+  color: #fff;
+  max-width: 46ch;
+}
+
+.stats {
+  margin-top: var(--s-20);
+  width: 100%;
+  max-width: 440px;
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  align-items: center;
+  background: var(--card);
+  border-radius: var(--r-card);
+  padding: var(--s-24) var(--s-16);
+  box-shadow: var(--shadow);
+}
+
+.stats::before {
+  content: '';
+  grid-column: 2;
+  justify-self: center;
+  width: 1px;
+  height: 46px;
+  background: var(--line2);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.stat:first-of-type {
+  grid-column: 1;
+}
+
+.stat:last-of-type {
+  grid-column: 3;
+}
+
+.statValue {
+  font-size: var(--t-32);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--partner-coral-ink);
+}
+
+/* The fee is a cost, not the offer, so it never wears the partner colour. */
+.statCost {
+  color: var(--tx);
+}
+
+.statLabel {
+  font-size: var(--t-14);
+  color: var(--low);
+  margin: 0;
+}
+
+/* ---- The referral code -------------------------------------------------- */
+
+.codeCard {
+  composes: column;
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-28) var(--s-20) var(--s-32);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-12);
+}
+
+.codeHead {
+  font-size: var(--t-16);
+  font-weight: 500;
+  color: var(--low);
+  margin: 0;
+}
+
+.code {
+  font-family: var(--mono);
+  font-size: var(--t-32);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  /* The tracking is decorative; without this the last glyph sits off-centre. */
+  text-indent: 0.24em;
+  color: var(--partner-coral-ink);
+  margin: 0;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+@media (min-width: 560px) {
+  .code {
+    font-size: var(--t-40);
+  }
+}
+
+.codeNote {
+  font-size: var(--t-15);
+  color: var(--mid);
+  margin: 0;
+}
+
+.copy {
+  font: inherit;
+  font-size: var(--t-16);
+  font-weight: 600;
+  color: var(--partner-coral-ink);
+  background: var(--partner-coral-soft);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: var(--s-12) var(--s-32);
+  cursor: pointer;
+  transition: background 160ms var(--ease);
+}
+
+.copy:hover {
+  background: color-mix(in srgb, var(--partner-coral-soft) 82%, var(--partner-coral));
+}
+
+.copy:active {
+  transform: translateY(1px);
+}
+
+/* Announced to a screen reader; the button label already shows it visually. */
+.live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* ---- The checklist ------------------------------------------------------ */
+
+.path {
+  composes: column;
+  margin-top: var(--s-56);
+}
+
+.pathTitle {
+  font-size: var(--t-32);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.pathMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-16);
+  margin-top: var(--s-16);
+}
+
+.count {
+  font-size: var(--t-15);
+  font-weight: 700;
+  margin: 0;
+}
+
+.hint {
+  font-size: var(--t-15);
+  color: var(--low);
+  margin: 0;
+}
+
+.track {
+  margin-top: var(--s-12);
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--line2);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--partner-coral);
+  transition: width 320ms var(--ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
+.steps {
+  list-style: none;
+  margin: var(--s-20) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.step {
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  gap: var(--s-16);
+  align-items: flex-start;
+  background: var(--card);
+  border: 1px solid transparent;
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-20);
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease),
+    opacity 160ms var(--ease);
+}
+
+.step:hover {
+  border-color: var(--line2);
+}
+
+/*
+ * Ticked steps go ink rather than green. Green, gold and rust are this
+ * product's money vocabulary, and a step of somebody else's sign-up flow is
+ * not a statement about the student's money.
+ */
+.stepDone .stepNumber {
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.stepDone .stepTitle {
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.stepDone {
+  opacity: 0.62;
+}
+
+.stepNumber {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-15);
+  font-weight: 700;
+  background: var(--partner-coral-soft);
+  color: var(--partner-coral-ink);
+  transition: background 160ms var(--ease);
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.stepTitle {
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.stepBody {
+  font-size: var(--t-15);
+  line-height: 1.5;
+  color: var(--mid);
+}
+
+.payout {
+  display: flex;
+  align-items: center;
+  gap: var(--s-16);
+  margin: var(--s-16) 0 0;
+  padding: var(--s-20);
+  border-radius: var(--r-card);
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.payoutMark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  background: var(--on-dark-wash);
+}
+
+.payoutTitle {
+  display: block;
+  font-size: var(--t-17);
+  font-weight: 700;
+}
+
+.payoutBody {
+  display: block;
+  font-size: var(--t-15);
+  color: var(--on-dark-mid);
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+
+.dark,
+.cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  width: 100%;
+  border-radius: var(--r-pill);
+  padding: var(--s-20) var(--s-24);
+  font-size: var(--t-17);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 140ms var(--ease);
+}
+
+.dark {
+  margin-top: var(--s-16);
+  background: var(--ink);
+  color: var(--on-dark);
+}
+
+.cta {
+  background: var(--partner-coral);
+  color: #fff;
+  box-shadow: 0 8px 28px -10px var(--partner-coral);
+}
+
+.dark:active,
+.cta:active {
+  transform: translateY(1px);
+}
+
+/* ---- Why we partner ----------------------------------------------------- */
+
+.why {
+  composes: column;
+  margin-top: var(--s-56);
+}
+
+.faq {
+  composes: column;
+  margin-top: var(--s-56);
+}
+
+.terms {
+  composes: column;
+  margin-top: var(--s-56);
+}
+
+.sectionTitle {
+  font-size: var(--t-32);
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--s-20);
+}
+
+.reasons {
+  list-style: none;
+  margin: 0;
+  padding: var(--s-24) var(--s-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+}
+
+.reason {
+  display: flex;
+  gap: var(--s-16);
+  align-items: flex-start;
+}
+
+.reasonIcon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.reasonIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.reasonBody {
+  margin: 0;
+  font-size: var(--t-16);
+  line-height: 1.5;
+  color: var(--mid);
+}
+
+.reasonTitle {
+  color: var(--tx);
+}
+
+/* ---- Questions ---------------------------------------------------------- */
+
+.question {
+  border-bottom: 1px solid var(--line2);
+}
+
+.question:first-of-type {
+  border-top: 1px solid var(--line2);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-16);
+  padding: var(--s-20) 0;
+  font-size: var(--t-17);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A plus that becomes a minus, drawn rather than typed so it stays centred. */
+.plus {
+  flex: none;
+  position: relative;
+  width: 16px;
+  height: 16px;
+}
+
+.plus::before,
+.plus::after {
+  content: '';
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--tx);
+  transform: translateY(-50%);
+  transition: transform 180ms var(--ease);
+}
+
+.plus::after {
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.question[open] .plus::after {
+  transform: translateY(-50%) rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plus::before,
+  .plus::after {
+    transition: none;
+  }
+}
+
+.answer {
+  margin: 0;
+  padding: 0 var(--s-32) var(--s-24) 0;
+  font-size: var(--t-16);
+  line-height: 1.55;
+  color: var(--mid);
+}
+
+/* ---- Terms -------------------------------------------------------------- */
+
+.termsCard {
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-24) var(--s-20);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+}
+
+.term {
+  margin: 0;
+  font-size: var(--t-16);
+  line-height: 1.55;
+  color: var(--mid);
+}
+
+.term strong {
+  color: var(--tx);
+}
+
+.backLink {
+  margin: var(--s-32) 0 0;
+  text-align: center;
+  font-size: var(--t-16);
+  font-weight: 700;
+}
+
+.backLink a {
+  color: var(--tx);
+}
+
+.offerNote {
+  margin: var(--s-16) 0 0;
+  text-align: center;
+  font-size: var(--t-14);
+  color: var(--low);
+}
+
+/* ---- The sticky call to action ------------------------------------------ */
+
+/*
+ * Sits above the tab bar rather than over it — AppShell keeps that bar fixed
+ * at z-index 50, and two stacked bars on a phone would cover the last step.
+ */
+.sticky {
+  position: sticky;
+  bottom: calc(var(--tabbar-space) + var(--s-12));
+  z-index: 40;
+  margin-top: var(--s-56);
+  padding-inline: var(--gutter);
+}
+
+/* Matches .column, spelled out: composes cannot sit on a descendant rule. */
+.sticky .cta {
+  max-width: 660px;
+  margin-inline: auto;
+}
+
+@media print {
+  .sticky {
+    display: none;
+  }
+}

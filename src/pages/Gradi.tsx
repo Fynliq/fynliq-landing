@@ -1,5 +1,6 @@
 import { AppShell } from '../components/nav/AppShell/AppShell';
 import { Aurora, Grain } from '../components/fx';
+import { GRADI_LINK } from '../gradi/offer';
 import styles from './Gradi.module.css';
 
 /**
@@ -23,8 +24,11 @@ import styles from './Gradi.module.css';
  * is.
  */
 
-/** The client's referral link. The $10 offer belongs to it. */
-const GRADI_LINK = 'https://gradi.app.link/HGFD9JiKp6b';
+/*
+ * The referral link lives in src/gradi/offer.ts, beside the code and the two
+ * figures, so this page and the walkthrough at /gradi/start can never end up
+ * pointing at different offers.
+ */
 
 /**
  * Where Gradi is live.
@@ -181,6 +185,14 @@ export function Gradi() {
           Get $10 on Gradi
           <span aria-hidden="true">&rarr;</span>
         </a>
+
+        <p className={styles.closeFoot}>
+          Want it step by step?{' '}
+          <a className={styles.closeLink} href="/gradi/start">
+            The six things Gradi asks for
+          </a>
+          , with your referral code and the $5 fee spelled out.
+        </p>
 
         <p className={styles.closeFoot}>
           Still working out your aid?{' '}

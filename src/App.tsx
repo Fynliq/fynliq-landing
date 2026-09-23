@@ -5,6 +5,7 @@ import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { Gradi } from './pages/Gradi';
+import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
 import { Router, useRouter } from './router/router';
@@ -22,6 +23,7 @@ export const ROUTES = {
   search: '/search',
   ask: '/ask',
   gradi: '/gradi',
+  gradiStart: '/gradi/start',
 } as const;
 
 /** `/search/<slug>` — one canonical question, answered in full. */
@@ -36,6 +38,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.search]: 'Search financial aid — Fynliq',
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
+  [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
 };
 
 /**
@@ -239,6 +242,14 @@ function Routes() {
         <AskFynliq analysis={analysis} />
       </SearchProvider>
     );
+  }
+
+  /*
+   * Before `/gradi`, because the argument page owns the shorter path and a
+   * `startsWith` test on it would otherwise swallow the walkthrough.
+   */
+  if (path === ROUTES.gradiStart) {
+    return <GradiStart />;
   }
 
   if (path === ROUTES.gradi) {
