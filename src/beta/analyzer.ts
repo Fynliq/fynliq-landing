@@ -93,6 +93,6 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
  * Kept as a function rather than a module-level constant so a test — or a
  * future settings screen — can construct one against any endpoint.
  */
-export function createAnalyzer(endpoint = import.meta.env.VITE_FYNLIQ_ANALYZE_URL): AidAnalyzer {
+export function createAnalyzer(endpoint = import.meta.env.VITE_FYNLIQ_ANALYZE_URL ?? (import.meta.env.PROD ? '/api/analyze' : undefined)): AidAnalyzer {
   return endpoint ? httpAnalyzer(endpoint) : stubAnalyzer();
 }

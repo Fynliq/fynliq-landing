@@ -28,7 +28,10 @@ export function httpAsker(endpoint: string): Asker {
           method: 'POST',
           signal,
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ question, analysis }),
+          body: JSON.stringify({ question, analysis: analysis ? {
+            summaryToken: analysis.summaryToken,
+            reviewed: analysis.reviewed === true,
+          } : null }),
         });
       } catch {
         if (signal?.aborted) throw new AskError('Cancelled.', 'cancelled');

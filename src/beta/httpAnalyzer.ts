@@ -1,9 +1,11 @@
-import type { AidAnalysis } from '../core';
+import { analysisFromFacts, type AidAnalysis } from '../core';
 import { AnalysisError, type AidAnalyzer, type AnalyzeOptions } from './analyzer';
 import { AnalysisFormatError, parseAnalysis } from './contract';
+import { readDocuments } from './documentText';
+import { redactDocuments } from '../../server/redact.js';
 
-/** The multipart field name every file is sent under. */
-export const UPLOAD_FIELD = 'files';
+/** JSON property containing the redacted text of each document. */
+export const UPLOAD_FIELD = 'documents';
 
 /**
  * Posts the student's files to the document reader and validates what comes
@@ -21,10 +23,32 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
     async analyze(files: File[], options: AnalyzeOptions = {}): Promise<AidAnalysis> {
       const { signal, onStage } = options;
 
-      const body = new FormData();
-      for (const file of files) body.append(UPLOAD_FIELD, file, file.name);
+      if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected');
 
+      // 1. Read each file on this device. The file itself is never uploaded.
       onStage?.('reading');
+      let pages: string[][];
+      try {
+        pages = await readDocuments(files);
+      } catch {
+        if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
+        throw new AnalysisError('Fynliq could not open one of these files. Try a PDF or a clear screenshot of your aid page.', 'rejected');
+      }
+      if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
+
+      // 2. Black out personal details and keep only the aid lines, still on this device.
+      onStage?.('extracting');
+      const redacted = redactDocuments(pages.map((p) => ({ pages: p })));
+      if (redacted.every((doc) => doc.keptLines === 0)) {
+        throw new AnalysisError('Fynliq could not find Pell Grant, scholarship, loan, SAI or balance figures in these files. Try a clearer screenshot of your aid summary.', 'rejected');
+      }
+      const body = JSON.stringify({
+        consent: true,
+        documents: files.map((file, i) => ({ name: file.name, pages: redacted[i].pages })),
+      });
+
+      // 3. Only the redacted aid lines are sent to be read.
+      onStage?.('checking');
 
       let response: Response;
       try {
@@ -32,7 +56,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
           method: 'POST',
           body,
           signal,
-          headers: { Accept: 'application/json' },
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         });
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
@@ -56,7 +80,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         }
 
         throw new AnalysisError(
-          'The document reader is not responding right now. Your files were not stored — try again in a moment.',
+          'The document reader is not responding right now. Please try again in a moment.',
           'network',
         );
       }
@@ -71,7 +95,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       }
 
       try {
-        return parseAnalysis(payload);
+        return analysisFromFacts(parseAnalysis(payload));
       } catch (error) {
         if (error instanceof AnalysisFormatError) {
           throw new AnalysisError(error.message, 'format');

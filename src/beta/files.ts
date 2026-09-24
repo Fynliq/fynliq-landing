@@ -14,20 +14,20 @@ export interface FileDescriptor {
 }
 
 /** Award documents run to a few pages, and students photograph them one page at a time. */
-export const MAX_FILES = 4;
-export const MAX_BYTES = 10 * 1024 * 1024;
+export const MAX_FILES = 3;
+export const MAX_BYTES = 2800000;
 
 /**
  * HEIC is on the list because that is what an iPhone produces by default. The
  * browser cannot preview it, so the interface says so rather than showing a
  * broken thumbnail.
  */
-export const ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.heic'] as const;
+export const ACCEPTED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg', '.webp'] as const;
 
 /** The `accept` attribute. Extensions first: HEIC has no reliable MIME type. */
-export const ACCEPT_ATTRIBUTE = `${ACCEPTED_EXTENSIONS.join(',')},application/pdf,image/*`;
+export const ACCEPT_ATTRIBUTE = `${ACCEPTED_EXTENSIONS.join(',')},application/pdf,image/png,image/jpeg,image/webp`;
 
-export const ACCEPTED_SUMMARY = 'PDF, PNG, JPG, WEBP or HEIC · up to 10 MB each · 4 files at most';
+export const ACCEPTED_SUMMARY = 'PDF, PNG, JPG or WEBP · up to 2.8 MB total · 3 files at most';
 
 export type RejectionReason = 'type' | 'size' | 'empty' | 'duplicate' | 'count';
 
@@ -58,7 +58,7 @@ export function formatBytes(bytes: number): string {
 const isAccepted = (file: FileDescriptor): boolean =>
   (ACCEPTED_EXTENSIONS as readonly string[]).includes(extensionOf(file.name)) ||
   file.type === 'application/pdf' ||
-  file.type.startsWith('image/');
+  ['image/png', 'image/jpeg', 'image/webp'].includes(file.type);
 
 /**
  * Sorts an incoming batch into what is kept and what is refused.
@@ -111,11 +111,11 @@ export function triageFiles<T extends FileDescriptor>(existing: T[], incoming: T
       continue;
     }
 
-    if (file.size > MAX_BYTES) {
+    if (existing.reduce((sum, f) => sum + f.size, 0) + accepted.reduce((sum, f) => sum + f.size, 0) + file.size > MAX_BYTES) {
       rejected.push({
         name: file.name,
         reason: 'size',
-        message: `${file.name} is ${formatBytes(file.size)}, over the ${formatBytes(MAX_BYTES)} limit. A screenshot of the page is usually far smaller than a scan of it.`,
+        message: `${file.name} exceeds the 2.8 MB total upload limit. Use a smaller PDF or clear screenshots.`,
       });
       continue;
     }

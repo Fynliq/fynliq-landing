@@ -121,3 +121,19 @@
     display: flex;
   }
 }
+
+@media (max-width: 600px) {
+  .inner {
+    gap: 12px;
+  }
+
+  .home {
+    flex-shrink: 0;
+  }
+
+  .cta {
+    flex-shrink: 0;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}

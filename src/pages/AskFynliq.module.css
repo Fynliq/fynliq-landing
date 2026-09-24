@@ -354,6 +354,7 @@
 }
 
 .paragraph {
+  white-space: pre-line;
   font-size: var(--t-16);
   line-height: 1.6;
   color: var(--mid);
@@ -502,3 +503,12 @@
 .loopCta:active {
   transform: scale(0.97);
 }
+.modes { display:flex; flex-wrap:wrap; gap:16px; border:0; padding:0; margin:0 0 20px; }
+.modes legend { font-weight:600; margin-bottom:8px; }
+.modes label { display:flex; align-items:center; gap:8px; min-height:44px; }
+.review { padding:20px; background:var(--sunk); border-radius:var(--r-card); margin-bottom:20px; }
+.review summary, .references summary { cursor:pointer; font-weight:600; }
+.review ul, .references ul { padding-left:20px; }
+.review li, .references li { margin:14px 0; overflow-wrap:anywhere; }
+.review p, .review blockquote { margin:8px 0; font-size:14px; }
+.references { border-top:1px solid var(--line); padding-top:16px; font-size:14px; color:var(--mid); }

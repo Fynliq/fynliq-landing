@@ -642,12 +642,6 @@ and every boundary figures cross to reach it.
 
 Deployed on [Vercel](https://vercel.com) as a static Vite build.
 
-**Which URL is actually live, and why `www.fynliq.com` is not it:
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).** Four URLs serve some version of
-Fynliq across two Vercel accounts. Only `fynliq-landing-nine.vercel.app`
-follows pushes to `main`; the custom domain sits on an account this repository
-cannot reach, and `fynliq-landing.vercel.app` 404s on every deep link.
-
 ```bash
 vercel          # preview deployment
 vercel --prod   # promote to production

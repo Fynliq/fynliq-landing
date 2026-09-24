@@ -88,7 +88,7 @@ export interface AccountService {
  * future settings screen — can construct one against any endpoint.
  */
 export function createAccounts(
-  endpoint: string | undefined = import.meta.env.VITE_FYNLIQ_AUTH_URL,
+  endpoint: string | undefined = import.meta.env.VITE_FYNLIQ_AUTH_URL || (import.meta.env.PROD ? '/api/auth' : undefined),
 ): AccountService {
   return endpoint ? httpAccounts(endpoint) : localAccounts();
 }

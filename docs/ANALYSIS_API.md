@@ -1,5 +1,16 @@
 # The document reader API
 
+> **Update — private document reader.** The browser no longer uploads files.
+> Each PDF or screenshot is read on the student's device (`src/beta/documentText.ts`:
+> pdf.js for text PDFs, tesseract.js OCR for images and scanned pages), then
+> `server/redact.js` drops personal lines and keeps only Pell, scholarship/grant,
+> Direct Loan, SAI and bill/balance lines. The request body is now
+> `{ "consent": true, "documents": [{ "name": string, "pages": string[] }] }`.
+> `api/analyze.js` refuses a `files` field, re-runs the same redaction, applies
+> `containsHighRiskPII` (fails closed), and only then calls the model. The
+> response shape below is unchanged.
+
+
 Everything the beta flow needs from the backend, in one contract.
 
 The frontend is finished and runs today against a local stub. Connecting the

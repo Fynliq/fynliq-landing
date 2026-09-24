@@ -1,7 +1,7 @@
 import { amountStillOwed, breakDownAward, type AidBreakdown } from './aid';
 import { evaluateLoan, maxAcceptable, type LoanVerdict } from './loan';
 import { formatUSD } from './money';
-import type { Award, Semester } from './types';
+import type { Award, AwardLine, Semester } from './types';
 
 /**
  * What Fynliq reads out of a student's own aid documents, and what it concludes
@@ -45,6 +45,13 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
 export type Provenance = 'document' | 'demo';
 
 export interface AidAnalysis {
+  summaryFacts?: { id: string; field: string; label: string; value: string; page: number; document: number; kind: string; period: string; estimated: boolean; quote: string }[];
+  summaryToken?: string;
+  /** True when the only aid figures found are FAFSA estimates, not a school offer. */
+  estimatesOnly?: boolean;
+  /** FAFSA estimates shown beside a school offer, never added to it. */
+  estimateLines?: AwardLine[];
+  reviewed?: boolean;
   provenance: Provenance;
   document: {
     /** The files this was read from, echoed back so the student can confirm. */
@@ -179,7 +186,38 @@ export interface AnalysisOutcome {
   needsChecking: boolean;
 }
 
-function buildHeadline(aid: AidBreakdown, balance: SchoolBalance | null): Headline {
+function buildHeadline(aid: AidBreakdown, balance: SchoolBalance | null, analysis: AidAnalysis): Headline {
+  if (analysis.estimatesOnly) {
+    const both = aid.giftAid > 0 && aid.loansOffered > 0;
+    return {
+      tone: 'gold',
+      sentence: aid.giftAid > 0
+        ? `Your FAFSA estimate shows up to ${formatUSD(aid.giftAid)} in grants.`
+        : `Your FAFSA estimate shows up to ${formatUSD(aid.loansOffered)} in federal loans.`,
+      detail: `These are federal estimates from your FAFSA results${both ? `, with up to ${formatUSD(aid.loansOffered)} more available as loans you would repay` : ''}. Your school confirms the real amounts in its award offer: upload your portal's Accept/Decline page or award letter to see them here.`,
+    };
+  }
+
+  if (aid.offered === 0 && balance === null) {
+    return {
+      tone: 'gold',
+      sentence: analysis.sai !== null
+        ? `Your Student Aid Index is ${analysis.sai.toLocaleString('en-US')}.`
+        : 'Fynliq read your document, but found no aid offer in it.',
+      detail: "Add your school's award offer (a screenshot of your portal's Accept/Decline page works) and your account statement, and this page will show what you keep, what you repay and what you still owe.",
+    };
+  }
+
+  if (balance !== null && aid.offered === 0) {
+    return {
+      tone: balance.stillOwed > 0 ? 'gold' : 'green',
+      sentence: balance.stillOwed > 0
+        ? `Your school is asking for ${formatUSD(balance.stillOwed)} this term.`
+        : 'Your statement shows nothing owed this term.',
+      detail: 'Add your aid offer and Fynliq will show how much of this your aid covers, and how much, if any, is worth borrowing.',
+    };
+  }
+
   if (balance === null) {
     return {
       tone: 'gold',
@@ -219,7 +257,7 @@ export function analyseOutcome(analysis: AidAnalysis): AnalysisOutcome {
     aid,
     balance,
     sai: readSai(analysis.sai),
-    headline: buildHeadline(aid, balance),
+    headline: buildHeadline(aid, balance, analysis),
     needsChecking: analysis.document.confidence < CONFIDENCE_FLOOR,
   };
 }
@@ -263,7 +301,7 @@ export function buildNextSteps(analysis: AidAnalysis, outcome: AnalysisOutcome):
     });
   }
 
-  if (balance && balance.afterAllLoans > 0) {
+  if (balance && balance.afterAllLoans > 0 && aid.offered > 0) {
     steps.push({
       id: 'close-gap',
       title: `Close the ${formatUSD(balance.afterAllLoans)} your aid does not reach`,
@@ -289,6 +327,18 @@ export function buildNextSteps(analysis: AidAnalysis, outcome: AnalysisOutcome):
       title: `Decline the ${formatUSD(balance.loansAvailable - balance.stillOwed)} you were offered beyond your bill`,
       why: 'It is borrowed money with nothing owed against it. Declining it costs you nothing now and removes it from what you repay later.',
       action: 'Decline it on the same page. You can request it again later in the year if something changes.',
+      urgency: 'gold',
+    });
+  }
+
+  if (analysis.estimatesOnly || aid.offered === 0) {
+    steps.push({
+      id: 'find-offer',
+      title: "Find your school's actual award offer",
+      why: analysis.estimatesOnly
+        ? 'A FAFSA estimate is not money you have been offered. Your school decides the final amounts, and they can differ.'
+        : 'Without the offer, Fynliq cannot show what you keep, what you would repay or whether your bill is covered.',
+      action: "Open your school portal's financial aid Accept/Decline page (or your award letter), take a screenshot and upload it here. If the table scrolls sideways, upload both screenshots together.",
       urgency: 'gold',
     });
   }

@@ -49,7 +49,7 @@ async function failure(response: Response, intent: 'signup' | 'login'): Promise<
     case 401:
     case 403:
       return new AuthError(
-        'That email and password do not match an account. Check both and try again.',
+        'That email and password do not match a Fynliq account. New here? Tap "Create one" below to make your account first. Your school login does not work here.',
         'credentials',
       );
     case 409:

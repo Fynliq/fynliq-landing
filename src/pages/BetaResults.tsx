@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { FinancialCard, type MoneyRow } from '../components/FinancialCard/FinancialCard';
 import { MissingMetric, MoneyMetric } from '../components/MoneyMetric/MoneyMetric';
@@ -13,12 +13,16 @@ import {
   formatUSD,
   type AidAnalysis,
 } from '../core';
+import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
 import styles from './BetaResults.module.css';
+import review from './SummaryReview.module.css';
 
 interface BetaResultsProps {
   analysis: AidAnalysis;
   /** Clears the result and returns to the upload step. */
   onRestart: () => void;
+  /** Marks the read figures as checked by the student (document reads only). */
+  onConfirm?: () => void;
 }
 
 const readDate = new Intl.DateTimeFormat('en-GB', {
@@ -78,7 +82,7 @@ const GLOSSARY: { term: string; body: string; applies: (a: AidAnalysis) => boole
   },
 ];
 
-export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
+export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps) {
   const outcome = useMemo(() => analyseOutcome(analysis), [analysis]);
   const steps = useMemo(() => buildNextSteps(analysis, outcome), [analysis, outcome]);
 
@@ -97,6 +101,10 @@ export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
     }));
 
   const workStudy = analysis.award.lines.find((line) => line.kind === 'work-study');
+  const estimate = analysis.estimatesOnly === true;
+  const noOffer = aid.offered === 0;
+  const [checked, setChecked] = useState(false);
+  const facts = analysis.summaryFacts ?? [];
 
   return (
     <FlowShell step={3}>
@@ -151,22 +159,42 @@ export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
       {/* ---- The three figures every award comes down to ---------------- */}
       <ul className={styles.metrics}>
         <Card as="li">
-          <MoneyMetric
-            label="Money you keep"
-            value={aid.giftAid}
-            tone="green"
-            status={{ tone: 'green', text: 'Never repaid' }}
-            note="Grants and scholarships. This is the part of your offer that costs you nothing."
-          />
+          {noOffer ? (
+            <MissingMetric
+              label="Money you keep"
+              prompt="No aid offer in what you uploaded"
+              explanation="Add a screenshot of your school portal's Accept/Decline page or your award letter to see your grants and scholarships here."
+            />
+          ) : (
+            <MoneyMetric
+              label="Money you keep"
+              value={aid.giftAid}
+              tone="green"
+              status={estimate ? { tone: 'gold', text: 'Estimate' } : { tone: 'green', text: 'Never repaid' }}
+              note={estimate
+                ? 'Grants on your FAFSA estimate. Never repaid, but your school confirms the final amount.'
+                : 'Grants and scholarships. This is the part of your offer that costs you nothing.'}
+            />
+          )}
         </Card>
         <Card as="li">
-          <MoneyMetric
-            label="Money you repay"
-            value={aid.loansOffered}
-            tone="gold"
-            status={{ tone: 'gold', text: 'An offer' }}
-            note="Loans you were offered. You can accept part of this, or none of it."
-          />
+          {noOffer ? (
+            <MissingMetric
+              label="Money you repay"
+              prompt="No loan offer in what you uploaded"
+              explanation="Loans show here once your school's offer is uploaded."
+            />
+          ) : (
+            <MoneyMetric
+              label="Money you repay"
+              value={aid.loansOffered}
+              tone="gold"
+              status={{ tone: 'gold', text: estimate ? 'Estimate' : 'An offer' }}
+              note={estimate
+                ? 'Federal loans your FAFSA estimate says you may borrow. Borrowing is optional.'
+                : 'Loans you were offered. You can accept part of this, or none of it.'}
+            />
+          )}
         </Card>
         <Card as="li">
           {aid.uncovered === null ? (
@@ -200,21 +228,35 @@ export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
           {/* ---- The award, line by line ------------------------------- */}
           <Card hero>
             <h2 className={styles.cardTitle}>Your award, line by line</h2>
+            {noOffer ? (
+              <MissingMetric
+                label="Aid offer"
+                prompt="No award lines found"
+                explanation="Upload your school portal's Accept/Decline page or your award letter. If the table scrolls sideways, upload both screenshots together."
+              />
+            ) : (
+            <>
             <p className={styles.cardLede}>
-              The same rows as your letter, split into money you keep and money you repay, for{' '}
-              {analysis.award.year}.
+              {estimate
+                ? <>The estimates on your FAFSA results, split into money you keep and money you would repay, for {analysis.award.year}.</>
+                : <>The same rows as your letter, split into money you keep and money you repay, for {analysis.award.year}.</>}
             </p>
 
             <FinancialCard
               rows={awardRows}
-              total={{ label: 'Total offered', value: aid.offered }}
-              footnote={
+              total={{ label: estimate ? 'Total estimated' : 'Total offered', value: aid.offered }}
+              footnote={estimate ? (
+                <>
+                  These are federal estimates, not your school&rsquo;s offer. Your school&rsquo;s
+                  award letter or portal confirms what you are actually offered.
+                </>
+              ) : (
                 <>
                   Only <strong>{formatUSD(aid.giftAid)}</strong> of that is money you keep. The
                   other <strong>{formatUSD(aid.loansOffered)}</strong> is borrowed, and it is an
                   offer you can decline in part or in full.
                 </>
-              }
+              )}
             />
 
             <Bar
@@ -248,6 +290,20 @@ export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
                 </span>
                 <Amount value={workStudy.amount} size={17} tone="muted" column />
               </div>
+            )}
+
+            {(analysis.estimateLines ?? []).map((line) => (
+              <div className={styles.aside} key={line.id}>
+                <span>
+                  <span className={styles.asideLabel}>{line.label} (FAFSA estimate)</span>
+                  <span className={styles.asideNote}>
+                    Shown for comparison and kept out of every total above. {line.meaning}.
+                  </span>
+                </span>
+                <Amount value={line.amount} size={17} tone="muted" column />
+              </div>
+            ))}
+            </>
             )}
           </Card>
 
@@ -439,6 +495,52 @@ export function BetaResults({ analysis, onRestart }: BetaResultsProps) {
           ))}
         </ol>
       </section>
+
+      {facts.length > 0 && (
+        <Card>
+          <details>
+            <summary className={styles.summary}>Check the figures and where they came from</summary>
+            <ol>
+              {analysis.document.fileNames.map((name, i) => (
+                <li key={i}>Document {i + 1}: {name}</li>
+              ))}
+            </ol>
+            <div className={review.layout}>
+              {facts.map((f) => (
+                <div key={f.id}>
+                  <h3>{f.label}: {f.value}</h3>
+                  <p>
+                    {f.period === 'Not stated' ? 'Period not stated' : f.period} &middot; document {f.document}, page {f.page}
+                    {f.estimated ? ' · estimate' : ''}
+                  </p>
+                  <blockquote>&ldquo;{f.quote}&rdquo;</blockquote>
+                </div>
+              ))}
+            </div>
+          </details>
+          {!analysis.reviewed && onConfirm && (
+            <div className={styles.panelActions}>
+              <label>
+                <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} /> I compared
+                these figures with my documents and they match.
+              </label>
+              <button type="button" className={review.confirm} disabled={!checked} onClick={onConfirm}>
+                Confirm these figures
+              </button>
+            </div>
+          )}
+          <p className={styles.cardLede}>
+            Your document read stays in this tab. Refreshing clears it; personalized follow-up questions expire after one hour.
+          </p>
+        </Card>
+      )}
+      {facts.length > 0 && analysis.reviewed && (
+        <PersonalizedAnswer
+          analysis={analysis}
+          label="Explain these details further"
+          question="Explain my reviewed aid documents in more detail, keeping estimates, school offers and statement figures separate. Explain missing details and questions for my school without inventing amounts or dates."
+        />
+      )}
     </FlowShell>
   );
 }

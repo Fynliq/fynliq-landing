@@ -1,3 +1,4 @@
+import { questionById } from './library';
 import type { SearchAnalytics, SearchDemand, SearchEvent } from './analytics';
 import { parseSearchDemand } from './contract';
 
@@ -55,7 +56,7 @@ export function httpAnalytics(endpoint: string): SearchAnalytics {
         method: 'POST',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event),
+        body: JSON.stringify({ kind: event.kind === 'open' ? 'open' : 'search', questionId: event.questionId && questionById(event.questionId) ? event.questionId : null }),
       }).catch(() => {
         /* Counting is best-effort. Never surfaced, never retried. */
       });

@@ -12,7 +12,9 @@ import { Router, useRouter } from './router/router';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
-import type { AidAnalysis } from './core';
+import { analysisFromFacts, type AidAnalysis } from './core';
+import { BetaAdmin } from './pages/BetaAdmin';
+import { AccountProvider } from './accounts/AccountProvider';
 
 export const ROUTES = {
   landing: '/',
@@ -82,11 +84,13 @@ function behindTheAccount(path: string) {
 
 export function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes />
-      </AuthProvider>
-    </Router>
+    <AccountProvider>
+      <Router>
+        <AuthProvider>
+          <Routes />
+        </AuthProvider>
+      </Router>
+    </AccountProvider>
   );
 }
 
@@ -108,6 +112,13 @@ function Routes() {
    * honest about having nothing when somebody lands on it first.
    */
   const [analysis, setAnalysis] = useState<AidAnalysis | null>(null);
+  useEffect(() => {
+    const clear = () => { setAnalysis(null); navigate('/'); };
+    const load = (event: Event) => { setAnalysis(analysisFromFacts((event as CustomEvent<AidAnalysis>).detail)); navigate('/beta/results'); };
+    window.addEventListener('fynliq:clear-private', clear);
+    window.addEventListener('fynliq:load-document', load);
+    return () => { window.removeEventListener('fynliq:clear-private', clear); window.removeEventListener('fynliq:load-document', load); };
+  }, [navigate]);
 
   /**
    * Where they were heading when the gate stopped them.
@@ -213,11 +224,12 @@ function Routes() {
   // yet, and the redirect above is one effect away.
   if (gated && (locked || restoring)) return <Holding />;
 
-  if (path === ROUTES.upload || orphaned) {
+  if ((path === ROUTES.upload && !analysis) || orphaned) {
     return <BetaUpload onAnalysed={onAnalysed} />;
   }
 
-  if (path === ROUTES.results && analysis) {
+  if ((path === ROUTES.results || path === ROUTES.upload) && analysis) {
+    if (analysis.summaryToken) return <BetaResults analysis={analysis} onRestart={onRestart} onConfirm={() => { setAnalysis({ ...analysis, reviewed: true }); }} />;
     return <BetaResults analysis={analysis} onRestart={onRestart} />;
   }
 
@@ -232,7 +244,7 @@ function Routes() {
    */
   if (path === ROUTES.search || question) {
     return (
-      <SearchProvider>{question ? <Answer question={question} /> : <Search />}</SearchProvider>
+        <SearchProvider>{question ? <Answer key={question.id} question={question} analysis={analysis} /> : <Search analysis={analysis} />}</SearchProvider>
     );
   }
 
@@ -256,6 +268,7 @@ function Routes() {
     return <Gradi />;
   }
 
+  if (path === '/admin') return <BetaAdmin />;
   return <Landing />;
 }
 

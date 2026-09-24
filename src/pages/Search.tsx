@@ -11,6 +11,8 @@ import { searchQuestions, suggest, type Match } from '../search/match';
 import { useSearchDemand } from '../search/SearchProvider';
 import { useRouter } from '../router/router';
 import styles from './Search.module.css';
+import type { AidAnalysis } from '../core';
+import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
 
 /**
  * Search financial aid.
@@ -27,7 +29,7 @@ import styles from './Search.module.css';
  * daily without anyone touching this file — and why searching here moves a
  * question up while you watch.
  */
-export function Search() {
+export function Search({ analysis }: { analysis: AidAnalysis | null }) {
   const { navigate } = useRouter();
   const { status, ranked, trending, byId, clustered, provenance, sessionSearches, record } =
     useSearchDemand();
@@ -131,6 +133,7 @@ export function Search() {
 
   return (
     <AppShell tab="search" banner={banner}>
+      {query.trim() && <PersonalizedAnswer key={query.trim()} analysis={analysis} question={query.trim()} />}
       {/* ---- Categories --------------------------------------------- */}
       <nav className={styles.rail} aria-label="Filter by category">
         <ul className={styles.chips}>

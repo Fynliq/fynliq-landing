@@ -1,0 +1,5 @@
+.content { display: grid; gap: var(--s-16); overflow-wrap: anywhere; }
+.content p, .content li { margin-bottom: var(--s-12); line-height: 1.6; }
+.button { padding: var(--s-12) var(--s-20); border-radius: var(--r-pill); background: var(--tx); color: var(--paper); justify-self: start; }
+.button:disabled { opacity: .6; cursor: wait; }
+.caption { font-size: var(--t-13); color: var(--low); }

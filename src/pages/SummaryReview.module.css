@@ -1,0 +1,6 @@
+.layout { display: grid; gap: 20px; overflow-wrap: anywhere; }
+.layout blockquote { margin: 16px 0; padding-left: 16px; border-left: 3px solid var(--line2); }
+.confirm, .restart { min-height: 48px; padding: 12px 24px; border-radius: var(--r-pill); font: inherit; border: 1px solid var(--line2); }
+.confirm { background: var(--ink); color: var(--on-dark); }
+.confirm:disabled { opacity: .45; cursor: not-allowed; }
+.restart { color: var(--tx); background: var(--paper); }

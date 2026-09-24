@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Analyzing } from '../components/beta/Analyzing/Analyzing';
 import { Dropzone } from '../components/beta/Dropzone/Dropzone';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
@@ -11,6 +11,7 @@ import {
 import { triageFiles, type Rejection } from '../beta/files';
 import type { AidAnalysis } from '../core';
 import styles from './BetaUpload.module.css';
+import { useAccount } from '../accounts/AccountProvider';
 
 interface BetaUploadProps {
   /** Handed the finished read. The route change is the caller's business. */
@@ -33,20 +34,23 @@ const WHAT_TO_UPLOAD = [
 ];
 
 const PRIVACY = [
-  'Your files are read to produce the answer on the next screen, and are not published or sold.',
+  'Your file is read on your own device and is never uploaded. Names, Social Security numbers, birth dates, addresses, emails, phone numbers and ID or account numbers are blacked out first, and only the Pell Grant, scholarship, loan, SAI and balance lines are sent to OpenAI to be read.',
   'Fynliq is not connected to FAFSA, your school or any lender, and cannot change anything on your account.',
   'Figures the document does not state are left blank. Nothing is estimated to fill a gap.',
 ];
 
 export function BetaUpload({ onAnalysed }: BetaUploadProps) {
+  const account = useAccount();
   const analyzer = useMemo(() => createAnalyzer(), []);
 
   const [files, setFiles] = useState<File[]>([]);
   const [rejections, setRejections] = useState<Rejection[]>([]);
   const [stage, setStage] = useState<AnalyzeStage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
 
   const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => { abort.current?.abort(); }, []);
   const working = stage !== null;
 
   const handleAdd = useCallback(
@@ -67,7 +71,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   }, []);
 
   async function start() {
-    if (files.length === 0 || working) return;
+    if (files.length === 0 || working || (analyzer.connected && !consent)) return;
 
     const controller = new AbortController();
     abort.current = controller;
@@ -81,6 +85,9 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         signal: controller.signal,
         onStage: setStage,
       });
+      if (controller.signal.aborted) return;
+      await account.capture(analysis, files);
+      if (controller.signal.aborted) return;
       onAnalysed(analysis);
     } catch (thrown) {
       // Cancelling is something the student chose. It is not an error, and it
@@ -94,7 +101,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
       setError(
         thrown instanceof AnalysisError
           ? thrown.message
-          : 'Something went wrong reading your document. Your files were not stored — try again.',
+          : 'Something went wrong reading your document. Please try again.',
       );
     } finally {
       abort.current = null;
@@ -110,8 +117,8 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         </h1>
         <p className={styles.lede}>
           {working
-            ? 'Hold on a moment. Nothing on the next screen is invented — every figure comes from what you just uploaded, and anything Fynliq cannot read is listed as unread rather than filled in.'
-            : 'Add your FAFSA Submission Summary, your award letter, or a screenshot of either. Fynliq reads the figures and tells you, in plain English, what your grants, loans, Student Aid Index and school balance actually mean — and what to do next.'}
+            ? 'Reading your documents and preparing your My Aid dashboard, with your answer, aid breakdown and next steps.'
+            : 'Add your FAFSA Submission Summary, school award letter, and account statement. Use current documents for the same student and period. AI can make mistakes, so check the extracted fields against your originals.'}
         </p>
       </div>
 
@@ -152,11 +159,12 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               </div>
 
               <div className={styles.actions}>
+                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send the aid lines from these documents to OpenAI for AI processing. Personal details are removed on this device first, but automated removal can miss something. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
                 <button
                   type="button"
                   className={styles.submit}
                   onClick={start}
-                  disabled={files.length === 0}
+                  disabled={files.length === 0 || (analyzer.connected && !consent)}
                 >
                   Analyse my aid
                   <span aria-hidden="true">&rarr;</span>
