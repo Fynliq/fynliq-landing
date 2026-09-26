@@ -82,9 +82,29 @@ try {
   const page = await browser.newPage();
 
   const errors = [];
-  page.on('console', (message) => {
-    if (message.type() === 'error') errors.push(message.text());
+
+  /*
+   * `/api/*` is Vercel serverless, and `vite preview` serves static files, so
+   * the account endpoints answer 404 here and would drown out anything real.
+   * They are ignored by URL rather than by message text — a console error only
+   * says "failed to load resource", never which one — and every other failed
+   * request still fails the run.
+   */
+  page.on('response', (response) => {
+    if (response.status() < 400) return;
+    const url = response.url();
+    // A plain test, not `new URL()`: SHOT_URL is bound to `URL` in this file.
+    if (url.startsWith(`${URL}/api/`)) return;
+    errors.push(`${response.status()} ${url}`);
   });
+
+  page.on('console', (message) => {
+    if (message.type() !== 'error') return;
+    // Already covered, with the URL, by the response listener above.
+    if (message.text().startsWith('Failed to load resource')) return;
+    errors.push(message.text());
+  });
+
   page.on('pageerror', (error) => errors.push(String(error)));
 
   // ---- The walkthrough, at desktop width ------------------------------
