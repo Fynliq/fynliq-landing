@@ -11,13 +11,13 @@ where a student uploads their own aid summary and gets their own answer back —
 what they keep, what they repay, what nothing is covering, what their school is
 actually asking for, and what to do next.
 
-[![Live](https://img.shields.io/badge/live-fynliq--landing--nine.vercel.app-000?style=flat-square)](https://fynliq-landing-nine.vercel.app)
+[![Live](https://img.shields.io/badge/live-www.fynliq.com-000?style=flat-square)](https://www.fynliq.com)
 [![React](https://img.shields.io/badge/React-18-149ECA?style=flat-square&logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev)
 [![Tests](https://img.shields.io/badge/tests-221%20passing-0E7A45?style=flat-square)](#testing)
 
-**[View the live site →](https://fynliq-landing-nine.vercel.app)**
+**[View the live site →](https://www.fynliq.com)**
 
 </div>
 
@@ -641,6 +641,11 @@ and every boundary figures cross to reach it.
 ## Deployment
 
 Deployed on [Vercel](https://vercel.com) as a static Vite build.
+
+**[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — which URL is the site, why the
+`.vercel.app` hosts redirect to it, how to tell whether a change is actually
+live, and the four backend seams with their contracts. Read it before wiring
+anything to this frontend.
 
 ```bash
 vercel          # preview deployment
