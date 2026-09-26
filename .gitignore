@@ -14,3 +14,9 @@ docs/.tmp
 # variable connects the document reader, so it stays tracked.
 .env*
 !.env.example
+
+# Throwaway probes written next to the harnesses while debugging a deploy.
+/.poll.mjs
+/.live.mjs
+/.diag.mjs
+/.chk.mjs
