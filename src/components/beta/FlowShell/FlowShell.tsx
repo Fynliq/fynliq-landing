@@ -1,9 +1,13 @@
 import { AccountButton } from '../../auth/AccountButton/AccountButton';
 import { Logo } from '../../ui';
 import { TabBar } from '../../nav/TabBar/TabBar';
+import { useBilling } from '../../../billing/BillingProvider';
+import { onUnlockJourney } from '../../../billing/client';
 import styles from './FlowShell.module.css';
 
 const STEPS = ['Upload', 'Analyse', 'Your answer'] as const;
+/** Accounts on the FYNQ Beta Unlock journey start one step earlier. */
+const UNLOCK_STEPS = ['Unlock', ...STEPS] as const;
 
 type StepState = 'done' | 'current' | 'todo';
 
@@ -15,8 +19,12 @@ const STATE_NOTE: Record<StepState, string> = {
 };
 
 interface FlowShellProps {
-  /** 1-based, matching the visible numbering. */
-  step: 1 | 2 | 3;
+  /**
+   * 1 Upload, 2 Analyse, 3 Your answer; 0 is the $1 Unlock. For accounts on
+   * the unlock journey the bar shows four steps and numbers them 1–4, so
+   * Unlock is 1 and Upload is 2; everybody else sees the original three.
+   */
+  step: 0 | 1 | 2 | 3;
   children: React.ReactNode;
 }
 
@@ -33,6 +41,10 @@ interface FlowShellProps {
  * and once they have their answer, Search and Ask Fynliq are where it leads.
  */
 export function FlowShell({ step, children }: FlowShellProps) {
+  const journey = onUnlockJourney(useBilling().status) || step === 0;
+  const steps: readonly string[] = journey ? UNLOCK_STEPS : STEPS;
+  const at = journey ? step + 1 : step;
+
   return (
     <div className={styles.shell}>
       <a className={styles.skip} href="#flow">
@@ -58,10 +70,10 @@ export function FlowShell({ step, children }: FlowShellProps) {
 
       <nav className={styles.steps} aria-label="Progress">
         <ol className={styles.stepList}>
-          {STEPS.map((label, index) => {
+          {steps.map((label, index) => {
             const position = index + 1;
             const state: StepState =
-              position < step ? 'done' : position === step ? 'current' : 'todo';
+              position < at ? 'done' : position === at ? 'current' : 'todo';
 
             return (
               <li

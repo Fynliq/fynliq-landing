@@ -62,6 +62,7 @@ to something that runs locally and says on screen that it is doing so.
 | `VITE_FYNLIQ_ANALYZE_URL` | `docs/ANALYSIS_API.md` |
 | `VITE_FYNLIQ_SEARCH_URL` | `docs/SEARCH_ANALYTICS_API.md` |
 | `VITE_FYNLIQ_ASK_URL` | `docs/ASK_API.md` |
+| `VITE_FYNLIQ_BILLING_URL` (optional; same-origin by default) | `docs/BILLING.md` — the $1 FYNQ Beta Unlock |
 
 `ACCOUNTS_SETUP.md` covers the Supabase side: provisioning, RLS, the storage
 bucket, and the release checks that were still outstanding when it was written.

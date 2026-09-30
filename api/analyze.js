@@ -5,12 +5,19 @@
 // text arrives here: no file bytes, ever. This handler runs the same redaction
 // again, then the high-risk PII check, which fails closed, and only then sends
 // the text to the model to pull out the figures.
+//
+// FYNQ Beta Unlock: when PAYWALL_ENABLED=true, a logged-in account must be
+// grandfathered, paid, or an admin/test account before anything is sent to
+// the model; otherwise this answers 402 { code: 'beta_unlock_required' }.
+// With the paywall off (the default) the gate touches nothing.
 import { structuredResponse } from '../server/provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
 import { PrivacyError, PRIVACY_MESSAGE } from '../server/privacy.js';
 import { recordUpload } from '../server/upload-tracking.js';
+import { clients, BetaError } from '../server/beta.js';
+import { analysisAccess, UnlockRequired, UNLOCK_REQUIRED, track as trackFunnel } from '../server/billing.js';
 
 // Swappable in tests; records outcomes only, never document content.
 let track = recordUpload;
@@ -173,11 +180,25 @@ export function selectFacts(extracted, fileCount, documentText, diagnostics) {
   return validateSummary({ supported: true, conflicts: [], facts: kept }, fileCount);
 }
 
-export default async function handler(req, res) {
+export function createAnalyzeHandler(dependencies = {}) {
+  return async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
+  const env = dependencies.env || process.env;
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return bad(res, 405, 'Use POST.'); }
   if (!allowRequest(req, 'analyze', 3)) return bad(res, 429, 'Please wait a minute before uploading again.');
-  if (!process.env.OPENAI_API_KEY || !process.env.OPENAI_MODEL) return bad(res, 503, 'The document reader is not configured.');
+
+  // The paywall gate runs before anything is parsed, stored or sent to the
+  // model, so calling this endpoint directly cannot skip the $1 unlock.
+  let gate;
+  try {
+    gate = await analysisAccess(req, env, { clients: dependencies.clients || clients });
+  } catch (error) {
+    if (error instanceof UnlockRequired) return res.status(402).json(UNLOCK_REQUIRED);
+    if (error instanceof BetaError) return bad(res, error.status, error.message);
+    return bad(res, 503, 'The document reader is not available right now. Please try again in a moment.');
+  }
+
+  if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) return bad(res, 503, 'The document reader is not configured.');
 
   let body;
   try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { return bad(res, 400, 'Invalid upload.'); }
@@ -199,6 +220,10 @@ export default async function handler(req, res) {
   }
   if (totalChars > MAX_CHARS) return bad(res, 413, 'These documents are too long. Upload just the aid summary pages.');
 
+  // Paid-account funnel steps (content-free; only for accounts that paid).
+  const funnel = async (event) => { if (gate.access === 'premium') await trackFunnel(gate.db, gate.account, event, env, false); };
+  await funnel('analysis_started');
+
   // Defence in depth: whatever the browser did, redact again here.
   const redacted = redactDocuments(documents);
   if (redacted.every((d) => d.keptLines === 0)) {
@@ -213,7 +238,7 @@ export default async function handler(req, res) {
   let extracted;
   try {
     extracted = await structuredResponse(input, INSTRUCTIONS, readerSchema,
-      { apiKey: process.env.OPENAI_API_KEY, model: process.env.OPENAI_MODEL, maxOutputTokens: 3000 });
+      { apiKey: env.OPENAI_API_KEY, model: env.OPENAI_MODEL, maxOutputTokens: 3000, fetchImpl: dependencies.fetchImpl });
   } catch (error) {
     if (error instanceof PrivacyError) {
       await track(req, { outcome: 'privacy_blocked', files: documents.length });
@@ -254,6 +279,7 @@ export default async function handler(req, res) {
   }
 
   await track(req, { outcome: 'read', files: documents.length, figures: facts.length });
+  await funnel('analysis_completed');
   const sai = facts.find((f) => f.field === 'sai');
   return res.json({
     document: { kind: facts[0].kind, fileNames: documents.map((d) => d.name), readAt: new Date().toISOString(), confidence: 0.6 },
@@ -263,6 +289,9 @@ export default async function handler(req, res) {
     semester: null,
     unread: [{ field: 'Any figures not shown in the reviewed fields', where: 'Your original documents or school financial aid office.' }],
     summaryFacts: facts,
-    summaryToken: signSummary(facts, process.env.OPENAI_API_KEY, Date.now()),
+    summaryToken: signSummary(facts, env.OPENAI_API_KEY, Date.now()),
   });
+  };
 }
+
+export default createAnalyzeHandler();

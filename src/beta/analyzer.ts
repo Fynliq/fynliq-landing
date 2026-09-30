@@ -38,7 +38,9 @@ export type AnalysisErrorKind =
   /** The reader answered, and said it could not use the document. */
   | 'rejected'
   /** The student pressed cancel. Not an error to apologise for. */
-  | 'cancelled';
+  | 'cancelled'
+  /** HTTP 402: this account needs the one-time FYNQ Beta Unlock first. */
+  | 'unlock_required';
 
 export class AnalysisError extends Error {
   constructor(

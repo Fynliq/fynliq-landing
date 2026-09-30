@@ -12,6 +12,9 @@ import { triageFiles, type Rejection } from '../beta/files';
 import type { AidAnalysis } from '../core';
 import styles from './BetaUpload.module.css';
 import { useAccount } from '../accounts/AccountProvider';
+import { useBilling } from '../billing/BillingProvider';
+import { isLocked, onUnlockJourney, trackFunnel } from '../billing/client';
+import { UnlockMyAid } from './UnlockMyAid';
 
 interface BetaUploadProps {
   /** Handed the finished read. The route change is the caller's business. */
@@ -53,6 +56,19 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   useEffect(() => () => { abort.current?.abort(); }, []);
   const working = stage !== null;
 
+  /*
+   * FYNQ Beta Unlock. Accounts created after the beta cutoff start My Aid at
+   * step 1, the one-time $1 unlock, and arrive here at step 2 once Stripe has
+   * confirmed. Grandfathered, paid and test accounts go straight to upload,
+   * exactly as before. The server's 402 on /api/analyze is the real gate.
+   */
+  const billing = useBilling();
+  const locked = isLocked(billing.status);
+  const entered = useRef(false);
+  useEffect(() => {
+    if (locked && !entered.current) { entered.current = true; trackFunnel('my_aid_entered'); }
+  }, [locked]);
+
   const handleAdd = useCallback(
     (incoming: File[]) => {
       if (incoming.length === 0) return;
@@ -79,6 +95,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
     setError(null);
     setRejections([]);
     setStage('reading');
+    if (onUnlockJourney(billing.status)) trackFunnel('preflight_completed');
 
     try {
       const analysis = await analyzer.analyze(files, {
@@ -97,6 +114,14 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
         return;
       }
 
+      // The server says this account has not unlocked yet: back to step 1.
+      if (thrown instanceof AnalysisError && thrown.kind === 'unlock_required') {
+        setStage(null);
+        const next = await billing.refresh();
+        if (!isLocked(next)) setError(thrown.message);
+        return;
+      }
+
       setStage(null);
       setError(
         thrown instanceof AnalysisError
@@ -108,10 +133,14 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
     }
   }
 
+  // Nothing to draw until we know which step this account starts on.
+  if (billing.loading) return <FlowShell step={1}>{null}</FlowShell>;
+  if (locked) return <UnlockMyAid onUnlocked={() => void billing.refresh()} />;
+
   return (
     <FlowShell step={working ? 2 : 1}>
       <div className={styles.head}>
-        <span className={styles.eyebrow}>{working ? 'Analysing' : 'Join the beta'}</span>
+        <span className={styles.eyebrow}>{working ? 'Analysing' : onUnlockJourney(billing.status) ? 'My Aid' : 'Join the beta'}</span>
         <h1 className={styles.title}>
           {working ? 'Fynliq is reading your document' : 'Upload your aid summary'}
         </h1>
