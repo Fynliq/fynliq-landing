@@ -5,6 +5,7 @@ import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { CheckoutReturn } from './pages/CheckoutReturn';
+import { BillingProvider } from './billing/BillingProvider';
 import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
@@ -91,7 +92,9 @@ export function App() {
     <AccountProvider>
       <Router>
         <AuthProvider>
-          <Routes />
+          <BillingProvider>
+            <Routes />
+          </BillingProvider>
         </AuthProvider>
       </Router>
     </AccountProvider>
@@ -229,7 +232,7 @@ function Routes() {
   if (gated && (locked || restoring)) return <Holding />;
 
   if (path === ROUTES.checkout) {
-    return <CheckoutReturn onAnalysed={onAnalysed} />;
+    return <CheckoutReturn />;
   }
 
   if ((path === ROUTES.upload && !analysis) || orphaned) {

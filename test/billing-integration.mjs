@@ -19,7 +19,7 @@ import { createAskHandler } from '../api/ask.js';
 import { createAuthHandler } from '../api/beta-auth.js';
 import { recordUpload } from '../server/upload-tracking.js';
 import { signStripePayload, verifyStripeEvent } from '../server/stripe.js';
-import { DEFAULT_GRANDFATHER_CUTOFF, openPending } from '../server/billing.js';
+import { DEFAULT_GRANDFATHER_CUTOFF } from '../server/billing.js';
 
 // ------------------------------------------------------------ database
 
@@ -96,7 +96,6 @@ const env = {
   PAYWALL_ENABLED: 'true', BETA_ENABLED: 'true', BETA_ORIGIN: ORIGIN, BETA_RATE_SECRET: 'synthetic-rate-secret-at-least-32-chars',
   STRIPE_SECRET_KEY: 'sk_test_synthetic123', STRIPE_PRICE_ID: 'price_synthetic123', STRIPE_WEBHOOK_SECRET: WEBHOOK_SECRET,
   FYNQ_BETA_GRANDFATHER_CUTOFF: DEFAULT_GRANDFATHER_CUTOFF, FYNQ_BILLING_TEST_ACCOUNT_IDS: ids.tester,
-  FYNQ_PENDING_ANALYSIS_KEY: 'synthetic-pending-key-that-is-long-enough-000',
   OPENAI_API_KEY: 'synthetic', OPENAI_MODEL: 'synthetic', BETA_MAX_QUESTIONS_PER_DAY: '10000', OPENAI_MAX_OUTPUT_TOKENS: '1200',
 };
 const cookies = {};
@@ -223,7 +222,7 @@ try {
 
   await test('6. new unpaid account cannot call premium analysis directly (402, model never called)', async () => {
     const before = openaiCalls;
-    for (const extra of [{}, { pendingId: '20000000-0000-4000-8000-000000000000' }, { documents: undefined }]) {
+    for (const extra of [{}, { paid: true, checkoutSessionId: 'cs_test_forged0001' }, { documents: undefined }]) {
       const res = await read('after', extra);
       assert.equal(res.statusCode, 402);
       assert.deepEqual(res.body, { code: 'beta_unlock_required', message: 'Unlock My Aid to continue.' });
@@ -380,7 +379,6 @@ try {
     await clearRates();
     for (const who of ['before', 'exact']) {
       assert.deepEqual((await call(billing(), { body: { action: 'checkout' }, cookie: cookies[who] })).body, { access: 'grandfathered', unlocked: true });
-      assert.equal((await call(billing(), { body: { action: 'pending-save', consent: true, documents } , cookie: cookies[who] })).body.unlocked, true);
       await call(billing(), { body: { action: 'track', event: 'paywall_viewed' }, cookie: cookies[who] });
       assert.equal((await read(who)).statusCode, 200);
     }
@@ -405,53 +403,21 @@ try {
     assert.ok(!decodeURIComponent(stripeRequests.at(-1).body).includes('JVBERi0'));
   });
 
-  await test('17. raw aid files are never persisted to survive Checkout; only encrypted redacted lines, briefly', async () => {
+  await test('17. raw aid files are never persisted; no aid content is stored anywhere in billing', async () => {
     await clearRates();
-    const refused = await call(billing(), { body: { action: 'pending-save', consent: true, files: [{ name: 'a.pdf', data: 'JVBERi0=' }], documents }, cookie: cookies.decliner });
-    assert.equal(refused.statusCode, 400);
-    assert.equal((await call(billing(), { body: { action: 'pending-save', documents }, cookie: cookies.decliner })).statusCode, 400, 'consent required');
-
-    const saved = await call(billing(), { body: { action: 'pending-save', consent: true, documents }, cookie: cookies.decliner });
-    assert.equal(saved.statusCode, 200, JSON.stringify(saved.body));
-    const { pendingId, expiresAt } = saved.body;
-    assert.match(pendingId, /^[0-9a-f-]{36}$/);
-    const ttl = (Date.parse(expiresAt) - Date.now()) / 60000;
-    assert.ok(ttl > 29 && ttl <= 30, `expires in ${ttl} minutes`);
-
-    // Nothing readable anywhere in the database: no text, no names, no file names, no SSN.
-    for (const table of ['billing_pending_analyses', 'billing_checkouts', 'billing_entitlements', 'billing_stripe_events', 'monetization_events', 'upload_events']) {
-      const dump = JSON.stringify(await pg.query(`select * from public.${table}`));
-      for (const needle of [MARKER, 'Pell', 'Jordan', 'Testcase', '123-45-6789', '3,698', '.png']) assert.ok(!dump.includes(needle), `${needle} in ${table}`);
-    }
-    const row = (await pg.query('select * from public.billing_pending_analyses where id = $1', [pendingId]))[0];
-    const stored = openPending(row, ids.decliner, pendingId, env);
-    const plain = JSON.stringify(stored);
-    assert.ok(plain.includes('Federal Pell Grant Fall 2026 $3,698'));
-    for (const needle of ['Jordan', '123-45-6789', MARKER + '_award', '.png']) assert.ok(!plain.includes(needle), needle);
-    assert.throws(() => openPending(row, ids.other, pendingId, env), 'bound to the account');
-
-    // Another account cannot use it, even after paying.
-    assert.equal((await read('other', { documents: undefined, pendingId })).statusCode, 410);
-    // Pay, then resume from the pending payload without re-selecting files.
+    // The unlock happens before any document is chosen, so there is no store for documents at all.
+    assert.equal((await call(billing(), { body: { action: 'pending-save', consent: true, documents }, cookie: cookies.decliner })).statusCode, 400);
+    const tables = (await pg.query("select tablename from pg_tables where schemaname = 'public' and tablename like 'billing%' order by 1")).map((r) => r.tablename);
+    assert.deepEqual(tables, ['billing_checkouts', 'billing_entitlements', 'billing_stripe_events']);
+    // Pay, then analyze: the reader still refuses file bytes, and nothing readable is kept.
     const started = await startCheckout('decliner');
     await deliver(stripeEvent('checkout.session.completed', sessionFor(ids.decliner, sessionIdFromUrl(started.url))));
-    const resumed = await read('decliner', { documents: undefined, pendingId });
-    assert.equal(resumed.statusCode, 200);
-    assert.deepEqual(resumed.body.document.fileNames, ['Document 1']);
-    assert.equal((await pg.query('select count(*)::int n from public.billing_pending_analyses where id = $1', [pendingId]))[0].n, 0, 'deleted after analysis');
-
-    // Abandoned payloads expire.
-    await clearRates();
-    const other = await call(billing(), { body: { action: 'pending-save', consent: true, documents }, cookie: cookies.after });
-    await pg.exec(`update public.billing_pending_analyses set expires_at = now() - interval '1 second', created_at = now() - interval '20 minutes' where id = '${other.body.pendingId}'`);
-    assert.equal(await db.rpc('billing_pending_load', { p_id: other.body.pendingId, p_user: ids.after }).then((r) => r.data), null);
-    assert.equal((await pg.query('select count(*)::int n from public.billing_pending_analyses'))[0].n, 0);
-    // Lifetime can never exceed 30 minutes, even by misconfiguration.
-    await assert.rejects(pg.exec(`insert into public.billing_pending_analyses(id, account_id, ciphertext, iv, tag, documents, expires_at) values (gen_random_uuid(), '${ids.after}', 'x', 'x', 'x', 1, now() + interval '2 hours')`));
-    // The pending key is required; without it the fallback fails closed.
-    await clearRates();
-    const nokey = await call(billing({ env: { ...env, FYNQ_PENDING_ANALYSIS_KEY: '' } }), { body: { action: 'pending-save', consent: true, documents }, cookie: cookies.after });
-    assert.equal(nokey.statusCode, 503);
+    assert.equal((await read('decliner', { files: [{ name: 'a.pdf', data: 'JVBERi0=' }] })).statusCode, 400);
+    assert.equal((await read('decliner')).statusCode, 200);
+    for (const table of [...tables, 'monetization_events', 'upload_events']) {
+      const dump = JSON.stringify(await pg.query(`select * from public.${table}`));
+      for (const needle of [MARKER, 'Pell', 'Jordan', 'Testcase', '123-45-6789', '3,698', '.png', 'JVBERi0']) assert.ok(!dump.includes(needle), `${needle} in ${table}`);
+    }
   });
 
   await test('18. admin/test accounts bypass payment and are excluded from revenue and conversion', async () => {
@@ -518,18 +484,20 @@ try {
     for (const key of ['paywall_views', 'checkout_starts', 'paid_accounts', 'paywall_to_checkout_rate', 'checkout_to_paid_rate', 'paywall_to_paid_rate', 'gross_revenue_cents', 'paid_user_upload_batches', 'paid_user_completed_questions']) assert.ok(key in res.body.billing.live, key);
   });
 
-  await test('funnel: client-reported steps are recorded only for locked post-cutoff accounts, and only known steps', async () => {
+  await test('funnel: client-reported steps are recorded only for post-cutoff accounts, and only known steps', async () => {
     await clearRates();
     for (const event of ['my_aid_entered', 'preflight_completed', 'paywall_viewed']) {
       assert.equal((await call(billing(), { body: { action: 'track', event }, cookie: cookies.after })).statusCode, 200);
     }
     assert.equal((await call(billing(), { body: { action: 'track', event: 'payment_confirmed' }, cookie: cookies.after })).statusCode, 400);
-    await call(billing(), { body: { action: 'track', event: 'paywall_viewed' }, cookie: cookies.buyer });
+    // A paid post-cutoff account's first document check comes after the unlock, so it counts too.
+    await call(billing(), { body: { action: 'track', event: 'preflight_completed' }, cookie: cookies.buyer });
     const rows = await pg.query('select account_id, event_type from public.monetization_events where event_type in ($1, $2, $3)', ['my_aid_entered', 'preflight_completed', 'paywall_viewed']);
-    assert.equal(rows.length, 3);
-    assert.ok(rows.every((r) => r.account_id === ids.after));
+    assert.equal(rows.length, 4);
+    assert.equal(rows.filter((r) => r.account_id === ids.after).length, 3);
+    assert.ok(rows.every((r) => r.account_id === ids.after || r.account_id === ids.buyer));
     const m = (await db.rpc('billing_metrics', { p_cutoff: DEFAULT_GRANDFATHER_CUTOFF, p_test: [ids.tester] })).data.test_mode;
-    assert.deepEqual([m.my_aid_entered_accounts, m.preflight_completed_accounts, m.paywall_views, m.paywall_viewers], [1, 1, 1, 1]);
+    assert.deepEqual([m.my_aid_entered_accounts, m.preflight_completed_accounts, m.paywall_views, m.paywall_viewers], [1, 2, 1, 1]);
   });
 
   await test('safety: live Stripe keys are refused unless explicitly allowed; cross-origin requests are refused', async () => {
@@ -546,7 +514,7 @@ try {
   await test('safety: browsers cannot read or write billing tables or call billing functions', async () => {
     for (const role of ['anon', 'authenticated']) {
       for (const sql of [
-        'select * from public.billing_entitlements', 'select * from public.billing_checkouts', 'select * from public.billing_pending_analyses',
+        'select * from public.billing_entitlements', 'select * from public.billing_checkouts',
         'select * from public.monetization_events', 'select * from public.billing_stripe_events',
         `insert into public.billing_entitlements(account_id, checkout_session_id, amount, currency, livemode, paid_at) values ('${ids.after}', 'cs_test_x', 0, 'usd', false, now())`,
         `select public.billing_access('${ids.after}', now())`, `select public.billing_metrics(now(), '{}')`,

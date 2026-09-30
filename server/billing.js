@@ -11,7 +11,6 @@
 // The account is always the one on the httpOnly session cookie. Nothing a
 // browser sends (an account id, a Stripe session id, a success URL) is ever
 // taken as evidence of who is paying or whether they paid.
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes, randomUUID } from 'node:crypto';
 import { rpc, hash, BetaError } from './beta.js';
 import { accountToken } from './account-login.js';
 import { keyMode, stripeRequest } from './stripe.js';
@@ -21,11 +20,10 @@ export const UNLOCK_PRICE = { amount: 100, currency: 'usd', label: '$1.00 — On
 export const UNLOCK_REQUIRED = { code: 'beta_unlock_required', message: 'Unlock My Aid to continue.' };
 export const PURPOSE = 'fynq_beta_unlock';
 /** Funnel steps the browser may report. Everything else is recorded server-side. */
-export const CLIENT_EVENTS = ['my_aid_entered', 'preflight_completed', 'paywall_viewed'];
+export const CLIENT_EVENTS = ['my_aid_entered', 'paywall_viewed', 'preflight_completed'];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CUTOFF = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
-const PENDING_TTL_DEFAULT = 1800;
 
 export class UnlockRequired extends Error {
   constructor() { super(UNLOCK_REQUIRED.message); this.name = 'UnlockRequired'; this.status = 402; }
@@ -157,63 +155,4 @@ export async function createCheckout(db, account, env = process.env, { fetchImpl
     p_url: session.url, p_expires: new Date(expiresAt * 1000).toISOString(),
   });
   return { url: session.url, reused: false };
-}
-
-// -------------------------------------------------------- pending analysis
-//
-// Fallback for browsers that cannot keep the My Aid tab alive while Stripe
-// Checkout is open (popup blocked, most phones). Only the already-redacted
-// aid lines are kept, never an original file and never a file name,
-// encrypted with AES-256-GCM under a server-only key, bound to the account
-// and pending id, for at most 30 minutes.
-
-function pendingKey(env) {
-  const secret = env.FYNQ_PENDING_ANALYSIS_KEY;
-  if (typeof secret !== 'string' || secret.length < 32) throw new BetaError(503, 'This checkout option is not available. Please try again on a computer.');
-  return Buffer.from(hkdfSync('sha256', secret, 'fynq-pending-analysis', 'aid-lines-v1', 32));
-}
-
-export function pendingTtl(env = process.env) {
-  const n = Number(env.FYNQ_PENDING_ANALYSIS_TTL_SECONDS || PENDING_TTL_DEFAULT);
-  return Number.isInteger(n) ? Math.min(1800, Math.max(60, n)) : PENDING_TTL_DEFAULT;
-}
-
-export function sealPending(pages, accountId, id, env = process.env) {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', pendingKey(env), iv);
-  cipher.setAAD(Buffer.from(`${id}:${accountId}`));
-  const ciphertext = Buffer.concat([cipher.update(JSON.stringify({ v: 1, documents: pages.map((p) => ({ pages: p })) }), 'utf8'), cipher.final()]);
-  return { ciphertext: ciphertext.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') };
-}
-
-export function openPending(row, accountId, id, env = process.env) {
-  const decipher = createDecipheriv('aes-256-gcm', pendingKey(env), Buffer.from(row.iv, 'base64'));
-  decipher.setAAD(Buffer.from(`${id}:${accountId}`));
-  decipher.setAuthTag(Buffer.from(row.tag, 'base64'));
-  const plain = Buffer.concat([decipher.update(Buffer.from(row.ciphertext, 'base64')), decipher.final()]).toString('utf8');
-  const data = JSON.parse(plain);
-  if (data?.v !== 1 || !Array.isArray(data.documents)) throw new Error('Invalid pending payload');
-  return data.documents;
-}
-
-export async function savePending(db, account, redactedPages, env = process.env) {
-  const id = randomUUID();
-  const sealed = sealPending(redactedPages, account.id, id, env);
-  const expiresAt = await rpc(db, 'billing_pending_save', {
-    p_id: id, p_user: account.id, p_ciphertext: sealed.ciphertext, p_iv: sealed.iv, p_tag: sealed.tag,
-    p_documents: redactedPages.length, p_ttl_seconds: pendingTtl(env),
-  });
-  return { pendingId: id, expiresAt: new Date(expiresAt).toISOString() };
-}
-
-export async function loadPending(db, account, id, env = process.env) {
-  if (typeof id !== 'string' || !UUID.test(id)) return null;
-  const row = await rpc(db, 'billing_pending_load', { p_id: id, p_user: account.id });
-  if (!row) return null;
-  try { return openPending(row, account.id, id, env); } catch { return null; }
-}
-
-export async function deletePending(db, account, id) {
-  if (typeof id !== 'string' || !UUID.test(id)) return;
-  try { await rpc(db, 'billing_pending_delete', { p_id: id, p_user: account.id }); } catch { /* expires on its own */ }
 }

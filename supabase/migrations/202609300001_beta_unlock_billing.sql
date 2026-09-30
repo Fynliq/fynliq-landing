@@ -12,11 +12,8 @@
 --   * One entitlement row per paying account.
 --   * Stripe event ids, for webhook idempotency.
 --   * Content-free funnel events (event name, account, time, mode).
---   * Pending analyses: an ENCRYPTED, already-redacted aid-line payload that
---     survives a same-tab redirect to Stripe, deleted after analysis and
---     expiring after at most 30 minutes. Never an original file, never a file
---     name. The encryption key is a server environment variable and is never
---     in the database.
+--   * Nothing about a student's documents: the unlock happens before any
+--     document is chosen, so no aid content ever waits on a payment.
 --
 -- Grandfathering is deterministic, not stored: an account is grandfathered
 -- when public.accounts.created_at <= the cutoff the server passes in
@@ -76,18 +73,6 @@ create table public.billing_stripe_events (
  received_at timestamptz not null default now()
 );
 
-create table public.billing_pending_analyses (
- id uuid primary key,
- account_id uuid not null references public.accounts(user_id) on delete cascade,
- ciphertext text not null check (length(ciphertext) <= 80000),
- iv text not null check (length(iv) <= 64),
- tag text not null check (length(tag) <= 64),
- documents integer not null check (documents between 1 and 3),
- created_at timestamptz not null default now(),
- expires_at timestamptz not null check (expires_at <= created_at + interval '30 minutes')
-);
-create index billing_pending_expiry on public.billing_pending_analyses(expires_at);
-
 create table public.monetization_events (
  id uuid primary key default gen_random_uuid(),
  created_at timestamptz not null default now(),
@@ -103,12 +88,11 @@ create index monetization_events_type_time on public.monetization_events(event_t
 alter table public.billing_checkouts enable row level security;
 alter table public.billing_entitlements enable row level security;
 alter table public.billing_stripe_events enable row level security;
-alter table public.billing_pending_analyses enable row level security;
 alter table public.monetization_events enable row level security;
 revoke all on public.billing_checkouts, public.billing_entitlements, public.billing_stripe_events,
- public.billing_pending_analyses, public.monetization_events from public, anon, authenticated;
+ public.monetization_events from public, anon, authenticated;
 grant all on public.billing_checkouts, public.billing_entitlements, public.billing_stripe_events,
- public.billing_pending_analyses, public.monetization_events to service_role;
+ public.monetization_events to service_role;
 
 -- ------------------------------------------------------------------ access
 
@@ -194,8 +178,6 @@ begin
   return jsonb_build_object('duplicate', true, 'outcome', 'duplicate');
  end if;
 
- delete from public.billing_pending_analyses where expires_at < now();
-
  if p_type not in ('checkout.session.completed','checkout.session.async_payment_succeeded',
    'checkout.session.async_payment_failed','checkout.session.expired') then
   v_outcome := 'ignored';
@@ -256,41 +238,6 @@ begin
  update public.billing_stripe_events set outcome = v_outcome where event_id = p_event_id;
  return jsonb_build_object('duplicate', false, 'outcome', v_outcome);
 end;
-$$;
-
--- -------------------------------------------------------- pending analysis
-
--- Holds one encrypted, redacted aid-line payload per account while the
--- student is on Stripe's page. Saving a new one replaces the old one.
-create function public.billing_pending_save(p_id uuid, p_user uuid, p_ciphertext text, p_iv text, p_tag text,
- p_documents integer, p_ttl_seconds integer) returns timestamptz
-language plpgsql security definer set search_path='' as $$
-declare v_expires timestamptz;
-begin
- if p_ttl_seconds < 60 or p_ttl_seconds > 1800 then raise exception 'Invalid pending lifetime'; end if;
- delete from public.billing_pending_analyses where expires_at < now() or account_id = p_user;
- v_expires := now() + make_interval(secs => p_ttl_seconds);
- insert into public.billing_pending_analyses(id, account_id, ciphertext, iv, tag, documents, expires_at)
- values (p_id, p_user, p_ciphertext, p_iv, p_tag, p_documents, v_expires);
- return v_expires;
-end;
-$$;
-
--- Only the owning account can load it, and only before it expires.
-create function public.billing_pending_load(p_id uuid, p_user uuid) returns jsonb
-language plpgsql security definer set search_path='' as $$
-declare v jsonb;
-begin
- delete from public.billing_pending_analyses where expires_at < now();
- select jsonb_build_object('ciphertext', ciphertext, 'iv', iv, 'tag', tag, 'documents', documents, 'expires_at', expires_at)
- into v from public.billing_pending_analyses where id = p_id and account_id = p_user and expires_at >= now();
- return v;
-end;
-$$;
-
-create function public.billing_pending_delete(p_id uuid, p_user uuid) returns void
-language sql security definer set search_path='' as $$
- delete from public.billing_pending_analyses where (id = p_id and account_id = p_user) or expires_at < now();
 $$;
 
 -- ----------------------------------------------------------------- metrics
@@ -377,9 +324,6 @@ revoke all on function
  public.billing_open_checkout(uuid, boolean),
  public.billing_checkout_created(text, uuid, boolean, boolean, text, timestamptz),
  public.billing_stripe_event(text, text, boolean, text, text, text, text, integer, text, text, text, integer, text, boolean),
- public.billing_pending_save(uuid, uuid, text, text, text, integer, integer),
- public.billing_pending_load(uuid, uuid),
- public.billing_pending_delete(uuid, uuid),
  public.billing_mode_metrics(boolean, uuid[]),
  public.billing_metrics(timestamptz, uuid[])
 from public, anon, authenticated;
@@ -389,9 +333,6 @@ grant execute on function
  public.billing_open_checkout(uuid, boolean),
  public.billing_checkout_created(text, uuid, boolean, boolean, text, timestamptz),
  public.billing_stripe_event(text, text, boolean, text, text, text, text, integer, text, text, text, integer, text, boolean),
- public.billing_pending_save(uuid, uuid, text, text, text, integer, integer),
- public.billing_pending_load(uuid, uuid),
- public.billing_pending_delete(uuid, uuid),
  public.billing_mode_metrics(boolean, uuid[]),
  public.billing_metrics(timestamptz, uuid[])
 to service_role;

@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { formEncode, keyMode, signStripePayload, verifyStripeEvent } from './stripe.js';
 import {
-  analysisAccess, grandfatherCutoff, openPending, paywallEnabled, sealPending, stripeConfig, testAccountIds,
+  analysisAccess, grandfatherCutoff, paywallEnabled, stripeConfig, testAccountIds,
   DEFAULT_GRANDFATHER_CUTOFF, UnlockRequired,
 } from './billing.js';
 import { hash } from './beta.js';
@@ -79,23 +79,6 @@ describe('paywall configuration', () => {
   it('reads admin/test accounts from both lists and ignores anything that is not an id', () => {
     const ids = testAccountIds({ FYNQ_BILLING_TEST_ACCOUNT_IDS: ` ${ACCOUNT.toUpperCase()}, not-an-id`, BETA_ADMIN_USER_IDS: '22222222-2222-4222-8222-222222222222' });
     expect([...ids].sort()).toEqual([ACCOUNT, '22222222-2222-4222-8222-222222222222']);
-  });
-});
-
-describe('pending analysis encryption', () => {
-  const env = { FYNQ_PENDING_ANALYSIS_KEY: 'k'.repeat(40) };
-  const id = '33333333-3333-4333-8333-333333333333';
-
-  it('round-trips only for the same account and id, and stores no plaintext', () => {
-    const sealed = sealPending([['Federal Pell Grant Fall 2026 $3,698']], ACCOUNT, id, env);
-    expect(JSON.stringify(sealed)).not.toContain('Pell');
-    expect(openPending(sealed, ACCOUNT, id, env)).toEqual([{ pages: ['Federal Pell Grant Fall 2026 $3,698'] }]);
-    expect(() => openPending(sealed, '44444444-4444-4444-8444-444444444444', id, env)).toThrow();
-    expect(() => openPending(sealed, ACCOUNT, '55555555-5555-4555-8555-555555555555', env)).toThrow();
-  });
-
-  it('refuses to seal without a long enough key', () => {
-    expect(() => sealPending([['x']], ACCOUNT, id, { FYNQ_PENDING_ANALYSIS_KEY: 'short' })).toThrow();
   });
 });
 

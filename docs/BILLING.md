@@ -1,31 +1,34 @@
 # FYNQ Beta Unlock ($1, one-time)
 
-A new student creates a free account, reaches My Aid, chooses their aid
-documents, and FYNQ reads and redacts them **on their device**. Only when FYNQ
-knows it can work with them is the one-time $1 unlock shown. After Stripe
-confirms payment (by signed webhook), the analysis runs and the answer
-appears. One payment unlocks the account for the rest of the beta.
+A new student creates a free account and logs in. My Aid opens at **Step 1 ·
+Unlock**: the one-time $1 FYNQ Beta Unlock. Stripe Checkout opens in the same
+tab; once Stripe's signed webhook confirms payment, the student lands on
+**Step 2 · Upload** and carries on exactly as before (Analyse, Your answer).
+One payment unlocks the account for the rest of the beta.
 
-Accounts created at or before the cutoff are grandfathered and never see any
-of this. With `PAYWALL_ENABLED` unset or anything but exactly `true`, nothing
-changes for anybody.
+Because the unlock comes before any document is chosen, no aid content ever
+waits on, or travels with, a payment.
+
+Accounts created at or before the cutoff are grandfathered and see the
+original three-step flow with no unlock. With `PAYWALL_ENABLED` unset or
+anything but exactly `true`, nothing changes for anybody.
 
 ## Flow
 
 ```
-signup (free) → My Aid → choose 1–3 files → consent
-  → read + redact on device (existing pdf.js / OCR / server/redact.js)
-  → aid lines found?  no → existing "could not find" message
-                      yes, account locked → paywall (nothing sent anywhere yet)
-  → "Unlock My Aid — $1" → POST /api/billing {action:'checkout'}
-       desktop: Stripe opens in a new tab (opener cut); this tab keeps the
-                redacted read in memory and polls GET /api/billing
-       phone:   redacted lines → encrypted pending store (≤30 min, no file
-                names) → same-tab redirect to Stripe
-  → Stripe → POST /api/stripe-webhook (signature verified) → entitlement
-  → return page /beta/checkout asks the server, never trusts the URL
-  → POST /api/analyze (read held in memory, or {pendingId}) → answer
+signup (free) → log in → My Aid
+  locked (post-cutoff, unpaid):
+    Step 1 Unlock → "Unlock My Aid — $1" → POST /api/billing {action:'checkout'}
+      → Stripe Checkout (same tab)
+      → POST /api/stripe-webhook (signature verified) → entitlement
+      → /beta/checkout?result=success polls GET /api/billing (never trusts the URL)
+      → "Payment confirmed" → Step 2 Upload → Step 3 Analyse → Step 4 Your answer
+  grandfathered / test / paywall off: Upload → Analyse → Your answer (unchanged)
+  /api/analyze answers 402 beta_unlock_required to any locked account, whatever the page did
 ```
+
+The step bar numbers 1–4 (Unlock, Upload, Analyse, Your answer) for
+post-cutoff accounts, locked or paid, and 1–3 for everyone else.
 
 ## Who pays (server-side, in `server/billing.js`)
 
@@ -56,8 +59,6 @@ select count(*) from public.accounts where created_at <= '2026-09-30T18:53:52.65
 | `STRIPE_ALLOW_LIVE_MODE` | leave `false` until you deliberately go live. |
 | `FYNQ_BETA_GRANDFATHER_CUTOFF` | defaults to `2026-09-30T18:53:52.654622Z`; a malformed value fails closed (503). |
 | `FYNQ_BILLING_TEST_ACCOUNT_IDS` | comma-separated account ids that bypass payment. |
-| `FYNQ_PENDING_ANALYSIS_KEY` | 32+ random chars (`openssl rand -base64 48`). Needed for the phone flow. |
-| `FYNQ_PENDING_ANALYSIS_TTL_SECONDS` | 60–1800, default 1800. |
 
 Existing `BETA_ENABLED`, `BETA_ORIGIN`, `BETA_RATE_SECRET` and the Supabase
 variables are reused. `BETA_ORIGIN` builds Stripe's success/cancel URLs.
@@ -86,17 +87,18 @@ expiry. Never document text, figures, file names or files.
 
 `supabase/migrations/202609300001_beta_unlock_billing.sql` (apply after review):
 `billing_checkouts`, `billing_entitlements`, `billing_stripe_events`
-(idempotency), `billing_pending_analyses` (encrypted, ≤30 min, hard DB check),
-`monetization_events` (content-free funnel). RLS on, revoked from `anon` and
+(idempotency) and `monetization_events` (content-free funnel). Nothing about
+any student's documents. RLS on, revoked from `anon` and
 `authenticated`; all functions are `SECURITY DEFINER`, service role only. No
 card data.
 
 ## Metrics (/admin → "FYNQ Beta Unlock ($1)")
 
 Live and Stripe test mode are reported separately; admin/test accounts are
-excluded. Funnel: entered My Aid → documents checked → paywall viewed →
-unlock clicked → checkout created → checkout completed → payment confirmed →
-entitlement activated → analysis started → analysis completed. Also gross
+excluded. Funnel, in the order a student meets it: entered My Aid → unlock
+viewed → unlock clicked → checkout created → checkout completed → payment
+confirmed → entitlement activated → documents selected → analysis started →
+analysis completed. Also gross
 revenue, paid accounts, grandfathered accounts, duplicate payments to refund,
 and paid-user uploads (batches, files, uploaders) and answered questions, each
 as its own number.
