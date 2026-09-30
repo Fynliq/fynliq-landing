@@ -53,6 +53,7 @@ select count(*) from public.accounts where created_at <= '2026-09-30T18:53:52.65
 | Variable | Notes |
 | --- | --- |
 | `PAYWALL_ENABLED` | `false` until reviewed. Only the exact string `true` turns it on. |
+| `PAYWALL_PILOT_EMAILS` | optional comma-separated emails. When set, only these accounts see the paywall; everyone else is unaffected. Use it to test on www.fynliq.com, then remove it. |
 | `STRIPE_SECRET_KEY` | `sk_test_…` first. Live keys are refused unless `STRIPE_ALLOW_LIVE_MODE=true`. |
 | `STRIPE_PRICE_ID` | the one-time $1.00 USD price of product "FYNQ Beta Unlock". |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` for the endpoint below. |
@@ -109,6 +110,12 @@ as its own number.
 - `npm run test:billing` — end-to-end billing against Postgres with every
   migration (PGlite by default, or `BILLING_TEST_PSQL_DB=<db>` for a local
   Postgres via `psql`), fake Stripe and fake OpenAI.
+
+## Testing on the live site (pilot)
+
+1. Set `PAYWALL_ENABLED=true` and `PAYWALL_PILOT_EMAILS=<your new test account email>` with **test-mode** Stripe keys.
+2. Create that account on www.fynliq.com (it must be created after the cutoff), then pay with `4242 4242 4242 4242`.
+3. Everyone else, including other new accounts, sees no change.
 
 ## Going live (not part of this change)
 

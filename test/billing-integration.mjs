@@ -500,6 +500,26 @@ try {
     assert.deepEqual([m.my_aid_entered_accounts, m.preflight_completed_accounts, m.paywall_views, m.paywall_viewers], [1, 2, 1, 1]);
   });
 
+  await test('pilot: PAYWALL_PILOT_EMAILS gates only the listed accounts; everyone else is untouched', async () => {
+    const pilotEnv = { ...env, PAYWALL_PILOT_EMAILS: ' After@Example.test ' };
+    const pb = (o) => billing({ env: pilotEnv, ...o });
+    const pa = (o) => analyze({ env: pilotEnv, ...o });
+    assert.equal((await call(pb(), { method: 'GET', cookie: cookies.after })).body.access, 'locked');
+    for (const who of ['canceller', 'decliner', 'before']) {
+      const s = (await call(pb(), { method: 'GET', cookie: cookies[who] })).body;
+      assert.deepEqual([s.paywallEnabled, s.access], [false, 'open'], who);
+    }
+    assert.equal((await call(pa(), { body: { consent: true, documents }, cookie: cookies.after })).statusCode, 402);
+    const before = openaiCalls;
+    assert.equal((await call(pa(), { body: { consent: true, documents }, cookie: cookies.canceller })).statusCode, 200, 'unpaid post-cutoff account outside the pilot is not gated');
+    assert.equal((await call(pa(), { body: { consent: true, documents } })).statusCode, 200, 'not signed in: unchanged');
+    assert.equal((await call(pa({ clients: noDatabase }), { body: { consent: true, documents }, cookie: cookies.canceller })).statusCode, 200, 'database trouble never blocks non-pilot users');
+    assert.equal(openaiCalls, before + 3);
+    await clearRates();
+    const c = await call(pb(), { body: { action: 'checkout' }, cookie: cookies.canceller });
+    assert.equal(c.body.unlocked, true);
+  });
+
   await test('safety: live Stripe keys are refused unless explicitly allowed; cross-origin requests are refused', async () => {
     await clearRates();
     const live = await call(billing({ env: { ...env, STRIPE_SECRET_KEY: 'sk_live_synthetic123' } }), { body: { action: 'checkout' }, cookie: cookies.canceller });

@@ -3,6 +3,8 @@
 //
 // Access rule (server-side, authoritative):
 //   PAYWALL_ENABLED is not exactly 'true'  -> open to everyone, as before
+//   PAYWALL_PILOT_EMAILS set, not listed   -> open (the paywall only applies
+//                                            to the listed test accounts)
 //   admin/test account                     -> allowed, excluded from metrics
 //   accounts.created_at <= cutoff          -> grandfathered, never pays
 //   active paid entitlement                -> unlocked
@@ -45,6 +47,23 @@ export function testAccountIds(env = process.env) {
     `${env.FYNQ_BILLING_TEST_ACCOUNT_IDS || ''},${env.BETA_ADMIN_USER_IDS || ''}`
       .split(',').map((x) => x.trim().toLowerCase()).filter((x) => UUID.test(x)),
   );
+}
+
+/**
+ * Pilot mode: when PAYWALL_PILOT_EMAILS lists account emails, the paywall
+ * applies to those accounts only and everybody else carries on as before.
+ * This is how the whole flow is tried on the real site with Stripe test cards
+ * before it is switched on for everyone. `null` means no pilot: all accounts.
+ */
+export function pilotEmails(env = process.env) {
+  const list = (env.PAYWALL_PILOT_EMAILS || '').split(',').map((x) => x.trim().toLowerCase()).filter((x) => x.includes('@'));
+  return list.length ? new Set(list) : null;
+}
+
+/** Is this account subject to the paywall at all? */
+export function inPilot(account, env = process.env) {
+  const pilot = pilotEmails(env);
+  return !pilot || (typeof account?.email === 'string' && pilot.has(account.email.toLowerCase()));
 }
 
 /** Whether billing rows written now belong to Stripe live mode. */
@@ -91,6 +110,17 @@ export async function resolveAccess(db, account, env = process.env) {
  */
 export async function analysisAccess(req, env = process.env, dependencies = {}) {
   if (!paywallEnabled(env)) return { access: 'open', account: null, db: null };
+  if (pilotEmails(env)) {
+    // Pilot: only listed accounts are gated. Anyone else, signed in or not,
+    // and any lookup failure, reads exactly as before the paywall existed.
+    let pilot;
+    try {
+      const { db } = dependencies.clients(env);
+      const account = accountToken(req) ? await currentAccount(req, db) : null;
+      pilot = account && inPilot(account, env) ? { account, db } : null;
+    } catch { pilot = null; }
+    if (!pilot) return { access: 'open', account: null, db: null };
+  }
   const { db } = dependencies.clients(env);
   const account = await currentAccount(req, db);
   const result = await resolveAccess(db, account, env);

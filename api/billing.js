@@ -12,7 +12,7 @@
 // account is 'open' and nothing touches Stripe or the billing tables.
 import { clients, sameOrigin, body, rate, fail, BetaError } from '../server/beta.js';
 import {
-  paywallEnabled, currentAccount, resolveAccess, createCheckout, track, CLIENT_EVENTS, UNLOCK_PRICE,
+  paywallEnabled, currentAccount, resolveAccess, createCheckout, track, CLIENT_EVENTS, UNLOCK_PRICE, inPilot,
 } from '../server/billing.js';
 
 export const config = { maxDuration: 30 };
@@ -32,6 +32,11 @@ export function createBillingHandler(dependencies = {}) {
       const { db } = (dependencies.clients || clients)(env);
       if (req.method === 'POST') sameOrigin(req, env);
       const account = await currentAccount(req, db);
+      // Pilot mode: accounts not on PAYWALL_PILOT_EMAILS see no paywall at all.
+      if (!inPilot(account, env)) {
+        if (req.method === 'GET') return res.json({ paywallEnabled: false, access: 'open', price: UNLOCK_PRICE });
+        return res.json({ paywallEnabled: false, access: 'open', unlocked: true, ok: true });
+      }
       const status = await resolveAccess(db, account, env);
       const locked = status.access === 'locked';
 
