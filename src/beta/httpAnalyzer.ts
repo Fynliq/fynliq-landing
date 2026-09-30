@@ -56,6 +56,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
           method: 'POST',
           body,
           signal,
+          credentials: 'same-origin',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         });
       } catch {
@@ -64,6 +65,12 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
           'Fynliq could not reach the document reader. Check your connection and try again.',
           'network',
         );
+      }
+
+      // The paywall lives on the server (api/analyze.js). This only turns its
+      // structured answer into the unlock step; the body is otherwise ignored.
+      if (response.status === 402) {
+        throw new AnalysisError('Unlock My Aid to continue.', 'unlock_required');
       }
 
       if (!response.ok) {

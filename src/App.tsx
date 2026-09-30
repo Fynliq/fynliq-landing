@@ -4,7 +4,10 @@ import { AskFynliq } from './pages/AskFynliq';
 import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
+import { CheckoutReturn } from './pages/CheckoutReturn';
+import { BillingProvider } from './billing/BillingProvider';
 import { Gradi } from './pages/Gradi';
+import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
 import { Router, useRouter } from './router/router';
@@ -21,9 +24,12 @@ export const ROUTES = {
   signup: '/signup',
   upload: '/beta',
   results: '/beta/results',
+  /** Where Stripe Checkout returns to. Behind the account, like all of /beta. */
+  checkout: '/beta/checkout',
   search: '/search',
   ask: '/ask',
   gradi: '/gradi',
+  gradiStart: '/gradi/start',
 } as const;
 
 /** `/search/<slug>` — one canonical question, answered in full. */
@@ -35,9 +41,11 @@ const TITLES: Record<string, string> = {
   [ROUTES.signup]: 'Create your account — Fynliq',
   [ROUTES.upload]: 'Upload your aid summary — Fynliq',
   [ROUTES.results]: 'Your aid, explained — Fynliq',
+  [ROUTES.checkout]: 'Unlock My Aid — Fynliq',
   [ROUTES.search]: 'Search financial aid — Fynliq',
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
+  [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
 };
 
 /**
@@ -84,7 +92,9 @@ export function App() {
     <AccountProvider>
       <Router>
         <AuthProvider>
-          <Routes />
+          <BillingProvider>
+            <Routes />
+          </BillingProvider>
         </AuthProvider>
       </Router>
     </AccountProvider>
@@ -221,6 +231,10 @@ function Routes() {
   // yet, and the redirect above is one effect away.
   if (gated && (locked || restoring)) return <Holding />;
 
+  if (path === ROUTES.checkout) {
+    return <CheckoutReturn />;
+  }
+
   if ((path === ROUTES.upload && !analysis) || orphaned) {
     return <BetaUpload onAnalysed={onAnalysed} />;
   }
@@ -251,6 +265,14 @@ function Routes() {
         <AskFynliq analysis={analysis} />
       </SearchProvider>
     );
+  }
+
+  /*
+   * Before `/gradi`, because the argument page owns the shorter path and a
+   * `startsWith` test on it would otherwise swallow the walkthrough.
+   */
+  if (path === ROUTES.gradiStart) {
+    return <GradiStart />;
   }
 
   if (path === ROUTES.gradi) {

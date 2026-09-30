@@ -150,9 +150,14 @@
 }
 
 /* Labels are the first thing to go on a narrow phone; the numbered dots and
-   the heading below carry the position on their own. */
+   the heading below carry the position on their own. The current step keeps
+   its name, so a phone still says where you are. */
 .stepLabel {
   display: none;
+}
+
+.current .stepLabel {
+  display: inline;
 }
 
 @media (min-width: 560px) {

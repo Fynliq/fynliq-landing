@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:beta": "node test/beta-integration.mjs"
+    "test:beta": "node test/beta-integration.mjs",
+    "test:billing": "node test/billing-integration.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
