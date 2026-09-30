@@ -4,6 +4,7 @@ import { AskFynliq } from './pages/AskFynliq';
 import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
+import { CheckoutReturn } from './pages/CheckoutReturn';
 import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
@@ -22,6 +23,8 @@ export const ROUTES = {
   signup: '/signup',
   upload: '/beta',
   results: '/beta/results',
+  /** Where Stripe Checkout returns to. Behind the account, like all of /beta. */
+  checkout: '/beta/checkout',
   search: '/search',
   ask: '/ask',
   gradi: '/gradi',
@@ -37,6 +40,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.signup]: 'Create your account — Fynliq',
   [ROUTES.upload]: 'Upload your aid summary — Fynliq',
   [ROUTES.results]: 'Your aid, explained — Fynliq',
+  [ROUTES.checkout]: 'Unlock My Aid — Fynliq',
   [ROUTES.search]: 'Search financial aid — Fynliq',
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
@@ -223,6 +227,10 @@ function Routes() {
   // Locked, or still finding out. Either way there is nothing safe to draw
   // yet, and the redirect above is one effect away.
   if (gated && (locked || restoring)) return <Holding />;
+
+  if (path === ROUTES.checkout) {
+    return <CheckoutReturn onAnalysed={onAnalysed} />;
+  }
 
   if ((path === ROUTES.upload && !analysis) || orphaned) {
     return <BetaUpload onAnalysed={onAnalysed} />;

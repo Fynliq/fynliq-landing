@@ -1,0 +1,270 @@
+/* The FYNQ Beta Unlock step. Tokens only; green marks what is ready, the
+   price sits on the sunk surface, and nothing here borrows the money colours
+   to create urgency. */
+
+.card {
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-24);
+}
+
+/* ---- What FYNQ found ---------------------------------------------------- */
+
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+}
+
+.readyItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-12);
+  font-size: var(--t-15);
+  color: var(--tx);
+}
+
+.tick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r-pill);
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: var(--t-13);
+  font-weight: 700;
+}
+
+/* ---- What the explanation shows ---------------------------------------- */
+
+.unlocks {
+  padding: var(--s-20);
+  border-radius: var(--r-input);
+  border: 1px solid var(--line2);
+}
+
+.unlocksTitle {
+  font-family: var(--disp);
+  font-size: var(--t-17);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--s-12);
+}
+
+.unlocksList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  padding-left: var(--s-20);
+  list-style: disc;
+  font-size: var(--t-15);
+  color: var(--mid);
+}
+
+/* ---- Price ------------------------------------------------------------- */
+
+.offer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-20);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+}
+
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s-8) var(--s-12);
+}
+
+.amount {
+  font-family: var(--disp);
+  font-size: var(--t-32);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--tx);
+}
+
+.priceLabel {
+  font-size: var(--t-16);
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.terms {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+/* ---- Action ------------------------------------------------------------ */
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-12);
+}
+
+/* Same clothes as the flow's "Analyse my aid" button. */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-8);
+  min-height: 52px;
+  padding: var(--s-16) var(--s-28);
+  border-radius: var(--r-pill);
+  background: var(--tx);
+  color: var(--on-dark);
+  font-family: var(--body);
+  font-size: var(--t-16);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transition:
+    transform var(--press) var(--ease),
+    background-color var(--press) var(--ease),
+    box-shadow var(--press) var(--ease);
+}
+
+.cta:hover:not(:disabled) {
+  background: var(--tx-hi);
+  box-shadow: var(--e-2);
+  transform: translateY(-2px);
+}
+
+.cta:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.cta:disabled {
+  background: var(--sunk);
+  color: var(--low);
+  box-shadow: none;
+  cursor: progress;
+}
+
+@media (max-width: 480px) {
+  .cta {
+    width: 100%;
+  }
+}
+
+.support {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.trust {
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+.link {
+  align-self: flex-start;
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--tx);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  padding: 0;
+}
+
+.secondary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--s-12) var(--s-20);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--tx);
+  font-size: var(--t-15);
+  font-weight: 600;
+}
+
+.notice,
+.error {
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  font-size: var(--t-14);
+}
+
+.notice {
+  background: var(--sunk);
+  color: var(--mid);
+}
+
+.error {
+  background: var(--rust-soft);
+  color: var(--rust);
+}
+
+/* ---- Waiting for Stripe ---------------------------------------------------- */
+
+.waiting {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-16);
+}
+
+.waitingTitle {
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.waitingBody {
+  margin-top: var(--s-8);
+  font-size: var(--t-15);
+  color: var(--mid);
+  max-width: 52ch;
+}
+
+.pulse {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: var(--r-pill);
+  border: 3px solid var(--line2);
+  border-top-color: var(--tx);
+  animation: spin 900ms linear infinite;
+}
+
+.pulseDone {
+  border: none;
+  background: var(--green-soft);
+  color: var(--green);
+  font-weight: 700;
+  animation: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.waitingActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-16) var(--s-24);
+}

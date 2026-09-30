@@ -38,7 +38,9 @@ export type AnalysisErrorKind =
   /** The reader answered, and said it could not use the document. */
   | 'rejected'
   /** The student pressed cancel. Not an error to apologise for. */
-  | 'cancelled';
+  | 'cancelled'
+  /** HTTP 402: this account needs the one-time FYNQ Beta Unlock first. */
+  | 'unlock_required';
 
 export class AnalysisError extends Error {
   constructor(
@@ -59,10 +61,30 @@ export interface AnalyzeOptions {
   onStage?: (stage: AnalyzeStage) => void;
 }
 
+/**
+ * A read that has been done on this device and not yet sent anywhere: the
+ * redacted aid lines of each file, held in memory. This is what the $1
+ * unlock waits on, so a student never has to choose their files twice.
+ */
+export interface PreparedDocuments {
+  documents: { name: string; pages: string[] }[];
+  /** How many of the files had usable financial-aid lines. */
+  withAidLines: number;
+}
+
+/** What `submit` sends: the prepared read, or a pending id after a same-tab checkout. */
+export type SubmitInput = { prepared: PreparedDocuments } | { pendingId: string };
+
 export interface AidAnalyzer {
   /** False while running on the stub, which the results page states on screen. */
   readonly connected: boolean;
   analyze(files: File[], options?: AnalyzeOptions): Promise<AidAnalysis>;
+  /**
+   * The two halves of `analyze`, for readers that can split them: read and
+   * redact on this device, then send. Optional; the stub does not split.
+   */
+  prepare?(files: File[], options?: AnalyzeOptions): Promise<PreparedDocuments>;
+  submit?(input: SubmitInput, options?: AnalyzeOptions): Promise<AidAnalysis>;
 }
 
 /** A cancellable wait. Rejects the moment the student presses cancel. */
