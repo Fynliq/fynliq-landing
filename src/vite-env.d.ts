@@ -11,6 +11,13 @@ interface ImportMetaEnv {
    * See `docs/ANALYSIS_API.md` for the request and response contract.
    */
   readonly VITE_FYNLIQ_ANALYZE_URL?: string;
+
+  /**
+   * The FYNQ Beta Unlock endpoint (`/api/billing`). Production defaults to
+   * same-origin; unset in local development, the paywall is off. It carries
+   * no secret: Stripe keys are server-only and never prefixed with VITE_.
+   */
+  readonly VITE_FYNLIQ_BILLING_URL?: string;
 }
 
 interface ImportMeta {
