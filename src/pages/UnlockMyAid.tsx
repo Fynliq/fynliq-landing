@@ -51,7 +51,7 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
         <span className={styles.eyebrow}>My Aid</span>
         <h1 className={styles.title}>Unlock My Aid</h1>
         <p className={styles.lede}>
-          See what your grants cover, what you may have to repay, and what you could still owe.
+          See what your aid covers and what you could still owe. One unlock opens My Aid, Earn, Search and Ask Fynliq.
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 import {answerQuestion} from '../server/ask-service.js';
 import {containsHighRiskPII,PRIVACY_MESSAGE} from '../server/privacy.js';
 import {clients,session,sameOrigin,body,rpc,rate,positive,fail,BetaError,cookie,token} from '../server/beta.js';
+import {analysisAccess,UnlockRequired,UNLOCK_REQUIRED} from '../server/billing.js';
 export const config={maxDuration:60};
 export function createAskHandler(dependencies={}) {return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
@@ -8,6 +9,9 @@ export function createAskHandler(dependencies={}) {return async(req,res)=>{
     if(req.method!=='POST')throw new BetaError(405,'Use POST to ask a question.');
     const env=dependencies.env||process.env,{db}=(dependencies.clients||clients)(env);
     const user=await session(req,db,env);sameOrigin(req,env);await rate(db,req,'ask',10,env);
+    // The $1 unlock covers Ask Fynliq too: a locked account is refused before any model call.
+    try{await analysisAccess(req,env,{clients:dependencies.clients||clients});}
+    catch(error){if(error instanceof UnlockRequired)return res.status(402).json(UNLOCK_REQUIRED);throw error;}
     const payload=body(req);
     if(typeof payload?.question!=='string'||!payload.question.trim()||payload.question.trim().length>1000)throw new BetaError(400,'Please enter a question between 1 and 1,000 characters.');
     if(containsHighRiskPII(payload.question))throw new BetaError(422,PRIVACY_MESSAGE);
