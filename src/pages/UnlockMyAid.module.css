@@ -370,12 +370,6 @@
   color: var(--tx);
 }
 
-.earnBody {
-  margin-top: 2px;
-  font-size: var(--t-13);
-  color: var(--mid);
-}
-
 .fine {
   max-width: 560px;
   margin-top: var(--s-12);

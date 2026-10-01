@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { Card } from '../components/ui';
 import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
-import { GRADI_FEE, GRADI_PAYOUT } from '../gradi/offer';
+import { GRADI_PAYOUT } from '../gradi/offer';
 import styles from './UnlockMyAid.module.css';
 
 /**
@@ -71,10 +71,7 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
 
         <div className={styles.earn}>
           <span className={styles.earnIcon} aria-hidden="true">$</span>
-          <div>
-            <p className={styles.earnTitle}>Earn {GRADI_PAYOUT} through Gradi</p>
-            <p className={styles.earnBody}>Join for {GRADI_FEE}. Reach 10 likes. Earn {GRADI_PAYOUT}.</p>
-          </div>
+          <p className={styles.earnTitle}>Earn {GRADI_PAYOUT} through Gradi</p>
         </div>
 
         <p className={styles.trust}>
