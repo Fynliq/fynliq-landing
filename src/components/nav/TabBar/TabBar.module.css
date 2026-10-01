@@ -20,10 +20,10 @@
 .list {
   pointer-events: auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--s-4);
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   padding: var(--s-4);
   border-radius: var(--r-pill);
   background: var(--glass);

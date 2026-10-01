@@ -6,7 +6,6 @@ import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { CheckoutReturn } from './pages/CheckoutReturn';
 import { BillingProvider } from './billing/BillingProvider';
-import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
@@ -44,7 +43,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.checkout]: 'Unlock My Aid — Fynliq',
   [ROUTES.search]: 'Search financial aid — Fynliq',
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
-  [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
+  [ROUTES.gradi]: 'Make your first $10 — Fynliq',
   [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
 };
 
@@ -268,15 +267,11 @@ function Routes() {
   }
 
   /*
-   * Before `/gradi`, because the argument page owns the shorter path and a
-   * `startsWith` test on it would otherwise swallow the walkthrough.
+   * The Earn tab. `/gradi` is the walkthrough itself now; `/gradi/start`
+   * stays as an alias so links already shared keep working.
    */
-  if (path === ROUTES.gradiStart) {
+  if (path === ROUTES.gradi || path === ROUTES.gradiStart) {
     return <GradiStart />;
-  }
-
-  if (path === ROUTES.gradi) {
-    return <Gradi />;
   }
 
   if (path === '/admin') return <BetaAdmin />;

@@ -14,6 +14,7 @@ import {
   type AidAnalysis,
 } from '../core';
 import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
+import { EarnWithGradi } from '../components/EarnWithGradi/EarnWithGradi';
 import styles from './BetaResults.module.css';
 import review from './SummaryReview.module.css';
 
@@ -541,6 +542,8 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           question="Explain my reviewed aid documents in more detail, keeping estimates, school offers and statement figures separate. Explain missing details and questions for my school without inventing amounts or dates."
         />
       )}
+
+      <EarnWithGradi />
     </FlowShell>
   );
 }

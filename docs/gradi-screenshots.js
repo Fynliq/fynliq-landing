@@ -14,7 +14,7 @@
  *   - the $5 fee appearing wherever the $10 does, never the payout alone,
  *   - both calls to action carrying rel="sponsored", because they are paid
  *     referral links and saying so is not optional,
- *   - /gradi reaching /gradi/start, so the walkthrough is not orphaned.
+ *   - /gradi serving the walkthrough itself (the Earn tab).
  *
  * Override the browser with CHROME_PATH if Chrome lives somewhere unusual.
  */
@@ -177,9 +177,9 @@ try {
   // ---- /gradi points at it --------------------------------------------
   await page.goto(`${URL}/gradi`, { waitUntil: 'networkidle2', timeout: 60000 });
   await sleep(400);
-  const reachable = await page.$('a[href="/gradi/start"]');
-  if (!reachable) fail('/gradi has no link to the walkthrough');
-  console.log('   /gradi links to the walkthrough');
+  const reachable = await page.$('a[href*="gradi.app.link"]');
+  if (!reachable) fail('/gradi does not show the walkthrough');
+  console.log('   /gradi is the walkthrough');
 
   // ---- On a phone ------------------------------------------------------
   await page.setViewport({ width: 390, height: 844, isMobile: true });

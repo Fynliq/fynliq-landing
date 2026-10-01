@@ -2,13 +2,14 @@ import { useRouter } from '../../../router/router';
 import styles from './TabBar.module.css';
 
 /**
- * The three places a student can be.
+ * The four places a student can be.
  *
  * The order is the journey the client described, left to right: their own aid,
- * then what everybody else is asking, then their own question. Each tab leads
- * into the next, and no tab is a dead end.
+ * then a way to earn real cash through Gradi while the aid comes through, then
+ * what everybody else is asking, then their own question. Each tab leads into
+ * the next, and no tab is a dead end.
  */
-export type TabId = 'aid' | 'search' | 'ask';
+export type TabId = 'aid' | 'earn' | 'search' | 'ask';
 
 interface Tab {
   id: TabId;
@@ -49,6 +50,19 @@ export const TABS: Tab[] = [
     ),
   },
   {
+    id: 'earn',
+    label: 'Earn',
+    href: '/gradi',
+    owns: ['/gradi'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...stroke}>
+        <circle cx="12" cy="12" r="8.25" />
+        <path d="M14.6 9.3c-.4-.9-1.4-1.5-2.6-1.5-1.5 0-2.6.8-2.6 2s1.1 1.7 2.6 2c1.5.3 2.7.8 2.7 2.1 0 1.2-1.2 2.1-2.7 2.1-1.3 0-2.3-.6-2.7-1.6" />
+        <path d="M12 6.3v1.5M12 16v1.6" />
+      </svg>
+    ),
+  },
+  {
     id: 'search',
     label: 'Search',
     href: '/search',
@@ -74,7 +88,7 @@ export const TABS: Tab[] = [
   },
 ];
 
-/** Which tab a path belongs to, or `null` for a page outside the three. */
+/** Which tab a path belongs to, or `null` for a page outside the four. */
 export function tabForPath(path: string): TabId | null {
   const match = TABS.filter((tab) =>
     tab.owns.some((root) => path === root || path.startsWith(`${root}/`)),
@@ -89,7 +103,7 @@ interface TabBarProps {
 }
 
 /**
- * Bottom navigation across the three pages.
+ * Bottom navigation across the four pages.
  *
  * Fixed to the bottom at every width rather than turning into a top nav on
  * desktop: a student who learns where the tabs are on their phone should find
