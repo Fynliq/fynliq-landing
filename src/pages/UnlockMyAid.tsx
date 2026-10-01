@@ -3,7 +3,6 @@ import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { Card } from '../components/ui';
 import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
 import { GRADI_FEE, GRADI_PAYOUT } from '../gradi/offer';
-import { GRADI_FEE, GRADI_PAYOUT } from '../gradi/offer';
 import styles from './UnlockMyAid.module.css';
 
 /**
