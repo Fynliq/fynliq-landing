@@ -49,17 +49,15 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
     <FlowShell step={0}>
       <div className={styles.head}>
         <span className={styles.eyebrow}>My Aid</span>
-        <h1 className={styles.title}>Unlock My Aid</h1>
-        <p className={styles.lede}>
-          See what your aid covers and what you could still owe. One unlock opens My Aid, Earn, Search and Ask Fynliq.
-        </p>
+        <h1 className={styles.title}>Understand Your Financial Aid</h1>
+        <p className={styles.lede}>See what you got, what you owe, and what to do next.</p>
       </div>
 
       <Card hero className={styles.card}>
         <div className={styles.price}>
           <span className={styles.amount}>$1</span>
           <span className={styles.priceText}>
-            <span className={styles.priceLabel}>One-time beta unlock</span>
+            <span className={styles.priceLabel}>One-time unlock</span>
             <span className={styles.priceTerms}>No subscription</span>
           </span>
         </div>
@@ -74,15 +72,14 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
         <div className={styles.earn}>
           <span className={styles.earnIcon} aria-hidden="true">$</span>
           <div>
-            <p className={styles.earnTitle}>Earn your $1 back with Gradi</p>
-            <p className={styles.earnBody}>
-              Join Gradi as a creator for {GRADI_FEE}. Earn {GRADI_PAYOUT} when you reach 10 likes — <strong className={styles.earnNet}>$4 ahead.</strong>
-            </p>
+            <p className={styles.earnTitle}>Earn {GRADI_PAYOUT} through Gradi</p>
+            <p className={styles.earnBody}>Join for {GRADI_FEE}. Reach 10 likes. Earn {GRADI_PAYOUT}.</p>
           </div>
         </div>
 
         <p className={styles.trust}>
-          <span aria-hidden="true">🔒</span> Secure checkout by Stripe · Your aid files never go to Stripe
+          <span aria-hidden="true">🔒</span> Secure payment with Stripe
+          <span className={styles.trustSub}>Your aid documents stay private.</span>
         </p>
       </Card>
 
