@@ -142,11 +142,11 @@ export function GradiStart() {
     <section className={styles.hero}>
       <div className={styles.heroInner}>
         <p className={styles.lockup}>
-          <img className={styles.mark} src="/fynliq-mark.png" alt="" width={142} height={160} />
+          <img className={styles.mark} src="/fynliq-mark-3d.png" alt="Fynliq" width={231} height={262} />
           <span className={styles.times} aria-hidden="true">
             &times;
           </span>
-          <span className={styles.partner}>Gradi</span>
+          <img className={styles.partnerLogo} src="/gradi-logo.png" alt="Gradi" width={252} height={214} />
         </p>
 
         <p className={styles.badge}>Official Fynliq partner</p>
@@ -161,11 +161,12 @@ export function GradiStart() {
         <dl className={styles.stats}>
           <div className={styles.stat}>
             <dt className={styles.statValue}>{GRADI_PAYOUT}</dt>
-            <dd className={styles.statLabel}>after 10 likes</dd>
+            <dd className={styles.statLabel}>at 10 likes</dd>
           </div>
+          <span className={styles.divider} aria-hidden="true" />
           <div className={styles.stat}>
             <dt className={`${styles.statValue} ${styles.statCost}`}>{GRADI_FEE}</dt>
-            <dd className={styles.statLabel}>creator fee to join</dd>
+            <dd className={styles.statLabel}>to join</dd>
           </div>
         </dl>
       </div>
