@@ -10,6 +10,7 @@ import { Aurora } from '../components/fx';
 import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
 import styles from './BetaResults.module.css';
 import review from './SummaryReview.module.css';
+import { EarnWithGradi } from '../components/EarnWithGradi/EarnWithGradi';
 
 function row(f: DocumentFact): MoneyRow {
   return { id: f.id, label: f.label, value: factAmount(f),
@@ -61,5 +62,6 @@ export function DocumentResults({ analysis, onConfirm, onRestart }: { analysis: 
     <section className={styles.next} aria-labelledby="next-title"><h2 id="next-title" className={styles.nextTitle}>What to do next</h2><p className={styles.nextLede}>Next steps based on what your uploaded documents show and what is still missing.</p><ol className={styles.steps}>{steps.map((step, i) => <Card as="li" key={step.title} className={styles.step}><span className={styles.stepIndex}>{String(i + 1).padStart(2, '0')}</span><div className={styles.stepBody}><h3 className={styles.stepTitle}>{step.title}</h3><p className={styles.stepWhy}>{step.why}</p><p className={styles.stepAction}>{step.action}</p></div></Card>)}</ol></section>
     <Card><details><summary className={styles.summary}>Check the figures and document references</summary><ol>{analysis.document.fileNames.map((name, i) => <li key={i}>Document {i + 1}: {name}</li>)}</ol><div className={review.layout}>{dashboard.facts.map(f => <div key={f.id}><h3>{f.label}: {f.value}</h3><p>{f.period} · document {f.document}, page {f.page}{f.estimated ? ' · estimate' : ''}</p><blockquote>“{f.quote}”</blockquote></div>)}</div></details>{!analysis.reviewed && <div className={styles.panelActions}><label><input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} /> I compared the extracted fields with my documents and they match.</label><button className={review.confirm} disabled={!checked} onClick={onConfirm}>Confirm these fields</button></div>}<p className={styles.cardLede}>Your document read stays in this tab. Refreshing clears it; personalized follow-up questions expire after one hour.</p></Card>
     {analysis.reviewed && <PersonalizedAnswer analysis={analysis} label="Explain these details further" question="Explain my reviewed aid documents in more detail, keeping estimates, school offers and statement figures separate. Explain missing details and questions for my school without inventing amounts or dates." />}
+    <EarnWithGradi />
   </FlowShell>;
 }

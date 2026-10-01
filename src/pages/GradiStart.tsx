@@ -173,7 +173,7 @@ export function GradiStart() {
   );
 
   return (
-    <AppShell banner={banner}>
+    <AppShell tab="earn" banner={banner}>
       {/* ---- The code they have to type ----------------------------- */}
       <section className={styles.codeCard} aria-labelledby="code-title">
         <h2 id="code-title" className={styles.codeHead}>
