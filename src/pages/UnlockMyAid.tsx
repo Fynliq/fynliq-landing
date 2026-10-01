@@ -59,7 +59,7 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
         <div className={styles.price}>
           <span className={styles.amount}>$1</span>
           <span className={styles.priceText}>
-            <span className={styles.priceLabel}>One-Time Beta Unlock</span>
+            <span className={styles.priceLabel}>One-time beta unlock</span>
             <span className={styles.priceTerms}>No subscription</span>
           </span>
         </div>
@@ -72,7 +72,7 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
         </button>
 
         <div className={styles.earn}>
-          <span className={styles.earnIcon} aria-hidden="true">💰</span>
+          <span className={styles.earnIcon} aria-hidden="true">$</span>
           <div>
             <p className={styles.earnTitle}>Make your $1 back with Gradi</p>
             <p className={styles.earnBody}>
