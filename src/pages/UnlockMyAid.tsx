@@ -74,9 +74,9 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
         <div className={styles.earn}>
           <span className={styles.earnIcon} aria-hidden="true">$</span>
           <div>
-            <p className={styles.earnTitle}>Make your $1 back with Gradi</p>
+            <p className={styles.earnTitle}>Earn your $1 back with Gradi</p>
             <p className={styles.earnBody}>
-              Join as a creator for {GRADI_FEE}, get {GRADI_PAYOUT} at 10 likes. <strong className={styles.earnNet}>$4 ahead.</strong>
+              Join Gradi as a creator for {GRADI_FEE}. Earn {GRADI_PAYOUT} when you reach 10 likes — <strong className={styles.earnNet}>$4 ahead.</strong>
             </p>
           </div>
         </div>
