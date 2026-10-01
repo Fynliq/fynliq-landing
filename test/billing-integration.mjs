@@ -464,13 +464,17 @@ try {
     } finally { setUploadTracker(recordUpload); }
   });
 
-  await test('20. Ask Fynliq is not gated by the paywall, and admin metrics include the billing block', async () => {
+  await test('20. Ask Fynliq is covered by the $1 unlock, and admin metrics include the billing block', async () => {
     const login = createAuthHandler({ env, clients: () => ({ db, auth: {} }) });
     const guest = await call(login, { body: { action: 'guest' } });
     const guestCookie = guest.headers['Set-Cookie'].split(';')[0];
     const ask = createAskHandler({ env, clients: () => ({ db, auth: {} }), answer: async () => ({ status: 200, body: { paragraphs: ['ok'], basis: 'general', grounding: [], missing: null, relatedIds: [] } }) });
     await clearRates();
-    assert.equal((await call(ask, { body: { question: 'What is a Pell Grant?' }, cookie: `${guestCookie}; ${cookies.after}` })).statusCode, 200);
+    const lockedAsk = await call(ask, { body: { question: 'What is a Pell Grant?' }, cookie: `${guestCookie}; ${cookies.after}` });
+    assert.equal(lockedAsk.statusCode, 402);
+    assert.equal(lockedAsk.body.code, 'beta_unlock_required');
+    await clearRates();
+    assert.equal((await call(ask, { body: { question: 'What is a Pell Grant?' }, cookie: `${guestCookie}; ${cookies.buyer}` })).statusCode, 200);
 
     await pg.exec("insert into public.beta_invites(email, user_id) values ('admin@example.test', '30000000-0000-4000-8000-000000000001')");
     const token = randomBytes(32).toString('hex');

@@ -55,6 +55,7 @@ const BEHIND_THE_ACCOUNT = [
     id: 'aid',
     blurb: 'Upload your FAFSA summary or award letter and get it read back in plain English.',
   },
+  { id: 'earn', blurb: 'Make your first $10 as a Gradi creator while you wait on aid.' },
   { id: 'search', blurb: 'See what other students are asking this week, and the answers.' },
   { id: 'ask', blurb: 'Ask a question and get it answered against your own award, not a generic one.' },
 ] as const;
@@ -356,7 +357,7 @@ function Aside() {
   return (
     <div className={styles.panel}>
       <span className={styles.panelEyebrow}>Behind the account</span>
-      <h2 className={styles.panelTitle}>Three pages, one login</h2>
+      <h2 className={styles.panelTitle}>Four pages, one login</h2>
 
       <ul className={styles.panelList}>
         {tabs.map(({ id, blurb, tab }) => (

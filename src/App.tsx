@@ -5,7 +5,9 @@ import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { CheckoutReturn } from './pages/CheckoutReturn';
-import { BillingProvider } from './billing/BillingProvider';
+import { BillingProvider, useBilling } from './billing/BillingProvider';
+import { isLocked } from './billing/client';
+import { UnlockMyAid } from './pages/UnlockMyAid';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
@@ -57,15 +59,23 @@ const TITLES: Record<string, string> = {
  * on the way to Ask Fynliq is told they are going back to Ask Fynliq.
  *
  * `/beta/results` is not listed because `/beta` already covers it, and
- * `/search/<slug>` because `/search` does. The landing page and the Gradi
- * creator page stay public: they are how somebody decides whether to sign up
+ * `/search/<slug>` because `/search` does. The landing page stays public: they are how somebody decides whether to sign up
  * at all, and a marketing page behind a login is a page nobody reads.
  */
 const BEHIND_THE_ACCOUNT: readonly { root: string; label: string }[] = [
   { root: ROUTES.upload, label: 'uploading your aid summary' },
   { root: ROUTES.search, label: 'search' },
   { root: ROUTES.ask, label: 'Ask Fynliq' },
+  { root: ROUTES.gradi, label: 'Earn' },
 ];
+
+/**
+ * The pages the one-time $1 unlock opens, besides My Aid itself. A locked
+ * account sees the Unlock page here instead; Ask is also refused by the
+ * server (402), since it is the one that costs money to answer.
+ */
+const PAID_ROOTS: readonly string[] = [ROUTES.search, ROUTES.ask, ROUTES.gradi];
+const isPaid = (path: string) => PAID_ROOTS.some((root) => path === root || path.startsWith(`${root}/`));
 
 /**
  * Where somebody who is not logged in is sent.
@@ -168,6 +178,7 @@ function Routes() {
   const question = answerSlug ? questionBySlug(answerSlug) : undefined;
   const unknownAnswer = answerSlug !== null && question === undefined;
 
+  const billing = useBilling();
   const onAccount = path === ROUTES.login || path === ROUTES.signup;
   const gated = behindTheAccount(path);
 
@@ -229,6 +240,12 @@ function Routes() {
   // Locked, or still finding out. Either way there is nothing safe to draw
   // yet, and the redirect above is one effect away.
   if (gated && (locked || restoring)) return <Holding />;
+
+  // Search, Ask Fynliq and Earn open with the same $1 unlock as My Aid.
+  if (session && isPaid(path)) {
+    if (billing.loading) return <Holding />;
+    if (isLocked(billing.status)) return <UnlockMyAid onUnlocked={() => void billing.refresh()} />;
+  }
 
   if (path === ROUTES.checkout) {
     return <CheckoutReturn />;
