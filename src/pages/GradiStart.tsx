@@ -142,7 +142,7 @@ export function GradiStart() {
     <section className={styles.hero}>
       <div className={styles.heroInner}>
         <p className={styles.lockup}>
-          <img className={styles.mark} src="/fynliq-mark.png" alt="" width={142} height={160} />
+          <img className={styles.mark} src="/fynliq-mark-3d.png" alt="Fynliq" width={231} height={262} />
           <span className={styles.times} aria-hidden="true">
             &times;
           </span>
