@@ -227,6 +227,23 @@
   color: var(--rust);
 }
 
+/* The way to earn the $1 back, with Gradi's fee beside the payout. */
+.earnBack {
+  margin-top: var(--s-16);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--green-soft);
+  font-size: var(--t-14);
+  color: var(--tx);
+}
+
+.earnBackLabel {
+  display: block;
+  font-weight: 700;
+  color: var(--green);
+  margin-bottom: 2px;
+}
+
 /* What comes after, in one quiet line rather than another card. */
 .next {
   max-width: 560px;
@@ -310,4 +327,56 @@
   text-underline-offset: 3px;
   background: none;
   padding: 0;
+}
+
+/* ---- Earn it back (Gradi) ------------------------------------------------ */
+
+.earn {
+  margin-top: var(--s-20);
+  display: flex;
+  align-items: center;
+  gap: var(--s-12);
+  padding: var(--s-12) var(--s-16);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+}
+
+.earnIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(28, 29, 27, 0.06);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.earnTitle {
+  font-family: var(--disp);
+  font-size: var(--t-15);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tx);
+}
+
+.earnBody {
+  margin-top: 2px;
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.earnNet {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.fine {
+  max-width: 560px;
+  margin-top: var(--s-12);
+  font-size: 12px;
+  color: var(--low);
 }

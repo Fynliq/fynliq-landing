@@ -104,6 +104,15 @@
   max-width: 100%;
 }
 
+/* Four tabs on a small phone: tighten so "Ask Fynliq" is never cut off. */
+@media (max-width: 419px) {
+  .tab {
+    padding: var(--s-8) 2px;
+    font-size: 12px;
+    letter-spacing: -0.01em;
+  }
+}
+
 @media print {
   .bar {
     display: none;
