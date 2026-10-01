@@ -209,6 +209,12 @@
   text-align: center;
 }
 
+.trustSub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
 .notice,
 .error {
   margin-top: var(--s-16);
@@ -332,13 +338,13 @@
 /* ---- Earn it back (Gradi) ------------------------------------------------ */
 
 .earn {
-  margin-top: var(--s-20);
+  margin-top: var(--s-24);
   display: flex;
   align-items: center;
   gap: var(--s-12);
   padding: var(--s-12) var(--s-16);
   border-radius: var(--r-input);
-  background: var(--green-soft);
+  border: 1px solid var(--line);
 }
 
 .earnIcon {
@@ -346,33 +352,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--r-pill);
-  background: var(--green);
-  color: #fff;
-  font-size: 15px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 14px;
   font-weight: 700;
   line-height: 1;
 }
 
 .earnTitle {
   font-family: var(--disp);
-  font-size: var(--t-15);
+  font-size: var(--t-14);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--tx);
-}
-
-.earnBody {
-  margin-top: 2px;
-  font-size: var(--t-14);
-  color: var(--mid);
-}
-
-.earnNet {
-  color: var(--green);
-  font-weight: 700;
 }
 
 .fine {
