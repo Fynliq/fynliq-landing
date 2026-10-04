@@ -38,6 +38,14 @@ export function AidPreview({ preview, notice = null, onUnlocked, onRestart }: Ai
 
   useEffect(() => { trackFunnel('aid_preview_viewed'); trackFunnel('paywall_viewed'); }, []);
 
+  // Back from Stripe restores this page from the browser's cache with the
+  // button still saying "Opening secure checkout…". Make it usable again.
+  useEffect(() => {
+    const reset = (event: PageTransitionEvent) => { if (event.persisted) setBusy(false); };
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
+
   async function unlock() {
     if (busy) return;
     setBusy(true);

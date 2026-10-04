@@ -6,9 +6,9 @@ import { GRADI_PAYOUT } from '../gradi/offer';
 import styles from './UnlockMyAid.module.css';
 
 /**
- * Step 1 of My Aid for accounts created after the beta cutoff: the one-time
- * $1 FYNQ Beta Unlock, shown right after log-in and before any document is
- * chosen. Paying leads straight into the upload step.
+ * The one-time $1 FYNQ Beta Unlock for accounts created after the beta
+ * cutoff, shown on Search, Ask Fynliq and Earn. My Aid itself no longer
+ * starts here: students upload first and see a free preview (AidPreview).
  *
  * One card, one action. No timers, no scarcity, no fear: what the student
  * gets, what it costs, and that it is paid once. Stripe opens in this same
@@ -27,6 +27,14 @@ export function UnlockMyAid({ onUnlocked, notice = null }: UnlockMyAidProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { trackFunnel('paywall_viewed'); }, []);
+
+  // Back from Stripe restores this page from the browser's cache with the
+  // button still busy. Make it usable again.
+  useEffect(() => {
+    const reset = (event: PageTransitionEvent) => { if (event.persisted) setBusy(false); };
+    window.addEventListener('pageshow', reset);
+    return () => window.removeEventListener('pageshow', reset);
+  }, []);
 
   async function unlock() {
     if (busy) return;
