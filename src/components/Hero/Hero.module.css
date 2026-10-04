@@ -175,6 +175,7 @@
 .tag,
 .lede,
 .actions,
+.price,
 .assurance {
   animation: rise 900ms var(--ease-out) both;
 }
@@ -187,6 +188,9 @@
 }
 .actions {
   animation-delay: 520ms;
+}
+.price {
+  animation-delay: 570ms;
 }
 .assurance {
   animation-delay: 620ms;
@@ -430,4 +434,16 @@
   .pulse {
     animation: none;
   }
+}
+
+/* The price, said once and plainly, right under the call to action. */
+.price {
+  margin-top: var(--s-16);
+  font-size: var(--t-15);
+  color: var(--tx);
+  max-width: 48ch;
+}
+
+.price strong {
+  font-weight: 600;
 }

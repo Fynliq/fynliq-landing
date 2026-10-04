@@ -589,3 +589,7 @@
   font-size: var(--t-15);
   color: var(--tx);
 }
+
+.more {
+  margin-block: var(--s-24);
+}

@@ -154,3 +154,8 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* Keyboard paste is a desktop thing; phones don't need the instruction. */
+@media (hover: none) and (pointer: coarse) {
+  .pasteHint { display: none; }
+}

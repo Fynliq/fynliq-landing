@@ -24,6 +24,23 @@
 }
 .item { margin: 0; min-width: 0; }
 .item + .item { border-top: 1px solid var(--line); padding-top: var(--s-16); }
+/* Phones: one row per number, label on the left and the figure on the right,
+   so all three fit on the first screen with the next step. */
+@media (max-width: 639px) {
+  .grid { gap: var(--s-12); }
+  .item + .item { padding-top: var(--s-12); }
+  .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'label value' 'note value';
+    column-gap: var(--s-12);
+    align-items: center;
+  }
+  .label { grid-area: label; }
+  .note { grid-area: note; }
+  .value { grid-area: value; margin: 0; font-size: var(--t-25); text-align: right; }
+  .missing { font-size: var(--t-14); max-width: 11ch; text-align: right; padding-block: 0; }
+}
 @media (min-width: 640px) {
   .item + .item { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: var(--s-16); }
 }

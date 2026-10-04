@@ -27,7 +27,7 @@ export const ANALYZE_STAGES: readonly AnalyzeStage[] = [
 export const STAGE_LABEL: Record<AnalyzeStage, string> = {
   reading: 'Reading your document',
   extracting: 'Finding your award lines',
-  checking: 'Checking them against your bill',
+  checking: 'Checking every number against your document',
   writing: 'Writing your answer',
 };
 

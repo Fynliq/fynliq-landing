@@ -28,7 +28,7 @@ interface BetaResultsProps {
   onConfirm?: () => void;
 }
 
-const readDate = new Intl.DateTimeFormat('en-GB', {
+const readDate = new Intl.DateTimeFormat('en-US', {
   day: 'numeric',
   month: 'long',
   year: 'numeric',
@@ -36,7 +36,7 @@ const readDate = new Intl.DateTimeFormat('en-GB', {
 
 function confidenceReading(confidence: number) {
   if (confidence >= 0.9) return { tone: 'green' as const, text: 'Read cleanly' };
-  if (confidence >= CONFIDENCE_FLOOR) return { tone: 'gold' as const, text: 'Worth a check' };
+  if (confidence >= CONFIDENCE_FLOOR) return { tone: 'gold' as const, text: 'Compare with your letter' };
   return { tone: 'rust' as const, text: 'Hard to read' };
 }
 
@@ -389,7 +389,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
                       value: overview.glance.afterLoans ?? overview.glance.remainingCost,
                       tone: (overview.glance.afterLoans ?? overview.glance.remainingCost) > 0 ? 'gold' : 'green',
                     }}
-                    footnote={<>This is an estimate from what is visible in {example ? 'the example' : 'the document you uploaded'}. Your school&rsquo;s bill is the final word, and it can change if your aid, housing or enrolment changes.</>}
+                    footnote={<>This is an estimate from what is visible in {example ? 'the example' : 'the document you uploaded'}. Your school&rsquo;s bill is the final word, and it can change if your aid, housing or enrollment changes.</>}
                   />
                 </>
               )}
@@ -397,6 +397,9 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           )}
 
           {/* ---- This term's bill -------------------------------------- */}
+          {/* With the overview, a missing bill is already said under "What
+              Fynliq could not read"; an empty card here is just more to scroll. */}
+          {(balance !== null || !overview) && (
           <Card hero>
             <h2 className={styles.cardTitle}>What your school is actually asking for</h2>
 
@@ -487,6 +490,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
               </>
             )}
           </Card>
+          )}
         </div>
 
         <div className={styles.column}>
@@ -507,6 +511,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           )}
 
           {/* ---- SAI --------------------------------------------------- */}
+          {(sai.value !== null || !overview) && (
           <Card>
             <h2 className={styles.cardTitle}>Your Student Aid Index</h2>
             {sai.value === null ? (
@@ -527,43 +532,8 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
               your aid office can explain how yours was applied.
             </p>
           </Card>
-
-          {/* ---- What could not be read -------------------------------- */}
-          {analysis.unread.length > 0 && (
-            <Card>
-              <h2 className={styles.cardTitle}>What Fynliq could not read</h2>
-              <p className={styles.cardLede}>
-                These were not stated on what you uploaded. They are left blank rather than
-                estimated.
-              </p>
-              <ul className={styles.unread}>
-                {analysis.unread.map((entry) => (
-                  <li key={entry.field} className={styles.unreadItem}>
-                    <span className={styles.unreadField}>{entry.field}</span>
-                    <span className={styles.unreadWhere}>{entry.where}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
           )}
 
-          {/* ---- Glossary ---------------------------------------------- */}
-          <Card>
-            <h2 className={styles.cardTitle}>The words on your document</h2>
-            <div className={styles.glossary}>
-              {glossary.map((entry) => (
-                <details key={entry.term} className={styles.term}>
-                  <summary className={styles.summary}>
-                    {entry.term}
-                    <span className={styles.sign} aria-hidden="true">
-                      +
-                    </span>
-                  </summary>
-                  <p className={styles.answerBody}>{entry.body}</p>
-                </details>
-              ))}
-            </div>
-          </Card>
         </div>
       </div>
 
@@ -610,6 +580,51 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           </ol>
         </Card>
       )}
+
+
+      {/* ---- The detail behind the answer, after what to do about it ---- */}
+      <div className={`${styles.split} ${styles.more}`}>
+        <div className={styles.column}>
+          {/* ---- What could not be read -------------------------------- */}
+          {analysis.unread.length > 0 && (
+            <Card>
+              <h2 className={styles.cardTitle}>What Fynliq could not read</h2>
+              <p className={styles.cardLede}>
+                These were not stated on what you uploaded. They are left blank rather than
+                estimated.
+              </p>
+              <ul className={styles.unread}>
+                {analysis.unread.map((entry) => (
+                  <li key={entry.field} className={styles.unreadItem}>
+                    <span className={styles.unreadField}>{entry.field}</span>
+                    <span className={styles.unreadWhere}>{entry.where}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
+        </div>
+        <div className={styles.column}>
+          {/* ---- Glossary ---------------------------------------------- */}
+          <Card>
+            <h2 className={styles.cardTitle}>The words on your document</h2>
+            <div className={styles.glossary}>
+              {glossary.map((entry) => (
+                <details key={entry.term} className={styles.term}>
+                  <summary className={styles.summary}>
+                    {entry.term}
+                    <span className={styles.sign} aria-hidden="true">
+                      +
+                    </span>
+                  </summary>
+                  <p className={styles.answerBody}>{entry.body}</p>
+                </details>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </div>
 
       {facts.length > 0 && !example && (
         <Card>

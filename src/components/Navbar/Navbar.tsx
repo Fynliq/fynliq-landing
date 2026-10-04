@@ -69,13 +69,13 @@ export function Navbar() {
           One button, and it always points at /beta.
 
           A returning student needs no separate "Log in" link: the gate sends
-          anybody without an account to the log-in page anyway, so a second
-          button here would lead to the same screen and only make the bar
-          harder to read. What does change is the label — "Join the beta" is
-          a strange thing to read once you have joined.
+          anybody without a session to the sign-up page, which links to log in,
+          so a second button here would only make the bar harder to read. What
+          does change is the label: it says what the button does for somebody
+          new, and "My aid" once they are in.
         */}
         <a className={styles.cta} href="/beta">
-          {session ? 'My aid' : 'Join the beta'}
+          {session ? 'My aid' : 'Check my aid'}
         </a>
       </div>
     </header>

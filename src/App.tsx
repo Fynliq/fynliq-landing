@@ -91,7 +91,7 @@ const isPaid = (path: string) => PAID_ROOTS.some((root) => path === root || path
  * beta where almost every arrival is a first-timer, `ROUTES.signup` may read
  * better — it is this one word, and the two screens are the same component.
  */
-const GATE_LANDS_ON: string = ROUTES.login;
+const GATE_LANDS_ON: string = ROUTES.signup;
 
 /** Where somebody lands once they have an account and no particular errand. */
 const AFTER_AUTH: string = ROUTES.upload;

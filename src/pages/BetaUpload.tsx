@@ -23,16 +23,16 @@ interface BetaUploadProps {
 
 const WHAT_TO_UPLOAD = [
   {
-    title: 'Your FAFSA Submission Summary',
+    title: 'Best: your award letter or offer',
+    body: 'A screenshot of the page in your school portal that lists your grants, loans and work-study, or the letter they emailed.',
+  },
+  {
+    title: 'Or: your FAFSA Submission Summary',
     body: 'The one with your Student Aid Index on the first page. Download it from studentaid.gov under “My Aid”.',
   },
   {
-    title: 'Your award letter or offer',
-    body: 'The page listing your grants, loans and work-study for the year — from your school portal or the letter they emailed.',
-  },
-  {
-    title: 'Your student account statement',
-    body: 'Optional, and the one that makes the answer sharpest: it states this term’s bill, which is what the aid is measured against.',
+    title: 'Optional: your student account statement',
+    body: 'It shows this term’s bill, so Fynliq can tell you exactly what is left to pay.',
   },
 ];
 
@@ -145,7 +145,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   return (
     <FlowShell step={working ? 2 : 1}>
       <div className={styles.head}>
-        <span className={styles.eyebrow}>{working ? 'Analysing' : onUnlockJourney(billing.status) ? 'My Aid' : 'Join the beta'}</span>
+        <span className={styles.eyebrow}>{working ? 'Analyzing' : 'My Aid'}</span>
         <h1 className={styles.title}>
           {working ? 'Fynliq is reading your document' : 'Know what you’re getting — and what you’ll actually owe.'}
         </h1>
@@ -173,6 +173,13 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
             <>
               <Card hero>
                 <Dropzone files={files} onAdd={handleAdd} onRemove={handleRemove} />
+                {/* The privacy promise, where the decision to upload is made,
+                    not in a side panel below the button. */}
+                <ul className={styles.trust} aria-label="What happens to your file">
+                  <li>Your file stays on your device. Fynliq reads it there.</li>
+                  <li>Names, Social Security, student and account numbers are blacked out before anything is sent.</li>
+                  <li>Fynliq can’t see or change anything with your school or FAFSA.</li>
+                </ul>
               </Card>
 
               {/* Refusals and failures are announced, because a student who
@@ -198,20 +205,22 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               </div>
 
               <div className={styles.actions}>
-                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send the aid lines from these documents to OpenAI for AI processing. Personal details are removed on this device first, but automated removal can miss something. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
+                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> Send only the aid amounts to be read by AI (OpenAI). Personal details are removed on this device first, but automated removal can miss something. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
                 <button
                   type="button"
                   className={styles.submit}
                   onClick={start}
                   disabled={files.length === 0 || (analyzer.connected && !consent)}
                 >
-                  Analyse my aid
+                  {locked ? 'Analyze my aid — free' : 'Analyze my aid'}
                   <span aria-hidden="true">&rarr;</span>
                 </button>
                 <p className={styles.actionNote}>
                   {files.length === 0
-                    ? 'Add at least one file to continue.'
-                    : `${files.length} file${files.length === 1 ? '' : 's'} ready. This takes a few seconds.`}
+                    ? 'Add one screenshot to continue. One is enough.'
+                    : locked
+                      ? 'Takes about 10 seconds. You see your totals before you’re asked to pay anything.'
+                      : `${files.length} file${files.length === 1 ? '' : 's'} ready. This takes a few seconds.`}
                 </p>
               </div>
             </>
@@ -230,7 +239,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               ))}
             </ul>
             <p className={styles.foot}>
-              Any one of them produces an answer. All three produce the sharpest one.
+              One screenshot is enough. Adding more makes the answer sharper.
             </p>
           </Card>
 

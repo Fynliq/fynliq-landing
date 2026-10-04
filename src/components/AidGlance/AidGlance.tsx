@@ -12,7 +12,7 @@ export function AidGlance({ glance, title }: { glance: Glance; title?: string })
   const items: { label: string; value: number | null; note: string; tone: 'green' | 'gold' | 'ink' }[] = [
     { label: 'Free money', value: glance.freeMoney, note: glance.estimatesOnly ? 'Grants + scholarships (FAFSA estimate)' : 'Grants + scholarships', tone: 'green' },
     { label: 'Borrowed money', value: glance.borrowed, note: 'Student loans offered', tone: 'gold' },
-    { label: 'Estimated remaining cost', value: glance.remainingCost, note: glance.remainingBasis === 'bill' ? 'This term’s bill after aid applied' : glance.remainingBasis === 'cost_of_attendance' ? 'Cost of attendance minus free money' : 'Needs your cost or bill', tone: 'ink' },
+    { label: 'Estimated remaining cost', value: glance.remainingCost, note: glance.remainingBasis === 'bill' ? 'This term’s bill after aid applied' : glance.remainingBasis === 'cost_of_attendance' ? 'Full-year cost, incl. housing, minus free money' : 'Add your award letter or bill to see this', tone: 'ink' },
   ];
   return (
     <section className={styles.card} aria-label={title ?? 'Your aid at a glance'}>
