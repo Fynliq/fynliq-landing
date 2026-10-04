@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Answer } from './pages/Answer';
 import { AskFynliq } from './pages/AskFynliq';
 import { Auth } from './pages/Auth';
 import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { CheckoutReturn } from './pages/CheckoutReturn';
+import { AidPreview } from './pages/AidPreview';
+import { createAnalyzer, type AnalyzeResult } from './beta/analyzer';
+import { isLockedPreview, type LockedPreview } from './beta/preview';
+import { exampleAnalysis } from './beta/example';
 import { BillingProvider, useBilling } from './billing/BillingProvider';
 import { isLocked } from './billing/client';
 import { UnlockMyAid } from './pages/UnlockMyAid';
@@ -31,6 +35,8 @@ export const ROUTES = {
   ask: '/ask',
   gradi: '/gradi',
   gradiStart: '/gradi/start',
+  /** A made-up award, worked through. Public: no account, no payment. */
+  example: '/example',
 } as const;
 
 /** `/search/<slug>` — one canonical question, answered in full. */
@@ -47,6 +53,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Make your first $10 — Fynliq',
   [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
+  [ROUTES.example]: 'Example aid breakdown — Fynliq',
 };
 
 /**
@@ -84,7 +91,7 @@ const isPaid = (path: string) => PAID_ROOTS.some((root) => path === root || path
  * beta where almost every arrival is a first-timer, `ROUTES.signup` may read
  * better — it is this one word, and the two screens are the same component.
  */
-const GATE_LANDS_ON: string = ROUTES.login;
+const GATE_LANDS_ON: string = ROUTES.signup;
 
 /** Where somebody lands once they have an account and no particular errand. */
 const AFTER_AUTH: string = ROUTES.upload;
@@ -128,8 +135,29 @@ function Routes() {
    * honest about having nothing when somebody lands on it first.
    */
   const [analysis, setAnalysis] = useState<AidAnalysis | null>(null);
+  /**
+   * Preview before pay: what an account that has not unlocked gets back. Three
+   * totals and a count; the full answer stays on the server until Stripe has
+   * confirmed the $1 (api/analyze.js).
+   */
+  const [preview, setPreview] = useState<LockedPreview | null>(null);
+  const analyzer = useMemo(() => createAnalyzer(), []);
+  const show = useCallback((result: AnalyzeResult) => {
+    if (isLockedPreview(result)) { setPreview(result); setAnalysis(null); }
+    else { setAnalysis(result); setPreview(null); }
+  }, []);
+  /**
+   * The newest analysis this account saved, from the server. That is how the
+   * answer survives the trip to Stripe and back, a refresh, and logging out
+   * and in again — without keeping any of it in the browser.
+   */
+  const loadSaved = useCallback(async () => {
+    const result = (await analyzer.fetchSaved?.()) ?? null;
+    if (result) show(result);
+    return result;
+  }, [analyzer, show]);
   useEffect(() => {
-    const clear = () => { setAnalysis(null); navigate('/'); };
+    const clear = () => { setAnalysis(null); setPreview(null); navigate('/'); };
     const load = (event: Event) => { setAnalysis(analysisFromFacts((event as CustomEvent<AidAnalysis>).detail)); navigate('/beta/results'); };
     window.addEventListener('fynliq:clear-private', clear);
     window.addEventListener('fynliq:load-document', load);
@@ -147,15 +175,16 @@ function Routes() {
   const [intended, setIntended] = useState<string | null>(null);
 
   const onAnalysed = useCallback(
-    (result: AidAnalysis) => {
-      setAnalysis(result);
+    (result: AnalyzeResult) => {
+      show(result);
       navigate(ROUTES.results);
     },
-    [navigate],
+    [navigate, show],
   );
 
   const onRestart = useCallback(() => {
     setAnalysis(null);
+    setPreview(null);
     navigate(ROUTES.upload);
   }, [navigate]);
 
@@ -167,10 +196,33 @@ function Routes() {
    * out. This also covers a session that simply expired.
    */
   useEffect(() => {
-    if (session === null) setAnalysis(null);
+    if (session === null) { setAnalysis(null); setPreview(null); }
   }, [session]);
 
-  const orphaned = path === ROUTES.results && analysis === null;
+  // Stripe's return. The query string only picks the words (never proof of payment).
+  const cancelled = useMemo(
+    () => path === ROUTES.checkout && new URLSearchParams(window.location.search).get('result') === 'cancelled',
+    [path],
+  );
+
+  /*
+   * Nothing in memory where an answer belongs — after a refresh, a cancelled
+   * checkout, or logging back in. Ask the server once per visit; only when it
+   * has nothing either is the student sent back to upload.
+   */
+  const wantsSaved = session !== null && analysis === null && preview === null && (path === ROUTES.results || cancelled);
+  const [savedLookup, setSavedLookup] = useState<'idle' | 'loading' | 'done'>('idle');
+  const lookupFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!wantsSaved) { lookupFor.current = null; setSavedLookup('idle'); return; }
+    const key = `${session?.account.email}|${path}`;
+    if (lookupFor.current === key) return;
+    lookupFor.current = key;
+    setSavedLookup('loading');
+    void loadSaved().catch(() => null).finally(() => setSavedLookup('done'));
+  }, [wantsSaved, session, path, loadSaved]);
+
+  const orphaned = path === ROUTES.results && analysis === null && preview === null && savedLookup === 'done';
 
   // A slug nobody recognises is a dead link, a typo or a question that has
   // been retired. All three belong back on the search page, not on a 404.
@@ -247,9 +299,39 @@ function Routes() {
     if (isLocked(billing.status)) return <UnlockMyAid onUnlocked={() => void billing.refresh()} />;
   }
 
-  if (path === ROUTES.checkout) {
-    return <CheckoutReturn />;
+  if (path === ROUTES.example) {
+    return <BetaResults analysis={exampleAnalysis()} onRestart={() => navigate(session ? ROUTES.upload : ROUTES.signup)} />;
   }
+
+  const unlockedNow = async () => {
+    await billing.refresh();
+    await loadSaved().catch(() => null);
+    navigate(ROUTES.results, { replace: true });
+  };
+
+  if (path === ROUTES.checkout) {
+    if (!cancelled) {
+      return (
+        <CheckoutReturn
+          onConfirmed={async () => {
+            const saved = await loadSaved().catch(() => null);
+            navigate(saved ? ROUTES.results : ROUTES.upload, { replace: true });
+          }}
+        />
+      );
+    }
+    // Cancelled: the analysis is still on the server, so put it back.
+    if (preview) return <AidPreview preview={preview} notice="No worries — your analysis is still here." onUnlocked={() => void unlockedNow()} onRestart={onRestart} />;
+    if (analysis) return <BetaResults analysis={analysis} onRestart={onRestart} />;
+    if (savedLookup !== 'done') return <Holding />;
+    return <UnlockMyAid notice="No worries — you have not been charged." onUnlocked={() => void unlockedNow()} />;
+  }
+
+  if ((path === ROUTES.results || path === ROUTES.upload) && preview && !analysis) {
+    return <AidPreview preview={preview} onUnlocked={() => void unlockedNow()} onRestart={onRestart} />;
+  }
+
+  if (path === ROUTES.results && !analysis && !orphaned) return <Holding />;
 
   if ((path === ROUTES.upload && !analysis) || orphaned) {
     return <BetaUpload onAnalysed={onAnalysed} />;

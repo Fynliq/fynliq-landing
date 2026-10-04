@@ -54,12 +54,18 @@ export function Hero() {
 
           <div className={styles.actions}>
             <Button href="/beta" arrow>
-              Join the beta
+              Check my aid offer
             </Button>
-            <Button href="#clarity" variant="secondary">
-              See how it works
+            <Button href="/example" variant="secondary">
+              See an example
             </Button>
           </div>
+
+          {/* Said up front, so the $1 later is never a surprise. */}
+          <p className={styles.price}>
+            <strong>Free</strong> to upload and see your totals. <strong>$1 once</strong> for the
+            full breakdown, only if you want it. No subscription.
+          </p>
 
           <p className={styles.assurance}>
             Educational guidance only. Fynliq is not affiliated with FAFSA, Federal Student Aid, the

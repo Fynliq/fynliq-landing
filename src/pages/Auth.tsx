@@ -40,7 +40,7 @@ const COPY = {
   signup: {
     eyebrow: 'Join the beta',
     title: 'Create your account',
-    lede: 'An email address and a password. That is the whole of it — no school, no phone number, no card.',
+    lede: 'Just an email and a password. No school, no phone number, no card. Uploading and seeing your totals is free.',
     submit: 'Create account',
     working: 'Creating your account…',
     switchLead: 'Already have an account?',

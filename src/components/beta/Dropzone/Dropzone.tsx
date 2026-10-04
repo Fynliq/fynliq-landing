@@ -104,18 +104,20 @@ export function Dropzone({ files, onAdd, onRemove, busy = false }: DropzoneProps
       >
         <UploadGlyph />
         <span className={styles.lead}>
-          {full ? `That is ${MAX_FILES} files — the limit` : 'Drop your aid summary here'}
+          {full ? `That is ${MAX_FILES} files — the limit` : 'Add a screenshot of your aid offer'}
         </span>
         <span className={styles.or}>
-          {full ? 'Remove one below to add another' : 'or choose a file from your device'}
+          {full ? 'Remove one below to add another' : 'Tap to choose a screenshot or PDF, or drop it here'}
         </span>
       </button>
 
       <p className={styles.hint} id={hintId}>
-        {ACCEPTED_SUMMARY}. You can also paste a screenshot with{' '}
-        <kbd className={styles.kbd}>Ctrl</kbd>
-        <span aria-hidden="true"> / </span>
-        <kbd className={styles.kbd}>⌘</kbd> <kbd className={styles.kbd}>V</kbd>.
+        {ACCEPTED_SUMMARY}.
+        <span className={styles.pasteHint}>
+          {' '}You can also paste a screenshot with <kbd className={styles.kbd}>Ctrl</kbd>
+          <span aria-hidden="true"> / </span>
+          <kbd className={styles.kbd}>⌘</kbd> <kbd className={styles.kbd}>V</kbd>.
+        </span>
         {pasted && <span className={styles.pasted}> Pasted.</span>}
       </p>
 

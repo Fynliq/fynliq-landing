@@ -16,7 +16,8 @@ export interface BillingStatus {
   price?: { amount: number; currency: string; label: string };
 }
 
-export type FunnelEvent = 'my_aid_entered' | 'paywall_viewed' | 'preflight_completed';
+export type FunnelEvent = 'my_aid_entered' | 'paywall_viewed' | 'preflight_completed'
+  | 'my_aid_page_view' | 'aid_upload_started' | 'aid_upload_completed' | 'aid_preview_viewed' | 'unlock_button_clicked' | 'full_analysis_viewed';
 
 /** Unset in local development: the paywall is simply off there. */
 export const BILLING_ENDPOINT: string | undefined =

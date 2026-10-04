@@ -1,0 +1,74 @@
+/* Free preview + $1 unlock. Mobile first, one column, same tokens as the rest of My Aid. */
+.head { max-width: 600px; margin-bottom: var(--s-20); }
+.eyebrow {
+  display: block; font-family: var(--mono); font-size: var(--t-13); font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--green); margin-bottom: var(--s-8);
+}
+.title { font-size: var(--t-32); line-height: 1.1; }
+.lede { margin-top: var(--s-8); font-size: var(--t-17); color: var(--mid); }
+@media (min-width: 768px) { .title { font-size: var(--t-40); } }
+
+.notice {
+  margin-bottom: var(--s-16); padding: var(--s-12) var(--s-16); border-radius: var(--r-input);
+  background: var(--green-soft); color: var(--green); font-weight: 600; font-size: var(--t-15);
+}
+
+.found { margin-top: var(--s-20); font-size: var(--t-17); color: var(--tx); }
+.found b { color: var(--green); }
+
+.locked {
+  position: relative; margin-top: var(--s-16); padding: var(--s-16) var(--s-20);
+  border-radius: var(--r-card); border: 1px dashed var(--line2); background: var(--card); overflow: hidden;
+}
+.lockedList { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-12); }
+.lockedItem { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 2px var(--s-12); align-items: start; }
+.tick {
+  grid-row: span 3; width: 22px; height: 22px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: var(--green-soft); color: var(--green); font-size: 12px; font-weight: 700;
+}
+.lockedLabel { font-weight: 600; font-size: var(--t-15); }
+.lockedWhat { font-size: var(--t-14); color: var(--mid); }
+.lockedTitle {
+  font-family: var(--mono); font-size: var(--t-13); font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--low); margin-bottom: var(--s-12);
+}
+/* Placeholder lines, blurred. No real text is behind them. */
+.bars { display: grid; gap: 5px; filter: blur(3px); opacity: 0.6; }
+.bars i { display: block; height: 8px; border-radius: 4px; background: var(--line2); }
+.bars i:last-child { width: 60%; }
+.lock {
+  position: absolute; right: var(--s-16); top: var(--s-16); font-size: 20px;
+}
+
+.pay {
+  margin-top: var(--s-20); padding: var(--s-24) var(--s-20); border-radius: var(--r-card);
+  background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); text-align: center;
+}
+.payTitle { font-size: var(--t-21); line-height: 1.2; }
+.price { margin-top: var(--s-8); font-size: var(--t-16); color: var(--mid); }
+.price b { font-family: var(--disp); font-size: var(--t-25); color: var(--tx); margin-right: 4px; }
+.terms { font-size: var(--t-14); color: var(--low); }
+.cta {
+  margin-top: var(--s-16); width: 100%; min-height: 56px; padding: var(--s-16) var(--s-24);
+  border-radius: var(--r-pill); background: var(--tx); color: var(--on-dark);
+  font-family: var(--body); font-size: var(--t-16); font-weight: 600; box-shadow: var(--shadow);
+}
+.cta:disabled { background: var(--sunk); color: var(--low); box-shadow: none; cursor: progress; }
+@media (hover: hover) and (pointer: fine) { .cta:hover:not(:disabled) { background: var(--tx-hi); } }
+.trust { margin-top: var(--s-12); font-size: var(--t-13); color: var(--low); }
+.trustSub { font-size: 12px; color: var(--low); }
+.error {
+  margin-top: var(--s-12); padding: var(--s-12) var(--s-16); border-radius: var(--r-input);
+  background: var(--rust-soft); color: var(--rust); font-size: var(--t-14);
+}
+.secondary { margin-top: var(--s-16); text-align: center; font-size: var(--t-14); color: var(--mid); }
+.link { color: var(--tx); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; background: none; padding: 0; font-size: inherit; }
+
+.jump { color: var(--green); font-weight: 600; white-space: nowrap; text-decoration: underline; text-underline-offset: 3px; }
+.also { margin-top: var(--s-4, 4px); font-size: var(--t-14); color: var(--mid); }
+.why {
+  list-style: none; margin: var(--s-16) auto 0; padding: 0; max-width: 34ch; text-align: left;
+  display: grid; gap: var(--s-8); font-size: var(--t-14); color: var(--mid);
+}
+.why li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--s-8); }
+.why li::before { content: '✓'; color: var(--green); font-weight: 700; }

@@ -224,3 +224,42 @@
   font-weight: 700;
   line-height: 1.55;
 }
+
+/* "See an example": secondary, beside the heading, never louder than upload. */
+.example {
+  margin-top: var(--s-12);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 var(--s-16);
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--tx);
+  font-size: var(--t-14);
+  font-weight: 600;
+}
+
+/* Three short privacy promises under the dropzone. */
+.trust {
+  list-style: none;
+  margin: var(--s-16) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s-8);
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.trust li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--s-8);
+}
+
+.trust li::before {
+  content: '✓';
+  color: var(--green);
+  font-weight: 700;
+}

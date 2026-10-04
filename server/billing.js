@@ -22,7 +22,11 @@ export const UNLOCK_PRICE = { amount: 100, currency: 'usd', label: '$1.00 — On
 export const UNLOCK_REQUIRED = { code: 'beta_unlock_required', message: 'Unlock My Aid to continue.' };
 export const PURPOSE = 'fynq_beta_unlock';
 /** Funnel steps the browser may report. Everything else is recorded server-side. */
-export const CLIENT_EVENTS = ['my_aid_entered', 'paywall_viewed', 'preflight_completed'];
+export const CLIENT_EVENTS = [
+  'my_aid_entered', 'paywall_viewed', 'preflight_completed',
+  // Preview-before-pay funnel (content-free: event name, account, time only).
+  'my_aid_page_view', 'aid_upload_started', 'aid_upload_completed', 'aid_preview_viewed', 'unlock_button_clicked', 'full_analysis_viewed',
+];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CUTOFF = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
@@ -109,7 +113,18 @@ export async function resolveAccess(db, account, env = process.env) {
  * nothing and returns 'open', so FYNQ behaves exactly as it did before.
  */
 export async function analysisAccess(req, env = process.env, dependencies = {}) {
-  if (!paywallEnabled(env)) return { access: 'open', account: null, db: null };
+  const gate = await analysisGate(req, env, dependencies);
+  if (gate.locked) throw new UnlockRequired();
+  return gate;
+}
+
+/**
+ * Who is asking and whether they have unlocked, without refusing anyone.
+ * My Aid reads documents for locked accounts too (they get a preview); the
+ * full result is released only when `locked` is false.
+ */
+export async function analysisGate(req, env = process.env, dependencies = {}) {
+  if (!paywallEnabled(env)) return { access: 'open', account: null, db: null, locked: false };
   if (pilotEmails(env)) {
     // Pilot: only listed accounts are gated. Anyone else, signed in or not,
     // and any lookup failure, reads exactly as before the paywall existed.
@@ -119,13 +134,12 @@ export async function analysisAccess(req, env = process.env, dependencies = {}) 
       const account = accountToken(req) ? await currentAccount(req, db) : null;
       pilot = account && inPilot(account, env) ? { account, db } : null;
     } catch { pilot = null; }
-    if (!pilot) return { access: 'open', account: null, db: null };
+    if (!pilot) return { access: 'open', account: null, db: null, locked: false };
   }
   const { db } = dependencies.clients(env);
   const account = await currentAccount(req, db);
   const result = await resolveAccess(db, account, env);
-  if (result.access === 'locked') throw new UnlockRequired();
-  return { ...result, account, db };
+  return { ...result, account, db, locked: result.access === 'locked' };
 }
 
 /** Best effort: a funnel event must never break a student's flow. */

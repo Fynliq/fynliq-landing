@@ -6,18 +6,24 @@
 // again, then the high-risk PII check, which fails closed, and only then sends
 // the text to the model to pull out the figures.
 //
-// FYNQ Beta Unlock: when PAYWALL_ENABLED=true, a logged-in account must be
-// grandfathered, paid, or an admin/test account before anything is sent to
-// the model; otherwise this answers 402 { code: 'beta_unlock_required' }.
-// With the paywall off (the default) the gate touches nothing.
+// FYNQ Beta Unlock (preview before pay): when PAYWALL_ENABLED=true the
+// student must be logged in, and every account may have its documents read.
+// The verified figures and overview are saved on the server for that account.
+//   * Unlocked accounts (grandfathered, paid, admin/test) get the full result.
+//   * Locked accounts get ONLY a preview: three totals and a count. No figures,
+//     quotes, labels or summary token leave the server until Stripe has paid.
+// GET /api/analyze[?id=] returns the account's newest (or given) saved
+// analysis under the same rule, so a refresh, a Stripe return or a new login
+// finds it again. With the paywall off (the default) nothing is saved.
 import { structuredResponse } from '../server/provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
 import { PrivacyError, PRIVACY_MESSAGE } from '../server/privacy.js';
 import { recordUpload } from '../server/upload-tracking.js';
-import { clients, BetaError } from '../server/beta.js';
-import { analysisAccess, UnlockRequired, UNLOCK_REQUIRED, track as trackFunnel } from '../server/billing.js';
+import { clients, rpc, BetaError } from '../server/beta.js';
+import { analysisGate, track as trackFunnel } from '../server/billing.js';
+import { computeAidOverview, previewOf } from '../server/aid-overview.js';
 
 // Swappable in tests; records outcomes only, never document content.
 let track = recordUpload;
@@ -180,23 +186,75 @@ export function selectFacts(extracted, fileCount, documentText, diagnostics) {
   return validateSummary({ supported: true, conflicts: [], facts: kept }, fileCount);
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Everything the results page needs. Only ever sent to an unlocked account. */
+function fullPayload({ facts, overview, fileNames, readAt, analysisId, env }) {
+  const sai = facts.find((f) => f.field === 'sai');
+  return {
+    analysisId: analysisId ?? null,
+    document: { kind: facts[0].kind, fileNames, readAt, confidence: 0.6 },
+    student: { firstName: null, school: null },
+    sai: sai ? Number(sai.value.replace(/[$,\s]/g, '')) : null,
+    award: { year: facts.find((f) => f.field === 'awardYear')?.value ?? 'Not stated', source: 'Uploaded aid documents', costOfAttendance: null, lines: [] },
+    semester: null,
+    unread: [{ field: 'Any figures not shown in the reviewed fields', where: 'Your original documents or school financial aid office.' }],
+    summaryFacts: facts,
+    summaryToken: signSummary(facts, env.OPENAI_API_KEY, Date.now()),
+    overview,
+  };
+}
+
+/** The whole of what a locked account receives. */
+const lockedPayload = ({ facts, overview, readAt, analysisId }) => ({
+  locked: true, analysisId, readAt, documentKind: facts[0].kind, preview: previewOf(overview, facts),
+});
+
+async function gateFor(req, res, env, dependencies) {
+  try {
+    return await analysisGate(req, env, { clients: dependencies.clients || clients });
+  } catch (error) {
+    if (error instanceof BetaError) { bad(res, error.status, error.message); return null; }
+    bad(res, 503, 'The document reader is not available right now. Please try again in a moment.');
+    return null;
+  }
+}
+
+/** GET: this account's own saved analysis (newest, or ?id=), full or preview. */
+async function savedAnalysis(req, res, env, dependencies) {
+  const gate = await gateFor(req, res, env, dependencies);
+  if (!gate) return undefined;
+  if (!gate.account) return res.status(404).json({ error: 'none' });
+  const id = new URL(req.url ?? '/', 'http://x').searchParams.get('id');
+  if (id !== null && !UUID.test(id)) return bad(res, 400, 'Invalid analysis.');
+  let row;
+  try { row = await rpc(gate.db, 'aid_analysis_get', { p_user: gate.account.id, p_id: id }); }
+  catch { return bad(res, 503, 'Your analysis is not available right now. Please try again in a moment.'); }
+  if (!row?.id) return res.status(404).json({ error: 'none' });
+  let facts;
+  try { facts = validateSummary({ supported: true, conflicts: [], facts: row.facts }); }
+  catch { return res.status(404).json({ error: 'none' }); }
+  const overview = computeAidOverview(facts);
+  const base = { facts, overview, readAt: row.created_at, analysisId: row.id };
+  if (gate.locked) return res.json(lockedPayload(base));
+  return res.json(fullPayload({ ...base, fileNames: Array.from({ length: row.file_count }, (_, i) => `Document ${i + 1}`), env }));
+}
+
 export function createAnalyzeHandler(dependencies = {}) {
   return async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const env = dependencies.env || process.env;
-  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return bad(res, 405, 'Use POST.'); }
+  if (req.method === 'GET') {
+    if (!env.OPENAI_API_KEY) return bad(res, 503, 'The document reader is not configured.');
+    return savedAnalysis(req, res, env, dependencies);
+  }
+  if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return bad(res, 405, 'Use POST.'); }
   if (!allowRequest(req, 'analyze', 3)) return bad(res, 429, 'Please wait a minute before uploading again.');
 
-  // The paywall gate runs before anything is parsed, stored or sent to the
-  // model, so calling this endpoint directly cannot skip the $1 unlock.
-  let gate;
-  try {
-    gate = await analysisAccess(req, env, { clients: dependencies.clients || clients });
-  } catch (error) {
-    if (error instanceof UnlockRequired) return res.status(402).json(UNLOCK_REQUIRED);
-    if (error instanceof BetaError) return bad(res, error.status, error.message);
-    return bad(res, 503, 'The document reader is not available right now. Please try again in a moment.');
-  }
+  // Who is asking. With the paywall on this requires a logged-in account,
+  // but no longer a paid one: locked accounts are read and get a preview.
+  const gate = await gateFor(req, res, env, dependencies);
+  if (!gate) return undefined;
 
   if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) return bad(res, 503, 'The document reader is not configured.');
 
@@ -220,9 +278,15 @@ export function createAnalyzeHandler(dependencies = {}) {
   }
   if (totalChars > MAX_CHARS) return bad(res, 413, 'These documents are too long. Upload just the aid summary pages.');
 
-  // Paid-account funnel steps (content-free; only for accounts that paid).
-  const funnel = async (event) => { if (gate.access === 'premium') await trackFunnel(gate.db, gate.account, event, env, false); };
-  await funnel('analysis_started');
+  // Funnel steps (content-free). Post-cutoff accounts only, locked or paid;
+  // paid accounts keep their original events too, for the existing admin view.
+  const journey = gate.account && (gate.locked || gate.access === 'premium');
+  const funnel = async (event, legacy) => {
+    if (!journey) return;
+    await trackFunnel(gate.db, gate.account, event, env, gate.testAccount === true);
+    if (legacy && gate.access === 'premium') await trackFunnel(gate.db, gate.account, legacy, env, false);
+  };
+  await funnel('aid_analysis_started', 'analysis_started');
 
   // Defence in depth: whatever the browser did, redact again here.
   const redacted = redactDocuments(documents);
@@ -247,7 +311,7 @@ export function createAnalyzeHandler(dependencies = {}) {
     // Never log the error body: it can echo document text.
     console.error('Document reader provider error:', error?.name ?? 'Error');
     await track(req, { outcome: 'reader_error', files: documents.length });
-    return bad(res, 502, 'The document reader is not responding right now. Please try again in a moment.');
+    return bad(res, 502, 'We couldn’t analyze your aid summary. Please try again.');
   }
 
   const diagnostics = {};
@@ -271,7 +335,7 @@ export function createAnalyzeHandler(dependencies = {}) {
     const allText = documentText.join('\n');
     const names = AID_NAMES.test(allText);
     const rowAmounts = allText.split('\n').filter((line) => !/\btotals?\b/i.test(line) && amountsIn(line).some((a) => a.n >= 100)).length;
-    let message = 'Fynliq could not read the aid figures clearly enough in this screenshot. Try a sharper screenshot of just the award table, with the page zoomed in.';
+    let message = 'We couldn’t read enough information from this image. Try uploading a clearer screenshot.';
     if (!names && amounts) message = 'This screenshot shows amounts but not the award names next to them, so Fynliq cannot tell which is which. Upload it together with a screenshot that shows the award names (you can choose up to 3 files at once).';
     else if (names && !rowAmounts) message = 'This screenshot shows the award names but not the amount for each one. If your aid table scrolls sideways, take a second screenshot of the amounts and upload both together.';
     await track(req, { outcome: 'unreadable', files: documents.length, reason: ref });
@@ -279,18 +343,27 @@ export function createAnalyzeHandler(dependencies = {}) {
   }
 
   await track(req, { outcome: 'read', files: documents.length, figures: facts.length });
-  await funnel('analysis_completed');
-  const sai = facts.find((f) => f.field === 'sai');
-  return res.json({
-    document: { kind: facts[0].kind, fileNames: documents.map((d) => d.name), readAt: new Date().toISOString(), confidence: 0.6 },
-    student: { firstName: null, school: null },
-    sai: sai ? Number(sai.value.replace(/[$,\s]/g, '')) : null,
-    award: { year: facts.find((f) => f.field === 'awardYear')?.value ?? 'Not stated', source: 'Uploaded aid documents', costOfAttendance: null, lines: [] },
-    semester: null,
-    unread: [{ field: 'Any figures not shown in the reviewed fields', where: 'Your original documents or school financial aid office.' }],
-    summaryFacts: facts,
-    summaryToken: signSummary(facts, env.OPENAI_API_KEY, Date.now()),
-  });
+  const overview = computeAidOverview(facts);
+  const readAt = new Date().toISOString();
+
+  // Keep the result for this account, so it survives a Stripe round trip, a
+  // refresh or a new login. Figures and overview only; no files or file names.
+  let analysisId = null;
+  if (gate.account) {
+    try {
+      analysisId = await rpc(gate.db, 'aid_analysis_save', {
+        p_user: gate.account.id, p_kind: facts[0].kind, p_files: documents.length, p_facts: facts, p_overview: overview,
+      });
+    } catch {
+      console.error('Analysis save failed');
+      // A locked account could never get back to a result it cannot keep.
+      if (gate.locked) return bad(res, 503, 'We couldn’t analyze your aid summary. Please try again.');
+    }
+  }
+  await funnel('aid_analysis_completed', 'analysis_completed');
+
+  if (gate.locked) return res.json(lockedPayload({ facts, overview, readAt, analysisId }));
+  return res.json(fullPayload({ facts, overview, fileNames: documents.map((d) => d.name), readAt, analysisId, env }));
   };
 }
 

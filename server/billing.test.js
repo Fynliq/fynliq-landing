@@ -99,18 +99,25 @@ describe('premium analysis gate', () => {
     await expect(analysisAccess(request(), env, { clients: () => ({ db: fakeDb({}) }) })).rejects.toThrow('Please log in');
   });
 
-  it('answers 402 beta_unlock_required from /api/analyze before OpenAI is ever called', async () => {
-    const openai = vi.fn();
+  it('reads for a locked account but answers with a preview only, keeping the full read on the server', async () => {
+    const facts = [{ field: 'grantOffer', label: 'Federal Pell Grant', value: '$3,698', page: 1, document: 1, kind: 'award-letter', period: 'Fall 2026', estimated: false, quote: 'Federal Pell Grant Fall 2026 $3,698' }];
+    const openai = vi.fn(async () => ({ ok: true, json: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ supported: true, conflicts: [], facts }) }] }] }) }));
     vi.stubGlobal('fetch', openai);
+    const db = fakeDb({ grandfathered: false, premium: false });
+    const rpc = db.rpc;
+    db.rpc = async (name, args) => (name === 'aid_analysis_save' ? { data: '33333333-3333-4333-8333-333333333333', error: null } : rpc(name, args));
     const handler = createAnalyzeHandler({
       env: { PAYWALL_ENABLED: 'true', OPENAI_API_KEY: 'x', OPENAI_MODEL: 'x' },
-      clients: () => ({ db: fakeDb({ grandfathered: false, premium: false }) }),
+      clients: () => ({ db }),
       fetchImpl: openai,
     });
     const res = response();
     await handler(request(`__Host-fynliq_account=${TOKEN}`), res);
-    expect(res.statusCode).toBe(402);
-    expect(res.body).toEqual({ code: 'beta_unlock_required', message: 'Unlock My Aid to continue.' });
-    expect(openai).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(200);
+    expect(res.body.locked).toBe(true);
+    expect(res.body.analysisId).toBe('33333333-3333-4333-8333-333333333333');
+    expect(res.body.preview.glance.freeMoney).toBe(3698);
+    const text = JSON.stringify(res.body);
+    for (const leak of ['Pell', 'quote', 'summaryFacts', 'summaryToken', 'Fall 2026']) expect(text).not.toContain(leak);
   });
 });

@@ -29,6 +29,8 @@ function literal(value) {
   if (value === null || value === undefined) return 'NULL';
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'number') return String(value);
+  // JSON arguments (jsonb), as supabase-js sends them: objects, and arrays of objects.
+  if ((Array.isArray(value) && value.some((v) => v && typeof v === 'object')) || (value && typeof value === 'object' && !Array.isArray(value))) return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
   if (Array.isArray(value)) return `'{${value.map((v) => `"${String(v).replace(/["\\]/g, '\\$&')}"`).join(',')}}'`;
   return `'${String(value).replace(/'/g, "''")}'`;
 }
@@ -83,6 +85,7 @@ const noDatabase = () => { throw new Error('The paywall-off path must not touch 
 const ORIGIN = 'https://www.fynliq.test';
 const WEBHOOK_SECRET = 'whsec_synthetic_test_secret';
 const ids = {
+  previewer: '10000000-0000-4000-8000-0000000000aa',
   before: '10000000-0000-4000-8000-000000000001',
   exact: '10000000-0000-4000-8000-000000000002',
   after: '10000000-0000-4000-8000-000000000003',
@@ -104,7 +107,7 @@ const created = {
   exact: DEFAULT_GRANDFATHER_CUTOFF,
   after: '2026-09-30T18:53:52.654623Z', // one microsecond after the cutoff
   buyer: '2026-10-01T09:00:00Z', other: '2026-10-01T09:05:00Z', tester: '2026-10-01T09:10:00Z',
-  decliner: '2026-10-02T09:00:00Z', canceller: '2026-10-02T10:00:00Z',
+  decliner: '2026-10-02T09:00:00Z', canceller: '2026-10-02T10:00:00Z', previewer: '2026-10-04T10:00:00Z',
 };
 for (const [key, id] of Object.entries(ids)) {
   await pg.exec(`insert into public.accounts(user_id, email, created_at) values ('${id}', '${key}@example.test', '${created[key]}')`);
@@ -145,14 +148,25 @@ let ip = 0;
 function response() {
   return { statusCode: 200, headers: {}, body: undefined, setHeader(k, v) { this.headers[k] = v; }, status(n) { this.statusCode = n; return this; }, send(v) { this.body = v; return this; }, json(v) { this.body = v; return this; } };
 }
-async function call(handler, { method = 'POST', body, cookie = '', headers = {} } = {}) {
+async function call(handler, { method = 'POST', body, cookie = '', headers = {}, url = '/api/x' } = {}) {
   const res = response();
-  await handler({ method, body, headers: { 'content-type': 'application/json', origin: ORIGIN, cookie, ...headers }, socket: { remoteAddress: `192.0.2.${(++ip % 250) + 1}` } }, res);
+  await handler({ method, url, body, headers: { 'content-type': 'application/json', origin: ORIGIN, cookie, ...headers }, socket: { remoteAddress: `192.0.2.${(++ip % 250) + 1}` } }, res);
   return res;
 }
 const status = async (who, overrides) => (await call(billing(overrides), { method: 'GET', cookie: cookies[who] })).body;
 const read = (who, extra = {}, overrides) => call(analyze(overrides), { body: { consent: true, documents, ...extra }, cookie: cookies[who] });
 const clearRates = () => pg.exec('delete from public.beta_rate_windows');
+const saved = (who, id) => call(analyze(), { method: 'GET', cookie: cookies[who], url: id ? `/api/analyze?id=${id}` : '/api/analyze' });
+/** A locked account's answer: a preview only, never the figures, quotes or token. */
+function assertPreviewOnly(res) {
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.locked, true);
+  assert.deepEqual(Object.keys(res.body).sort(), ['analysisId', 'documentKind', 'locked', 'preview', 'readAt']);
+  assert.deepEqual(Object.keys(res.body.preview).sort(), ['figures', 'glance', 'reviewCount']);
+  const text = JSON.stringify(res.body);
+  for (const needle of ['Pell', '3,698', 'quote', 'summaryToken', 'summaryFacts', 'Fall 2026', MARKER, 'Jordan']) assert.ok(!text.includes(needle), `${needle} leaked into a locked response`);
+  return res.body;
+}
 
 let eventCounter = 0;
 function stripeEvent(type, session, extra = {}) {
@@ -220,16 +234,16 @@ try {
     assert.equal(stripeRequests.length, 0);
   });
 
-  await test('6. new unpaid account cannot call premium analysis directly (402, model never called)', async () => {
+  await test('6. new unpaid account can upload and gets a PREVIEW only; forged claims change nothing; anonymous refused', async () => {
     const before = openaiCalls;
-    for (const extra of [{}, { paid: true, checkoutSessionId: 'cs_test_forged0001' }, { documents: undefined }]) {
-      const res = await read('after', extra);
-      assert.equal(res.statusCode, 402);
-      assert.deepEqual(res.body, { code: 'beta_unlock_required', message: 'Unlock My Aid to continue.' });
+    for (const extra of [{}, { paid: true, checkoutSessionId: 'cs_test_forged0001' }]) {
+      const body = assertPreviewOnly(await read('after', extra));
+      assert.deepEqual(body.preview.glance, { freeMoney: 3698, borrowed: null, remainingCost: null, remainingBasis: null, estimatesOnly: false });
     }
+    assert.equal((await read('after', { documents: undefined })).statusCode, 400);
     const anonymous = await call(analyze(), { body: { consent: true, documents } });
     assert.equal(anonymous.statusCode, 401);
-    assert.equal(openaiCalls, before);
+    assert.equal(openaiCalls, before + 2, 'locked accounts are read (preview before pay); anonymous is not');
   });
 
   let buyerSession;
@@ -272,7 +286,45 @@ try {
     assert.equal(res.statusCode, 200);
     assert.equal(openaiCalls, before + 1);
     const events = (await pg.query("select event_type from public.monetization_events where account_id = $1 order by created_at", [ids.buyer])).map((r) => r.event_type);
-    for (const e of ['unlock_clicked', 'checkout_created', 'checkout_completed', 'payment_confirmed', 'entitlement_activated', 'analysis_started', 'analysis_completed']) assert.ok(events.includes(e), e);
+    for (const e of ['unlock_clicked', 'checkout_created', 'checkout_completed', 'payment_confirmed', 'entitlement_activated', 'analysis_started', 'analysis_completed', 'aid_analysis_started', 'aid_analysis_completed']) assert.ok(events.includes(e), e);
+    assert.ok(Array.isArray(res.body.summaryFacts) && typeof res.body.summaryToken === 'string' && res.body.overview.glance.freeMoney === 3698, 'paid accounts get the full result straight away');
+  });
+
+  await test('preview before pay: saved analysis → preview → pay → full; owner-only; survives a new login', async () => {
+    const first = assertPreviewOnly(await read('previewer'));
+    assert.match(first.analysisId, /^[0-9a-f-]{36}$/);
+    assert.equal(first.preview.reviewCount, (await pg.query('select overview from public.aid_analyses where id = $1', [first.analysisId]))[0].overview.review.length);
+    // Refresh / come back: the newest analysis, still a preview.
+    assert.equal(assertPreviewOnly(await saved('previewer')).analysisId, first.analysisId);
+    // Nobody else can open it by id: not another post-cutoff account, not a paid one, not a grandfathered one.
+    for (const who of ['after', 'buyer', 'before']) assert.equal((await saved(who, first.analysisId)).statusCode, 404, who);
+    assert.equal((await saved('previewer', 'not-a-uuid')).statusCode, 400);
+    assert.equal((await call(analyze(), { method: 'GET', url: '/api/analyze' })).statusCode, 401, 'anonymous');
+    // The success URL alone proves nothing: still locked until the signed webhook.
+    assertPreviewOnly(await saved('previewer'));
+    const started = await startCheckout('previewer');
+    await deliver(stripeEvent('checkout.session.completed', sessionFor(ids.previewer, sessionIdFromUrl(started.url))));
+    const full = await saved('previewer');
+    assert.equal(full.statusCode, 200);
+    assert.equal(full.body.analysisId, first.analysisId);
+    assert.equal(full.body.summaryFacts.length, 1);
+    assert.equal(typeof full.body.summaryToken, 'string');
+    assert.equal(full.body.overview.glance.freeMoney, 3698);
+    assert.ok(Array.isArray(full.body.overview.questions) && full.body.overview.questions.length >= 2 && full.body.overview.questions.length <= 5);
+    // Log out and back in: a brand-new session cookie still finds it, unlocked.
+    const token = randomBytes(32).toString('hex');
+    await db.rpc('account_start_session', { p_user: ids.previewer, p_email: 'previewer@example.test', p_hash: createHash('sha256').update(token).digest('hex'), p_guest: null });
+    cookies.previewer = `__Host-fynliq_account=${token}`;
+    const again = await saved('previewer', first.analysisId);
+    assert.equal(again.body.summaryFacts.length, 1);
+    // A paid account can upload another analysis and gets it in full right away.
+    await clearRates();
+    const second = await read('previewer');
+    assert.equal(second.statusCode, 200);
+    assert.ok(second.body.summaryToken && second.body.analysisId !== first.analysisId);
+    // What is stored: figures and overview only. No names, SSNs, file names or raw text.
+    const dump = JSON.stringify(await pg.query('select * from public.aid_analyses'));
+    for (const needle of ['Jordan', 'Testcase', '123-45-6789', '.png', MARKER, 'Aid Offer for']) assert.ok(!dump.includes(needle), needle);
   });
 
   await test('9. cancelled Checkout unlocks nothing', async () => {
@@ -283,7 +335,10 @@ try {
     assert.equal((await deliver(stripeEvent('checkout.session.expired', sessionFor(ids.canceller, id, { payment_status: 'unpaid', status: 'expired' })))).statusCode, 200);
     assert.equal((await pg.query('select status from public.billing_checkouts where checkout_session_id = $1', [id]))[0].status, 'expired');
     assert.equal(await entitlement(ids.canceller), null);
-    assert.equal((await read('canceller')).statusCode, 402);
+    const first = assertPreviewOnly(await read('canceller'));
+    // Cancelling Checkout does not delete the analysis: it is still there, still a preview.
+    const back = assertPreviewOnly(await saved('canceller'));
+    assert.equal(back.analysisId, first.analysisId);
   });
 
   await test('10. declined or failed payment unlocks nothing', async () => {
@@ -321,7 +376,7 @@ try {
     const forged = await call(billing(), { body: { action: 'checkout', paid: true, session_id: buyerSession, account_id: ids.buyer }, cookie: cookies.after });
     assert.ok(forged.body.url && !forged.body.unlocked, 'body claims are ignored');
     assert.equal(stripeRequests.at(-1).params.get('client_reference_id'), ids.after, 'account comes from the cookie, not the body');
-    assert.equal((await read('after', { paid: true, sessionId: buyerSession })).statusCode, 402);
+    assertPreviewOnly(await read('after', { paid: true, sessionId: buyerSession }));
     const afterSession = sessionIdFromUrl(forged.body.url);
     const event = stripeEvent('checkout.session.completed', sessionFor(ids.after, afterSession));
     assert.equal((await deliver(event, { secret: 'whsec_attacker_guess' })).statusCode, 400);
@@ -356,7 +411,7 @@ try {
     assert.equal(await entitlement(ids.canceller), null);
     assert.equal(await entitlement(ids.after), null);
     // Someone else's paid session id in a request body is ignored too.
-    assert.equal((await read('canceller', { checkoutSessionId: buyerSession })).statusCode, 402);
+    assertPreviewOnly(await read('canceller', { checkoutSessionId: buyerSession }));
   });
 
   await test('14. a returning paid user never pays twice', async () => {
@@ -435,17 +490,17 @@ try {
     assert.equal(metrics.live.paid_accounts, 0, 'Stripe test-mode payments are never production revenue');
     assert.equal(metrics.live.gross_revenue_cents, 0);
     const t = metrics.test_mode;
-    assert.equal(t.paid_accounts, 3, 'buyer, other and decliner; not the tester');
-    assert.equal(t.payments, 4, 'includes the flagged duplicate');
+    assert.equal(t.paid_accounts, 4, 'buyer, other, decliner and previewer; not the tester');
+    assert.equal(t.payments, 5, 'includes the flagged duplicate');
     assert.equal(t.duplicate_payments, 1);
-    assert.equal(t.gross_revenue_cents, 400);
-    assert.equal(t.checkout_to_paid_rate, Number((3 / t.checkout_starts).toFixed(4)));
+    assert.equal(t.gross_revenue_cents, 500);
+    assert.equal(t.checkout_to_paid_rate, Number((4 / t.checkout_starts).toFixed(4)));
     // Removing the flag in the database does not sneak it back in while the account is still configured as a test account.
     await pg.exec(`update public.billing_entitlements set is_test_account = false where account_id = '${ids.tester}'`);
     await pg.exec(`update public.billing_checkouts set is_test_account = false where account_id = '${ids.tester}'`);
     const again = (await db.rpc('billing_metrics', { p_cutoff: DEFAULT_GRANDFATHER_CUTOFF, p_test: [ids.tester] })).data;
-    assert.equal(again.test_mode.paid_accounts, 3);
-    assert.equal(again.test_mode.gross_revenue_cents, 400);
+    assert.equal(again.test_mode.paid_accounts, 4);
+    assert.equal(again.test_mode.gross_revenue_cents, 500);
   });
 
   await test('19. existing upload telemetry still records every read, unchanged', async () => {
@@ -513,7 +568,7 @@ try {
       const s = (await call(pb(), { method: 'GET', cookie: cookies[who] })).body;
       assert.deepEqual([s.paywallEnabled, s.access], [false, 'open'], who);
     }
-    assert.equal((await call(pa(), { body: { consent: true, documents }, cookie: cookies.after })).statusCode, 402);
+    assertPreviewOnly(await call(pa(), { body: { consent: true, documents }, cookie: cookies.after }));
     const before = openaiCalls;
     assert.equal((await call(pa(), { body: { consent: true, documents }, cookie: cookies.canceller })).statusCode, 200, 'unpaid post-cutoff account outside the pilot is not gated');
     assert.equal((await call(pa(), { body: { consent: true, documents } })).statusCode, 200, 'not signed in: unchanged');
@@ -543,6 +598,11 @@ try {
         `insert into public.billing_entitlements(account_id, checkout_session_id, amount, currency, livemode, paid_at) values ('${ids.after}', 'cs_test_x', 0, 'usd', false, now())`,
         `select public.billing_access('${ids.after}', now())`, `select public.billing_metrics(now(), '{}')`,
         "select public.billing_stripe_event('evt_x1234567', 'checkout.session.completed', false, 'cs_test_x', null, null, 'paid', 100, 'usd', null, null, 100, 'usd', false)",
+        // Saved analyses: never readable or writable from a browser role, not even its owner's.
+        'select * from public.aid_analyses', 'select * from public.aid_funnel_events',
+        `select public.aid_analysis_get('${ids.previewer}', null)`,
+        `select public.aid_analysis_save('${ids.after}', 'award-letter', 1, '[{"x":1}]', '{}')`,
+        'delete from public.aid_analyses',
       ]) {
         await assert.rejects(pg.exec(`set role ${role}; ${sql}; reset role;`), `${role}: ${sql}`);
         await pg.exec('reset role');

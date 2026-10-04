@@ -1,5 +1,6 @@
-import { analysisFromFacts, type AidAnalysis } from '../core';
-import { AnalysisError, type AidAnalyzer, type AnalyzeOptions } from './analyzer';
+import { analysisFromFacts } from '../core';
+import { AnalysisError, type AidAnalyzer, type AnalyzeOptions, type AnalyzeResult } from './analyzer';
+import { parseLocked } from './preview';
 import { AnalysisFormatError, parseAnalysis } from './contract';
 import { readDocuments } from './documentText';
 import { redactDocuments } from '../../server/redact.js';
@@ -20,7 +21,19 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
   return {
     connected: true,
 
-    async analyze(files: File[], options: AnalyzeOptions = {}): Promise<AidAnalysis> {
+    async fetchSaved(signal?: AbortSignal): Promise<AnalyzeResult | null> {
+      let response: Response;
+      try {
+        response = await fetch(endpoint, { method: 'GET', signal, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      } catch { return null; }
+      if (!response.ok) return null;
+      const payload: unknown = await response.json().catch(() => null);
+      const locked = parseLocked(payload);
+      if (locked) return locked;
+      try { return analysisFromFacts(parseAnalysis(payload)); } catch { return null; }
+    },
+
+    async analyze(files: File[], options: AnalyzeOptions = {}): Promise<AnalyzeResult> {
       const { signal, onStage } = options;
 
       if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected');
@@ -32,7 +45,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         pages = await readDocuments(files);
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
-        throw new AnalysisError('Fynliq could not open one of these files. Try a PDF or a clear screenshot of your aid page.', 'rejected');
+        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'rejected');
       }
       if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
 
@@ -40,7 +53,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       onStage?.('extracting');
       const redacted = redactDocuments(pages.map((p) => ({ pages: p })));
       if (redacted.every((doc) => doc.keptLines === 0)) {
-        throw new AnalysisError('Fynliq could not find Pell Grant, scholarship, loan, SAI or balance figures in these files. Try a clearer screenshot of your aid summary.', 'rejected');
+        throw new AnalysisError('We couldn’t read enough information from this image. Try uploading a clearer screenshot.', 'rejected');
       }
       const body = JSON.stringify({
         consent: true,
@@ -61,10 +74,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         });
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
-        throw new AnalysisError(
-          'Fynliq could not reach the document reader. Check your connection and try again.',
-          'network',
-        );
+        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'network');
       }
 
       // The paywall lives on the server (api/analyze.js). This only turns its
@@ -86,10 +96,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
           );
         }
 
-        throw new AnalysisError(
-          'The document reader is not responding right now. Please try again in a moment.',
-          'network',
-        );
+        throw new AnalysisError('We couldn’t analyze your aid summary. Please try again.', 'network');
       }
 
       onStage?.('writing');
@@ -100,6 +107,10 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       } catch {
         throw new AnalysisError('The document reader did not return JSON.', 'format');
       }
+
+      // Before the $1 unlock the server sends a preview only.
+      const locked = parseLocked(payload);
+      if (locked) return locked;
 
       try {
         return analysisFromFacts(parseAnalysis(payload));

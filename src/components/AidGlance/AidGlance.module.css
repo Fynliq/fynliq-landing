@@ -1,0 +1,74 @@
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s-20);
+}
+.title {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--low);
+  margin-bottom: var(--s-12);
+}
+.grid {
+  display: grid;
+  gap: var(--s-16);
+  margin: 0;
+}
+@media (min-width: 640px) {
+  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.item { margin: 0; min-width: 0; }
+.item + .item { border-top: 1px solid var(--line); padding-top: var(--s-16); }
+/* Phones: one row per number, label on the left and the figure on the right,
+   so all three fit on the first screen with the next step. */
+@media (max-width: 639px) {
+  .grid { gap: var(--s-12); }
+  .item + .item { padding-top: var(--s-12); }
+  .item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'label value' 'note value';
+    column-gap: var(--s-12);
+    align-items: center;
+  }
+  .label { grid-area: label; }
+  .note { grid-area: note; }
+  .value { grid-area: value; margin: 0; font-size: var(--t-25); text-align: right; }
+  .missing { font-size: var(--t-14); max-width: 11ch; text-align: right; padding-block: 0; }
+}
+@media (min-width: 640px) {
+  .item + .item { border-top: 0; padding-top: 0; border-left: 1px solid var(--line); padding-left: var(--s-16); }
+}
+.label {
+  font-size: var(--t-13);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--low);
+}
+.value {
+  margin: 4px 0 0;
+  font-family: var(--disp);
+  font-size: var(--t-32);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.green { color: var(--green); }
+.gold { color: var(--gold); }
+.ink { color: var(--tx); }
+.missing {
+  font-family: var(--body);
+  font-size: var(--t-16);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--low);
+  padding-block: 6px;
+}
+.note { margin: 2px 0 0; font-size: var(--t-14); color: var(--mid); }
