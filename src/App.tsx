@@ -296,7 +296,10 @@ function Routes() {
   // Search, Ask Fynliq and Earn open with the same $1 unlock as My Aid.
   if (session && isPaid(path)) {
     if (billing.loading) return <Holding />;
-    if (isLocked(billing.status)) return <UnlockMyAid onUnlocked={() => void billing.refresh()} />;
+    if (isLocked(billing.status)) {
+      const feature = path.startsWith(ROUTES.ask) ? 'ask' : path.startsWith(ROUTES.gradi) ? 'earn' : 'search';
+      return <UnlockMyAid key={feature} feature={feature} onUnlocked={() => void billing.refresh()} />;
+    }
   }
 
   if (path === ROUTES.example) {
