@@ -1,6 +1,6 @@
 import { AccountButton } from '../../auth/AccountButton/AccountButton';
 import { Logo } from '../../ui';
-import { TabBar } from '../../nav/TabBar/TabBar';
+import { TabBar, type TabId } from '../../nav/TabBar/TabBar';
 import { useBilling } from '../../../billing/BillingProvider';
 import { onUnlockJourney } from '../../../billing/client';
 import styles from './FlowShell.module.css';
@@ -26,6 +26,8 @@ interface FlowShellProps {
    * (the $1 unlock reached from another tab): no progress bar.
    */
   step: 0 | 1 | 2 | 3 | 'preview';
+  /** The bottom tab to highlight. My Aid unless the page stands in for another tab. */
+  tab?: TabId;
   children: React.ReactNode;
 }
 
@@ -41,7 +43,7 @@ interface FlowShellProps {
  * the My Aid tab, so the student can always see where the other two are —
  * and once they have their answer, Search and Ask Fynliq are where it leads.
  */
-export function FlowShell({ step, children }: FlowShellProps) {
+export function FlowShell({ step, tab = 'aid', children }: FlowShellProps) {
   const journey = onUnlockJourney(useBilling().status) || step === 'preview';
   const steps: readonly string[] = journey ? UNLOCK_STEPS : STEPS;
   const at = step === 'preview' ? 3 : journey && step === 3 ? 4 : step;
@@ -109,7 +111,7 @@ export function FlowShell({ step, children }: FlowShellProps) {
         <p className={styles.copy}>&copy; {new Date().getFullYear()} Fynliq</p>
       </footer>
 
-      <TabBar current="aid" />
+      <TabBar current={tab} />
     </div>
   );
 }
