@@ -1,81 +1,30 @@
-/* Same card, type and button as the Unlock My Aid step, so it reads as the
-   next step of the same flow rather than an advert dropped into it. */
-
+/* Secondary: a line and a link, never a second call to action. */
 .card {
   margin-top: var(--s-32);
-  display: flex;
-  flex-direction: column;
-}
-
-.eyebrow {
-  display: block;
-  font-family: var(--mono);
-  font-size: var(--t-13);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--low);
-  margin-bottom: var(--s-12);
+  padding: var(--s-16) var(--s-20);
+  border-radius: var(--r-input);
+  border: 1px solid var(--line2);
+  background: var(--card);
 }
 
 .title {
-  font-family: var(--disp);
-  font-size: var(--t-21);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: var(--t-15);
   color: var(--tx);
 }
 
-.body {
-  margin-top: var(--s-12);
-  font-size: var(--t-15);
-  color: var(--mid);
-  max-width: 52ch;
-}
-
 .cta {
-  margin-top: var(--s-20);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 56px;
-  padding: var(--s-16) var(--s-28);
-  border-radius: var(--r-pill);
-  background: var(--tx);
-  color: var(--on-dark);
-  font-family: var(--body);
-  font-size: var(--t-16);
+  color: var(--green);
   font-weight: 600;
-  box-shadow: var(--shadow);
   text-decoration: none;
-  transition:
-    transform var(--press) var(--ease),
-    background-color var(--press) var(--ease),
-    box-shadow var(--press) var(--ease);
+  white-space: nowrap;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .cta:hover {
-    background: var(--tx-hi);
-    box-shadow: var(--e-2);
-    transform: translateY(-2px);
-  }
-}
-
-.cta:active {
-  transform: scale(0.97);
-}
-
-@media (min-width: 768px) {
-  .cta {
-    width: auto;
-    align-self: flex-start;
-  }
+.cta:hover {
+  text-decoration: underline;
 }
 
 .note {
-  margin-top: var(--s-12);
+  margin-top: var(--s-4, 4px);
   font-size: var(--t-13);
   color: var(--low);
 }

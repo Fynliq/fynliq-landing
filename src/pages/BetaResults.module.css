@@ -574,3 +574,18 @@
     break-before: page;
   }
 }
+
+/* ---- Preview before pay: glance and questions ------------------------- */
+
+.glance {
+  margin: var(--s-24) 0;
+}
+
+.questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  padding-left: 1.25em;
+  font-size: var(--t-15);
+  color: var(--tx);
+}

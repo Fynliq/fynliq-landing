@@ -1,4 +1,5 @@
 import type { AidAnalysis } from '../core';
+import type { LockedPreview } from './preview';
 import { httpAnalyzer } from './httpAnalyzer';
 import { stubAnalyzer } from './stubAnalyzer';
 
@@ -61,10 +62,15 @@ export interface AnalyzeOptions {
   onStage?: (stage: AnalyzeStage) => void;
 }
 
+/** What a read gives back: the full answer, or (before the $1 unlock) a preview. */
+export type AnalyzeResult = AidAnalysis | LockedPreview;
+
 export interface AidAnalyzer {
   /** False while running on the stub, which the results page states on screen. */
   readonly connected: boolean;
-  analyze(files: File[], options?: AnalyzeOptions): Promise<AidAnalysis>;
+  analyze(files: File[], options?: AnalyzeOptions): Promise<AnalyzeResult>;
+  /** This account's newest saved analysis (full or preview), or null. */
+  fetchSaved?(signal?: AbortSignal): Promise<AnalyzeResult | null>;
 }
 
 /** A cancellable wait. Rejects the moment the student presses cancel. */

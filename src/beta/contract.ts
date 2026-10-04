@@ -1,3 +1,4 @@
+import { parseOverview } from './preview';
 import type {
   AidAnalysis,
   Award,
@@ -161,6 +162,8 @@ export function parseAnalysis(value: unknown): AidAnalysis {
     return { id: str(fact.id, 'id'), field: str(fact.field, 'field'), label: str(fact.label, 'label'), value: str(fact.value, 'value'), page: num(fact.page, 'page'), document: num(fact.document, 'document'), kind: str(fact.kind, 'kind'), period: str(fact.period, 'period'), estimated: bool(fact.estimated, 'estimated'), quote: str(fact.quote, 'quote') };
   }) : undefined;
   return {
+    analysisId: typeof root.analysisId === 'string' ? root.analysisId : null,
+    overview: parseOverview(root.overview),
     summaryFacts,
     summaryToken: summaryOnly ? str(root.summaryToken, 'summaryToken') : undefined,
     reviewed: false,

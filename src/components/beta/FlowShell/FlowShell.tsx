@@ -6,8 +6,8 @@ import { onUnlockJourney } from '../../../billing/client';
 import styles from './FlowShell.module.css';
 
 const STEPS = ['Upload', 'Analyse', 'Your answer'] as const;
-/** Accounts on the FYNQ Beta Unlock journey start one step earlier. */
-const UNLOCK_STEPS = ['Unlock', ...STEPS] as const;
+/** Accounts on the FYNQ Beta Unlock journey see the free preview before the full answer. */
+const UNLOCK_STEPS = ['Upload', 'Analyse', 'Preview', 'Full answer'] as const;
 
 type StepState = 'done' | 'current' | 'todo';
 
@@ -20,11 +20,12 @@ const STATE_NOTE: Record<StepState, string> = {
 
 interface FlowShellProps {
   /**
-   * 1 Upload, 2 Analyse, 3 Your answer; 0 is the $1 Unlock. For accounts on
-   * the unlock journey the bar shows four steps and numbers them 1–4, so
-   * Unlock is 1 and Upload is 2; everybody else sees the original three.
+   * 1 Upload, 2 Analyse, 'preview' Preview, 3 the answer. Accounts on the
+   * unlock journey see four steps (Upload, Analyse, Preview, Full answer);
+   * everybody else sees the original three. 0 is a page outside the flow
+   * (the $1 unlock reached from another tab): no progress bar.
    */
-  step: 0 | 1 | 2 | 3;
+  step: 0 | 1 | 2 | 3 | 'preview';
   children: React.ReactNode;
 }
 
@@ -41,9 +42,9 @@ interface FlowShellProps {
  * and once they have their answer, Search and Ask Fynliq are where it leads.
  */
 export function FlowShell({ step, children }: FlowShellProps) {
-  const journey = onUnlockJourney(useBilling().status) || step === 0;
+  const journey = onUnlockJourney(useBilling().status) || step === 'preview';
   const steps: readonly string[] = journey ? UNLOCK_STEPS : STEPS;
-  const at = journey ? step + 1 : step;
+  const at = step === 'preview' ? 3 : journey && step === 3 ? 4 : step;
 
   return (
     <div className={styles.shell}>
@@ -68,7 +69,7 @@ export function FlowShell({ step, children }: FlowShellProps) {
         </div>
       </header>
 
-      <nav className={styles.steps} aria-label="Progress">
+      {step !== 0 && <nav className={styles.steps} aria-label="Progress">
         <ol className={styles.stepList}>
           {steps.map((label, index) => {
             const position = index + 1;
@@ -90,7 +91,7 @@ export function FlowShell({ step, children }: FlowShellProps) {
             );
           })}
         </ol>
-      </nav>
+      </nav>}
 
       <main id="flow" className={styles.main}>
         {children}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { FinancialCard, type MoneyRow } from '../components/FinancialCard/FinancialCard';
 import { MissingMetric, MoneyMetric } from '../components/MoneyMetric/MoneyMetric';
@@ -15,6 +15,8 @@ import {
 } from '../core';
 import { PersonalizedAnswer } from '../components/PersonalizedAnswer';
 import { EarnWithGradi } from '../components/EarnWithGradi/EarnWithGradi';
+import { AidGlance } from '../components/AidGlance/AidGlance';
+import { trackFunnel } from '../billing/client';
 import styles from './BetaResults.module.css';
 import review from './SummaryReview.module.css';
 
@@ -85,7 +87,18 @@ const GLOSSARY: { term: string; body: string; applies: (a: AidAnalysis) => boole
 
 export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps) {
   const outcome = useMemo(() => analyseOutcome(analysis), [analysis]);
-  const steps = useMemo(() => buildNextSteps(analysis, outcome), [analysis, outcome]);
+  // Two to five steps: the most urgent first, and never a wall of them.
+  const steps = useMemo(() => buildNextSteps(analysis, outcome).slice(0, 5), [analysis, outcome]);
+  const overview = analysis.overview;
+  const example = analysis.example === true;
+
+  const viewed = useRef<string | null>(null);
+  useEffect(() => {
+    const key = analysis.analysisId ?? analysis.document.readAt;
+    if (example || analysis.provenance !== 'document' || viewed.current === key) return;
+    viewed.current = key;
+    trackFunnel('full_analysis_viewed');
+  }, [analysis, example]);
 
   const { aid, balance, sai, headline } = outcome;
   const confidence = confidenceReading(analysis.document.confidence);
@@ -109,7 +122,15 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
 
   return (
     <FlowShell step={3}>
-      {analysis.provenance === 'demo' && (
+      {example && (
+        <p className={styles.demo}>
+          <span className={styles.demoTag}>Example only</span>
+          A made-up award letter, not a real student: Pell Grant $7,395, Direct Subsidized Loan
+          $3,500, Direct Unsubsidized Loan $2,000, and example tuition and fees of $14,200. This is
+          what Fynliq does with your own aid offer once you upload it.
+        </p>
+      )}
+      {analysis.provenance === 'demo' && !example && (
         <p className={styles.demo}>
           <span className={styles.demoTag}>Preview</span>
           The document reader is not connected yet, so the figures below are Fynliq&rsquo;s demo
@@ -124,7 +145,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           <Aurora tone="dark" />
         </div>
 
-        <span className={styles.eyebrow}>Your answer</span>
+        <span className={styles.eyebrow}>{example ? 'Example answer' : 'Your answer'}</span>
         <h1 id="answer" className={styles.answer}>
           {headline.sentence}
         </h1>
@@ -132,7 +153,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
 
         <div className={styles.source}>
           <p className={styles.sourceText}>
-            Read from {analysis.document.fileNames.join(', ') || 'your upload'} &middot;{' '}
+            {example ? 'Example only' : <>Read from {analysis.document.fileNames.join(', ') || 'your upload'}</>} &middot;{' '}
             {DOCUMENT_LABEL[analysis.document.kind]} &middot;{' '}
             {readDate.format(new Date(analysis.document.readAt))}
             {analysis.student.school && <> &middot; {analysis.student.school}</>}
@@ -145,7 +166,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
             Save or print this
           </button>
           <button type="button" className={styles.again} onClick={onRestart}>
-            Upload a different document
+            {example ? 'Upload your own aid offer' : 'Upload a different document'}
           </button>
         </div>
       </section>
@@ -158,6 +179,11 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
       )}
 
       {/* ---- The three figures every award comes down to ---------------- */}
+      {overview ? (
+        <div className={styles.glance}>
+          <AidGlance glance={overview.glance} title="Your aid at a glance" />
+        </div>
+      ) : (
       <ul className={styles.metrics}>
         <Card as="li">
           {noOffer ? (
@@ -223,12 +249,13 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
           )}
         </Card>
       </ul>
+      )}
 
       <div className={styles.split}>
         <div className={styles.column}>
           {/* ---- The award, line by line ------------------------------- */}
           <Card hero>
-            <h2 className={styles.cardTitle}>Your award, line by line</h2>
+            <h2 className={styles.cardTitle}>What you received</h2>
             {noOffer ? (
               <MissingMetric
                 label="Aid offer"
@@ -307,6 +334,67 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
             </>
             )}
           </Card>
+
+          {/* ---- What you may owe -------------------------------------- */}
+          {overview && (
+            <Card hero>
+              <h2 className={styles.cardTitle}>What you may owe</h2>
+              {overview.glance.remainingCost === null ? (
+                <MissingMetric
+                  label="Estimated remaining cost"
+                  prompt="Not enough information"
+                  explanation="Your document does not show a cost of attendance or a bill, so Fynliq will not guess what you owe. Add your award letter or student account statement to see it."
+                />
+              ) : (
+                <>
+                  <FinancialCard
+                    rows={[
+                      ...(overview.glance.remainingBasis === 'cost_of_attendance' && analysis.award.costOfAttendance !== null
+                        ? [
+                            {
+                              id: 'cost',
+                              label: example ? 'Example tuition and fees' : 'Cost of attendance',
+                              meaning: example ? 'What the example school charges for the year' : 'Your school’s estimate for the year',
+                              value: analysis.award.costOfAttendance,
+                            },
+                            {
+                              id: 'free',
+                              label: 'Free money',
+                              meaning: 'Grants and scholarships, never repaid',
+                              value: formatDeduction(overview.glance.freeMoney ?? 0),
+                              tone: 'green' as const,
+                            },
+                          ]
+                        : []),
+                      {
+                        id: 'remaining',
+                        label: 'Not covered by free money',
+                        meaning: overview.glance.remainingBasis === 'bill'
+                          ? 'This term’s bill minus the aid already applied'
+                          : 'Your cost minus grants and scholarships',
+                        value: overview.glance.remainingCost,
+                        tone: overview.glance.remainingCost > 0 ? 'gold' : 'green',
+                      },
+                      ...(overview.glance.borrowed
+                        ? [{
+                            id: 'loans',
+                            label: 'Loans you could use for it',
+                            meaning: 'Borrowed, repaid later with interest',
+                            value: formatDeduction(Math.min(overview.glance.borrowed, overview.glance.remainingCost)),
+                          }]
+                        : []),
+                    ]}
+                    total={{
+                      label: overview.glance.borrowed ? 'Left after every loan' : 'Estimated remaining cost',
+                      value: overview.glance.afterLoans ?? overview.glance.remainingCost,
+                      tone: (overview.glance.afterLoans ?? overview.glance.remainingCost) > 0 ? 'gold' : 'green',
+                    }}
+                    footnote={<>This is an estimate from what is visible in {example ? 'the example' : 'the document you uploaded'}. Your school&rsquo;s bill is the final word, and it can change if your aid, housing or enrolment changes.</>}
+                  />
+                </>
+              )}
+            </Card>
+          )}
 
           {/* ---- This term's bill -------------------------------------- */}
           <Card hero>
@@ -402,6 +490,22 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
         </div>
 
         <div className={styles.column}>
+          {/* ---- Things to review -------------------------------------- */}
+          {overview && overview.review.length > 0 && (
+            <Card>
+              <h2 className={styles.cardTitle}>Things to review</h2>
+              <p className={styles.cardLede}>Worth a closer look. None of these means something is wrong; confirm them with your school.</p>
+              <ul className={styles.unread}>
+                {overview.review.map((item) => (
+                  <li key={item.id} className={styles.unreadItem}>
+                    <span className={styles.unreadField}>{item.title}</span>
+                    <span className={styles.unreadWhere}>{item.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           {/* ---- SAI --------------------------------------------------- */}
           <Card>
             <h2 className={styles.cardTitle}>Your Student Aid Index</h2>
@@ -466,7 +570,7 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
       {/* ---- What to do next --------------------------------------------- */}
       <section className={styles.next} aria-labelledby="next-title">
         <h2 id="next-title" className={styles.nextTitle}>
-          What to do next
+          Your next steps
         </h2>
         <p className={styles.nextLede}>
           Ordered by what it costs to skip it. Every step below was produced from your own figures.
@@ -497,7 +601,17 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
         </ol>
       </section>
 
-      {facts.length > 0 && (
+      {overview && overview.questions.length > 0 && (
+        <Card>
+          <h2 className={styles.cardTitle}>Questions to ask your aid office</h2>
+          <p className={styles.cardLede}>Copy these into an email or bring them to your appointment.</p>
+          <ol className={styles.questions}>
+            {overview.questions.map((q) => <li key={q}>{q}</li>)}
+          </ol>
+        </Card>
+      )}
+
+      {facts.length > 0 && !example && (
         <Card>
           <details>
             <summary className={styles.summary}>Check the figures and where they came from</summary>
@@ -531,11 +645,11 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
             </div>
           )}
           <p className={styles.cardLede}>
-            Your document read stays in this tab. Refreshing clears it; personalized follow-up questions expire after one hour.
+            Saved to your account for 30 days so you can come back to it. Only you can open it. Personalized follow-up questions expire after one hour.
           </p>
         </Card>
       )}
-      {facts.length > 0 && analysis.reviewed && (
+      {facts.length > 0 && analysis.reviewed && !example && (
         <PersonalizedAnswer
           analysis={analysis}
           label="Explain these details further"

@@ -45,6 +45,12 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
 export type Provenance = 'document' | 'demo';
 
 export interface AidAnalysis {
+  /** Server-side id of the saved analysis (preview before pay). */
+  analysisId?: string | null;
+  /** Totals, things to review and questions, computed on the server. */
+  overview?: import('../beta/preview').AidOverview;
+  /** The fake 'See an example' analysis. Never a real student. */
+  example?: boolean;
   summaryFacts?: { id: string; field: string; label: string; value: string; page: number; document: number; kind: string; period: string; estimated: boolean; quote: string }[];
   summaryToken?: string;
   /** True when the only aid figures found are FAFSA estimates, not a school offer. */
