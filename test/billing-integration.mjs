@@ -238,7 +238,7 @@ try {
     const before = openaiCalls;
     for (const extra of [{}, { paid: true, checkoutSessionId: 'cs_test_forged0001' }]) {
       const body = assertPreviewOnly(await read('after', extra));
-      assert.deepEqual(body.preview.glance, { freeMoney: 3698, borrowed: null, remainingCost: null, remainingBasis: null, estimatesOnly: false });
+      assert.deepEqual(body.preview.glance, { freeMoney: 3698, borrowed: null, remainingCost: null, remainingBasis: null, estimatesOnly: false, estimatedCost: null, estimatedPeriod: null });
     }
     assert.equal((await read('after', { documents: undefined })).statusCode, 400);
     const anonymous = await call(analyze(), { body: { consent: true, documents } });

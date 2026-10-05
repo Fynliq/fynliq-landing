@@ -1,4 +1,4 @@
-import type { AidAnalysis, DocumentKind, UnreadField } from './analysis';
+import type { AidAnalysis, CostEstimate, DocumentKind, UnreadField } from './analysis';
 import type { AwardKind, AwardLine, Semester } from './types';
 
 /**
@@ -106,7 +106,7 @@ function awardYear(facts: Fact[]): string {
 function readSemester(facts: Fact[], lines: Fact[]): Semester | null {
   const of = (field: string) => facts.filter((f) => f.field === field && !f.estimated);
   const bills = uniqueAmounts(of('schoolBill'));
-  const dues = uniqueAmounts(of('balanceDue'));
+  const dues = uniqueAmounts([...of('balanceDue'), ...of('accountBalance')]);
   const payments = new Map<string, number>();
   for (const f of of('paymentApplied')) payments.set(`${norm(f.label)}|${norm(f.period)}`, amountOf(f));
   const paid = payments.size ? [...payments.values()].reduce((sum, n) => sum + n, 0) : null;
@@ -124,7 +124,7 @@ function readSemester(facts: Fact[], lines: Fact[]): Semester | null {
 
   // Loans offered for the statement's own term, when the offer is split by
   // term; otherwise the yearly offer, which is the most that can be accepted.
-  const term = [...of('schoolBill'), ...of('balanceDue')].map((f) => norm(f.period)).find((p) => TERM.test(p));
+  const term = [...of('schoolBill'), ...of('balanceDue'), ...of('accountBalance')].map((f) => norm(f.period)).find((p) => TERM.test(p));
   const loanFacts = (field: string) => lines.filter((f) => f.field === field && !f.estimated);
   const available = (field: string) => {
     const all = loanFacts(field);
@@ -140,6 +140,27 @@ function readSemester(facts: Fact[], lines: Fact[]): Semester | null {
     subsidizedAvailable: whole(available('subsidizedLoanOffer')),
     unsubsidizedAvailable: whole(available('unsubsidizedLoanOffer')),
   };
+}
+
+const exactAmount = (f: Fact) => Math.round(Number(f.value.replace(/[$,\s]/g, '')) * 100) / 100;
+
+/**
+ * A tuition calculator or cost estimate: its total, exactly as printed, and
+ * the rows above it. Only when the document states one total; two different
+ * totals for the same period are left alone rather than chosen between.
+ */
+function readCostEstimate(facts: Fact[]): CostEstimate | null {
+  for (const [field, period] of [['estimatedSemesterCost', 'semester'], ['estimatedAnnualCost', 'year']] as const) {
+    const amounts = [...new Set(facts.filter((f) => f.field === field).map(exactAmount).filter(Number.isFinite))];
+    if (amounts.length !== 1) continue;
+    const seen = new Set<string>();
+    const items = facts
+      .filter((f) => (f.field === 'tuition' || f.field === 'costItem') && f.kind === 'cost-estimate')
+      .map((f) => ({ label: tidyLabel(f.label), amount: exactAmount(f) }))
+      .filter((item) => Number.isFinite(item.amount) && !seen.has(`${norm(item.label)}|${item.amount}`) && seen.add(`${norm(item.label)}|${item.amount}`));
+    return { amount: amounts[0], period, items };
+  }
+  return null;
 }
 
 export function analysisFromFacts(analysis: AidAnalysis): AidAnalysis {
@@ -163,6 +184,7 @@ export function analysisFromFacts(analysis: AidAnalysis): AidAnalysis {
   const costOfAttendance = coaYear.length === 1 ? whole(coaYear[0]) : coaAll.length === 1 ? whole(coaAll[0]) : null;
 
   const semester = readSemester(facts, offers);
+  const costEstimate = readCostEstimate(facts);
 
   const unread: UnreadField[] = [];
   if (!lines.length) unread.push({ field: 'Your aid offer', where: "Your school portal's financial aid or Accept/Decline page, or your award letter" });
@@ -174,7 +196,7 @@ export function analysisFromFacts(analysis: AidAnalysis): AidAnalysis {
 
   const kind: DocumentKind = offers.length ? 'award-letter'
     : estimates.length || sai !== null ? 'fafsa-submission-summary'
-      : semester ? 'account-statement' : 'unknown';
+      : semester ? 'account-statement' : costEstimate ? 'cost-estimate' : 'unknown';
 
   return {
     ...analysis,
@@ -186,5 +208,6 @@ export function analysisFromFacts(analysis: AidAnalysis): AidAnalysis {
     unread,
     estimatesOnly,
     estimateLines,
+    costEstimate,
   };
 }
