@@ -2,6 +2,7 @@ import {createContext,useCallback,useContext,useEffect,useRef,useState} from 're
 import type {AidAnalysis} from '../core';
 import type {AskAnswer} from '../ask/asker';
 import styles from './Account.module.css';
+import {arrivalSent,pendingArrival} from '../analytics/attribution';
 interface User {id:string}
 interface Context {enabled:boolean;user:User|null;ensureGuest:()=>Promise<User>;open:()=>void;capture:(analysis:AidAnalysis,files:File[])=>Promise<void>;question:(text:string,answer:AskAnswer)=>void;save:()=>void}
 const AccountContext=createContext<Context>({enabled:true,user:null,ensureGuest:async()=>{throw new Error('Guest session unavailable');},open:()=>{},capture:async()=>{},question:()=>{},save:()=>{}});
@@ -9,8 +10,11 @@ export const useAccount=()=>useContext(AccountContext);
 let pending:Promise<User>|null=null;
 async function guest():Promise<User>{
  if(!pending)pending=(async()=>{
-  const response=await fetch('/api/beta-auth',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'guest'})});
+  // Where this visit came from rides along with the guest check, once per page load.
+  const touch=pendingArrival();
+  const response=await fetch('/api/beta-auth',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify(touch?{action:'guest',touch}:{action:'guest'})});
   if(!response.ok)throw new Error('Your guest session could not start. Please try again.');
+  if(touch)arrivalSent();
   const data=await response.json();if(!data.user?.id)throw new Error('Guest session unavailable');return data.user;
  })().finally(()=>{pending=null;});
  return pending;
