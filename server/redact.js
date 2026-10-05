@@ -23,7 +23,8 @@ const PERSONAL_LINE = [
   /\b(?:a-?number|alien\s+registration|passport|driver'?s?\s+licen[cs]e|state\s+id)\b/i,
   /\b(?:account|acct|routing|iban|swift|card)\s*(?:number|no\.?|#|ending)\b/i,
   /\b(?:bank|checking|savings)\s+(?:account|acct)\b/i,
-  /\b(?:address|street|avenue|apt\.?|apartment|suite|p\.?\s?o\.?\s+box|zip\s*code|postal\s*code|mailing|residence|residency|county)\b/i,
+  // "Residence hall" and "residence life" are housing charges, not an address.
+  /\b(?:address|street|avenue|apt\.?|apartment|suite|p\.?\s?o\.?\s+box|zip\s*code|postal\s*code|mailing|residence(?!\s+(?:hall|life))|residency|county)\b/i,
   /\b(?:e-?mail|phone|mobile|cell|telephone|tel\.?|fax)\b/i,
   /\b(?:username|user\s*name|password|passcode|pin|fsa\s*id|login|security\s+question)\b/i,
   /\b(?:adjusted\s+gross|agi|income|wages|earnings|assets|net\s+worth|tax(?:es)?\s+paid|tax\s+return|1040|w-?2|child\s+support|household\s+size|number\s+in\s+college|marital|citizenship|gender|sex|race|ethnicity)\b/i,
@@ -50,6 +51,8 @@ const AID_LINE = [
   /\b(?:balance|amount\s+due|total\s+due|due\s+now|credit\s+balance|charges?|tuition|fees|payments?\s+(?:applied|received)|statement\s+total|total\s+(?:charges|credits|aid|awards?|offered))\b/i,
   /\b(?:financial\s+aid|aid\s+offer|award\s+letter|award\s+summary|offered|accepted)\b/i,
   /\b(?:awards?|aid|offers?|amount|total|status|term|semester|quarter|disburse\w*|estimated|eligib\w*|cost\s+of\s+attendance|coa|fseog|seog|teach|perkins|plus|institutional|waiver|stipend|fellowship|gift\s+aid|self-help|declined|pending|net\s+cost)\b/i,
+  // Cost and bill rows: tuition calculators, cost-of-attendance tables, statements.
+  /\b(?:fees?|costs?|expenses|subtotal|grand\s+total|totals|remaining|net\s+price|calculator|estimates?|room|board|housing|meals?|dining|books?|supplies|transportation|insurance|technology|parking|recreation|wellness|per\s+(?:semester|term|year|credit))\b/i,
 ];
 
 /**
@@ -63,6 +66,41 @@ const MONEY = /\$\s?\d|\b\d{1,3}(?:,\d{3})+(?:\.\d{2})?\b|\b\d+\.\d{2}\b/;
 /** A line that is only an amount, as happens when a table splits label and value. */
 const AMOUNT = String.raw`[-(]?\$?\s?\d{1,3}(?:,\d{3})*(?:\.\d{2})?\)?|[-(]?\$?\s?\d+(?:\.\d{2})?\)?`;
 const AMOUNT_ONLY = new RegExp(`^\\s*(?:${AMOUNT})(?:\\s+(?:${AMOUNT})){0,5}\\s*$`);
+
+/**
+ * OCR of a table sometimes reads the label column, then the amount column:
+ *   Tuition and Fees / Student Service Fee / TOTAL / $5,046.84 / $260.00 / $5,562.84
+ * Rejoin them row by row when a run of labels is followed by a run of amounts
+ * at least as long as needed: the last N labels pair with the N amounts, so a
+ * section heading above the table stays a heading.
+ */
+export function pairColumns(lines) {
+  const isAmountOnly = (line) => AMOUNT_ONLY.test(fixOcrNumbers(line)) && MONEY.test(fixOcrNumbers(line));
+  const isLabel = (line) => /[A-Za-z]{2}/.test(line) && !MONEY.test(fixOcrNumbers(line)) && line.length <= 80;
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (!isLabel(lines[i])) { out.push(lines[i]); i += 1; continue; }
+    let j = i;
+    while (j < lines.length && isLabel(lines[j])) j += 1;
+    let k = j;
+    while (k < lines.length && isAmountOnly(lines[k])) k += 1;
+    const labels = lines.slice(i, j);
+    const amounts = lines.slice(j, k);
+    const tail = labels.slice(Math.max(0, labels.length - amounts.length));
+    // Only rows that name aid or a cost are paired, so a name line above a
+    // table can never be glued to an amount and slip past the filter.
+    if (amounts.length >= 2 && labels.length >= amounts.length && tail.every((label) => AID_LINE.some((re) => re.test(label)))) {
+      const head = labels.slice(0, labels.length - amounts.length);
+      out.push(...head, ...tail.map((label, n) => `${label} ${amounts[n].trim()}`));
+      i = k;
+    } else {
+      out.push(...labels);
+      i = j;
+    }
+  }
+  return out;
+}
 
 /**
  * Screenshots go through OCR, which misreads digits in predictable ways:
@@ -117,7 +155,7 @@ const clean = (text) =>
 export function redactPage(text) {
   const removed = {};
   const count = (key, n = 1) => { removed[key] = (removed[key] ?? 0) + n; };
-  const lines = clean(text).split('\n').map((line) => line.replace(/[ \t]+/g, ' ').trim()).filter(Boolean);
+  const lines = pairColumns(clean(text).split('\n').map((line) => line.replace(/[ \t]+/g, ' ').trim()).filter(Boolean));
 
   const kept = [];
   let previousWasAid = false;

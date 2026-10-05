@@ -100,7 +100,10 @@ describe('document reader', () => {
     vi.stubGlobal('fetch', provider({ supported: true, conflicts: [], facts: [{ ...facts[1], value: '$9,999' }] }));
     const res = response();
     await analyze(request({ consent: true, documents }), res);
-    expect(res.statusCode).toBe(422);
+    // The invented figure is dropped. The statement's own "Balance Due" row is
+    // still read from the page, so the upload is not rejected outright.
+    expect(JSON.stringify(res.body ?? '')).not.toContain('9,999');
+    expect((res.body?.summaryFacts ?? []).some((f) => f.field === 'grantOffer')).toBe(false);
   });
 });
 

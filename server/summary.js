@@ -1,7 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
-export const FACT_KEYS = ['sai', 'awardYear', 'processingStatus', 'estimatedPellGrant', 'verificationStatus', 'grantOffer', 'scholarshipOffer', 'subsidizedLoanOffer', 'unsubsidizedLoanOffer', 'workStudyOffer', 'costOfAttendance', 'schoolBill', 'paymentApplied', 'balanceDue', 'creditBalance', 'disbursementDate'];
-export const DOCUMENT_KINDS = ['fafsa-submission-summary', 'award-letter', 'account-statement'];
+export const FACT_KEYS = ['sai', 'awardYear', 'processingStatus', 'estimatedPellGrant', 'verificationStatus', 'grantOffer', 'scholarshipOffer', 'subsidizedLoanOffer', 'unsubsidizedLoanOffer', 'workStudyOffer', 'costOfAttendance', 'schoolBill', 'paymentApplied', 'balanceDue', 'creditBalance', 'disbursementDate',
+  // Totals and rows from tuition calculators, cost screens and statements.
+  'accountBalance', 'remainingCost', 'estimatedSemesterCost', 'estimatedAnnualCost', 'tuition', 'costItem', 'totalAid'];
+export const DOCUMENT_KINDS = ['fafsa-submission-summary', 'award-letter', 'account-statement', 'cost-estimate'];
+export const MONEY_FIELDS = ['estimatedPellGrant', 'grantOffer', 'scholarshipOffer', 'subsidizedLoanOffer', 'unsubsidizedLoanOffer', 'workStudyOffer', 'costOfAttendance', 'schoolBill', 'paymentApplied', 'balanceDue', 'creditBalance',
+  'accountBalance', 'remainingCost', 'estimatedSemesterCost', 'estimatedAnnualCost', 'tuition', 'costItem', 'totalAid'];
 export const summarySchema = {
   type: 'object', additionalProperties: false, required: ['supported', 'facts', 'conflicts'],
   properties: {
@@ -9,12 +13,14 @@ export const summarySchema = {
     conflicts: { type: 'array', items: { type: 'string' } },
     facts: { type: 'array', items: {
       type: 'object', additionalProperties: false,
-      required: ['field', 'label', 'value', 'page', 'document', 'kind', 'period', 'estimated', 'quote'],
+      required: ['field', 'label', 'value', 'page', 'document', 'kind', 'period', 'estimated', 'quote', 'context', 'confidence'],
       properties: {
         field: { type: 'string', enum: FACT_KEYS }, value: { type: 'string' },
         label: { type: 'string' }, document: { type: 'integer' }, kind: { type: 'string', enum: DOCUMENT_KINDS },
         period: { type: 'string' }, estimated: { type: 'boolean' },
         page: { type: 'integer' }, quote: { type: 'string' },
+        // The section heading the row sits under, and how sure the reader is.
+        context: { type: 'string' }, confidence: { type: 'number' },
       },
     } },
   },
@@ -47,12 +53,16 @@ export function validateSummary(data, fileCount = 3) {
       const n = Number(f.value.replace(/[$,\s]/g, ''));
       if (!Number.isInteger(n) || n < -1500 || n > 999999) throw Error('Invalid SAI');
     }
-    if (['estimatedPellGrant', 'grantOffer', 'scholarshipOffer', 'subsidizedLoanOffer', 'unsubsidizedLoanOffer', 'workStudyOffer', 'costOfAttendance', 'schoolBill', 'paymentApplied', 'balanceDue', 'creditBalance'].includes(f.field)) {
+    if (f.context !== undefined && (typeof f.context !== 'string' || f.context.length > 160)) throw Error('Invalid extracted field');
+    if (f.confidence !== undefined && (typeof f.confidence !== 'number' || !Number.isFinite(f.confidence) || f.confidence < 0 || f.confidence > 1)) throw Error('Invalid extracted field');
+    if (MONEY_FIELDS.includes(f.field)) {
       const n = Number(f.value.replace(/[$,\s]/g, ''));
       if (!/^\d+(?:\.\d{1,2})?$/.test(numericValue) || !Number.isFinite(n) || n < 0 || n > 10000000) throw Error('Invalid monetary value');
     }
     return { id: `f${index + 1}`, field: f.field, label: f.label.trim(), value: f.value.trim(), page: f.page, document: f.document, kind: f.kind,
-      period: f.period.trim() || 'Not stated', estimated: f.field === 'estimatedPellGrant' || (f.kind === 'fafsa-submission-summary' && /Offer$/.test(f.field)) || f.estimated, quote: f.quote.trim() };
+      period: f.period.trim() || 'Not stated', estimated: f.field === 'estimatedPellGrant' || (f.kind === 'fafsa-submission-summary' && /Offer$/.test(f.field)) || f.estimated, quote: f.quote.trim(),
+      ...(typeof f.context === 'string' && f.context.trim() ? { context: f.context.trim() } : {}),
+      ...(typeof f.confidence === 'number' ? { confidence: Math.round(f.confidence * 100) / 100 } : {}) };
   });
 }
 

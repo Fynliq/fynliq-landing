@@ -5,7 +5,7 @@ export async function providerResponse(input, instructions, schema, options) {
   if(!Number.isInteger(ceiling)||ceiling<1||ceiling>4000)throw Error('Invalid output limit');
   const response = await (options.fetchImpl ?? fetch)('https://api.openai.com/v1/responses', {
     method: 'POST', headers: { Authorization: `Bearer ${options.apiKey}`, 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(45000),
+    signal: AbortSignal.timeout(options.timeoutMs ?? 45000),
     body: JSON.stringify({ model: options.model, store: false, max_output_tokens: ceiling, instructions, input,
       ...(schema ? {text: { format: { type: 'json_schema', name: 'fynliq_result', strict: true, schema } }} : {}) }),
   });

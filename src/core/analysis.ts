@@ -1,6 +1,6 @@
 import { amountStillOwed, breakDownAward, type AidBreakdown } from './aid';
 import { evaluateLoan, maxAcceptable, type LoanVerdict } from './loan';
-import { formatUSD } from './money';
+import { formatCents, formatUSD } from './money';
 import type { Award, AwardLine, Semester } from './types';
 
 /**
@@ -28,12 +28,14 @@ export type DocumentKind =
   | 'fafsa-submission-summary'
   | 'award-letter'
   | 'account-statement'
+  | 'cost-estimate'
   | 'unknown';
 
 export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
   'fafsa-submission-summary': 'FAFSA Submission Summary',
   'award-letter': 'financial aid award letter',
   'account-statement': 'student account statement',
+  'cost-estimate': 'tuition or cost estimate',
   unknown: 'uploaded document',
 };
 
@@ -43,6 +45,13 @@ export const DOCUMENT_LABEL: Record<DocumentKind, string> = {
  * file — the results page says so, in words, at the top.
  */
 export type Provenance = 'document' | 'demo';
+
+export interface CostEstimate {
+  amount: number;
+  period: 'semester' | 'year';
+  /** The rows above the total: tuition and each fee. */
+  items: { label: string; amount: number }[];
+}
 
 export interface AidAnalysis {
   /** Server-side id of the saved analysis (preview before pay). */
@@ -55,6 +64,11 @@ export interface AidAnalysis {
   summaryToken?: string;
   /** True when the only aid figures found are FAFSA estimates, not a school offer. */
   estimatesOnly?: boolean;
+  /**
+   * A tuition calculator or other cost estimate, exactly as printed (cents
+   * kept). Never a bill: the page says so wherever it shows it.
+   */
+  costEstimate?: CostEstimate | null;
   /** FAFSA estimates shown beside a school offer, never added to it. */
   estimateLines?: AwardLine[];
   reviewed?: boolean;
@@ -201,6 +215,15 @@ function buildHeadline(aid: AidBreakdown, balance: SchoolBalance | null, analysi
         ? `Your FAFSA estimate shows up to ${formatUSD(aid.giftAid)} in grants.`
         : `Your FAFSA estimate shows up to ${formatUSD(aid.loansOffered)} in federal loans.`,
       detail: `These are federal estimates from your FAFSA results${both ? `, with up to ${formatUSD(aid.loansOffered)} more available as loans you would repay` : ''}. Your school confirms the real amounts in its award offer: upload your portal's Accept/Decline page or award letter to see them here.`,
+    };
+  }
+
+  if (aid.offered === 0 && balance === null && analysis.costEstimate) {
+    const { amount, period } = analysis.costEstimate;
+    return {
+      tone: 'gold',
+      sentence: `Your estimated cost is ${formatCents(amount)} per ${period}.`,
+      detail: 'This appears to be an estimated tuition calculation, not necessarily the balance currently due on your student account. Add your award letter and Fynliq will show how much of it your aid covers.',
     };
   }
 

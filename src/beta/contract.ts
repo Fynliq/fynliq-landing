@@ -87,6 +87,7 @@ const DOCUMENT_KINDS: readonly DocumentKind[] = [
   'fafsa-submission-summary',
   'award-letter',
   'account-statement',
+  'cost-estimate',
   'unknown',
 ];
 

@@ -9,6 +9,7 @@ import {
   DOCUMENT_LABEL,
   analyseOutcome,
   buildNextSteps,
+  formatCents,
   formatDeduction,
   formatUSD,
   type AidAnalysis,
@@ -171,6 +172,13 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
         </div>
       </section>
 
+      {/* Totals Fynliq found but could not classify, or rows that do not add up. */}
+      {overview?.document?.warnings.filter((w) => w.code !== 'estimate-not-balance').map((w) => (
+        <p key={w.code + w.message} className={styles.warn}>
+          <span aria-hidden="true">⚠</span> {w.message}
+        </p>
+      ))}
+
       {outcome.needsChecking && (
         <p className={styles.warn}>
           <span aria-hidden="true">⚠</span> Parts of this document were hard to read. Check the
@@ -253,6 +261,19 @@ export function BetaResults({ analysis, onRestart, onConfirm }: BetaResultsProps
 
       <div className={styles.split}>
         <div className={styles.column}>
+          {/* ---- A tuition calculator or cost estimate ------------------ */}
+          {analysis.costEstimate && (
+            <Card hero>
+              <h2 className={styles.cardTitle}>Estimated {analysis.costEstimate.period} cost</h2>
+              <p className={styles.cardLede}>From the tuition or cost estimate you uploaded, exactly as printed.</p>
+              <FinancialCard
+                rows={analysis.costEstimate.items.map((item, i) => ({ id: `est-${i}`, label: item.label, meaning: '', value: formatCents(item.amount, true) }))}
+                total={{ label: `Estimated ${analysis.costEstimate.period} cost`, value: formatCents(analysis.costEstimate.amount, true), tone: 'gold' }}
+                footnote={<>This appears to be an estimated tuition calculation, not necessarily the balance currently due on your student account.</>}
+              />
+            </Card>
+          )}
+
           {/* ---- The award, line by line ------------------------------- */}
           <Card hero>
             <h2 className={styles.cardTitle}>What you received</h2>

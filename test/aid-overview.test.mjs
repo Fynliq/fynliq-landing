@@ -13,7 +13,7 @@ test('award letter with cost of attendance: free money, loans, remaining cost (l
     f('subsidizedLoanOffer', 'Direct Subsidized Loan', '$3,500'), f('unsubsidizedLoanOffer', 'Direct Unsubsidized Loan', '$2,000'),
     f('costOfAttendance', 'Cost of attendance', '$24,000'),
   ]);
-  assert.deepEqual(o.glance, { freeMoney: 9395, borrowed: 5500, remainingCost: 14605, remainingBasis: 'cost_of_attendance', afterLoans: 9105, workStudy: null, estimatesOnly: false });
+  assert.deepEqual(o.glance, { freeMoney: 9395, borrowed: 5500, remainingCost: 14605, remainingBasis: 'cost_of_attendance', afterLoans: 9105, workStudy: null, estimatesOnly: false, estimatedCost: null, estimatedPeriod: null });
   assert.ok(o.review.some((r) => r.id === 'remaining') && o.review.some((r) => r.id === 'loans') && o.review.some((r) => r.id === 'gap'));
   assert.ok(o.questions.length >= 2 && o.questions.length <= 5);
 });
