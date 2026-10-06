@@ -16,6 +16,7 @@
 import { rpc, hash, BetaError } from './beta.js';
 import { accountToken } from './account-login.js';
 import { keyMode, stripeRequest } from './stripe.js';
+import { accountAttribution, stripeAttributionMetadata } from './attribution.js';
 
 export const DEFAULT_GRANDFATHER_CUTOFF = '2026-09-30T18:53:52.654622Z';
 export const UNLOCK_PRICE = { amount: 100, currency: 'usd', label: '$1.00 — One-Time Beta Unlock' };
@@ -166,6 +167,9 @@ export async function createCheckout(db, account, env = process.env, { fetchImpl
   // the idempotency key; the parameters are identical within the window.
   const windowStart = Math.floor(now / 300000) * 300000;
   const expiresAt = Math.floor(windowStart / 1000) + 36 * 60;
+  // First-touch source (TikTok video, campaign...) for this account: ids and
+  // UTM values only. Read best effort; a missing value never blocks payment.
+  const attribution = stripeAttributionMetadata(await accountAttribution(db, account.id));
   let session;
   try {
     session = await stripeRequest({
@@ -178,7 +182,7 @@ export async function createCheckout(db, account, env = process.env, { fetchImpl
       line_items: [{ price: config.priceId, quantity: 1 }],
       // Account identifiers only. Never document text or aid figures.
       client_reference_id: account.id,
-      metadata: { fynq_account_id: account.id, purpose: PURPOSE },
+      metadata: { ...attribution, fynq_account_id: account.id, purpose: PURPOSE },
       payment_intent_data: { metadata: { fynq_account_id: account.id, purpose: PURPOSE }, description: 'FYNQ Beta Unlock' },
       customer_email: account.email || undefined,
       submit_type: 'pay',

@@ -1,4 +1,5 @@
 import {clients,rpc,sameOrigin,body,session,token,hash,newSession,cookie,isAdmin,rate,fail,BetaError,guestId} from '../server/beta.js';
+import {recordTouch} from '../server/attribution.js';
 export function createAuthHandler(dependencies={}) {return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   try {
@@ -9,10 +10,13 @@ export function createAuthHandler(dependencies={}) {return async(req,res)=>{
     const input=body(req,2000);
     if(input?.action==='logout'||input?.action==='admin-logout'){const admin=input.action==='admin-logout';const value=token(req,admin);if(value)await rpc(db,'beta_logout',{p_hash:hash(value)});res.setHeader('Set-Cookie',cookie('',0,admin));return res.json({ok:true});}
     if(input?.action==='guest'){
-      try{const existing=await session(req,db,env);return res.json({user:{id:existing.user_id},admin:false});}catch(e){if(e.status!==401)throw e;}
+      // input.touch: where this page load came from (UTM tags, referrer host,
+      // landing path). Recorded best effort; it never blocks the session.
+      try{const existing=await session(req,db,env);await recordTouch(db,existing.user_id,input.touch,env);return res.json({user:{id:existing.user_id},admin:false});}catch(e){if(e.status!==401)throw e;}
       await rate(db,req,'guest-create',100,env);
       const fresh=newSession(),id=guestId();
       await rpc(db,'beta_guest',{p_user:id,p_hash:fresh.digest});
+      await recordTouch(db,id,input.touch,env);
       res.setHeader('Set-Cookie',cookie(fresh.value,30*24*60*60));
       return res.json({user:{id},admin:false});
     }

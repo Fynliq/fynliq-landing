@@ -446,7 +446,9 @@ try {
     for (const r of stripeRequests) {
       const decoded = decodeURIComponent(r.body);
       for (const needle of [MARKER, 'Pell', 'Jordan', '3,698', '123-45-6789', '.png', 'pages', 'documents']) assert.ok(!decoded.includes(needle), needle);
-      const keys = [...r.params.keys()].sort();
+      // Attribution adds only ids and UTM values (see test/attribution-integration.mjs).
+      const attribution = ['metadata[fynq_channel]', 'metadata[fynq_guest_id]', 'metadata[utm_source]', 'metadata[utm_medium]', 'metadata[utm_campaign]', 'metadata[utm_content]'];
+      const keys = [...r.params.keys()].filter((k) => !attribution.includes(k)).sort();
       assert.deepEqual(keys, ['cancel_url', 'client_reference_id', 'customer_email', 'expires_at', 'line_items[0][price]', 'line_items[0][quantity]', 'metadata[fynq_account_id]', 'metadata[purpose]', 'mode', 'payment_intent_data[description]', 'payment_intent_data[metadata][fynq_account_id]', 'payment_intent_data[metadata][purpose]', 'submit_type', 'success_url']);
     }
     // A checkout request carrying documents or files does not forward them.
