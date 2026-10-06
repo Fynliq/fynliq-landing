@@ -1,11 +1,21 @@
-import {clients,session,isAdmin,rpc,fail,BetaError} from '../server/beta.js';
-import {grandfatherCutoff,testAccountIds,paywallEnabled,livemode} from '../server/billing.js';
+import {clients,session,isAdmin,rpc,fail,BetaError,sameOrigin,body,rate} from '../server/beta.js';
+import {grandfatherCutoff,testAccountIds,paywallEnabled,livemode,pilotEmails} from '../server/billing.js';
+import {handleIntelligence,isIntelligenceRequest} from '../server/intelligence/handler.js';
+// FYNLIQ Intelligence calls a model (up to ~45s, with one retry).
+export const config={maxDuration:60};
 export function createAdminHandler(dependencies={}){return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   try{
-    if(req.method!=='GET')throw new BetaError(405,'Use GET.');
+    if(req.method!=='GET'&&req.method!=='POST')throw new BetaError(405,'Use GET.');
     const env=dependencies.env||process.env,{db}=(dependencies.clients||clients)(env),user=await session(req,db,env,true);
     if(!isAdmin(user,env))throw new BetaError(403,'Administrator access is required.');
+    // FYNLIQ Intelligence (read-only): GET ?view=intelligence-snapshot, POST {action:'intelligence-brief'}.
+    if(isIntelligenceRequest(req))return await handleIntelligence(req,res,{
+      env,rpc:(name,args)=>rpc(db,name,args),
+      helpers:{sameOrigin,body,BetaError,rate:(request,scope,limit)=>rate(db,request,scope,limit,env)},
+      testIds:testAccountIds(env),paywall:{enabled:paywallEnabled(env),pilot:Boolean(pilotEmails(env))},
+      providerFactory:dependencies.providerFactory,log:dependencies.log,clock:dependencies.clock,
+    });
     const metrics=await rpc(db,'beta_metrics');
     // Account sign-ups and log-ins (null until the accounts migration is applied).
     const accounts=await rpc(db,'account_metrics').catch(()=>null);
