@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {IntelligencePanel} from '../components/intelligence/IntelligencePanel';
 type MetricRow={user_id:string;signup_date:string;last_active:string|null;questions:number;successful_answers:number;is_returning:boolean};
 type Series={period:string;users:number}[];
 type AccountRow={email:string;created_at:string;last_login_at:string|null;login_count:number;questions:number;uploads?:number};
@@ -20,6 +21,7 @@ export function BetaAdmin(){
  return <main style={{padding:'40px',maxWidth:1200,margin:'auto'}}><h1>Fynliq beta usage</h1>{!data&&<form onSubmit={e=>{e.preventDefault();void signIn();}}><label>Administrator email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/></label>{sent&&<label>Email code<input required autoComplete="one-time-code" value={code} onChange={e=>setCode(e.target.value)}/></label>}<button>{sent?'Verify code':'Send sign-in code'}</button></form>}
  {error&&<p role="alert">{error}</p>}
  {data&&<>
+ <IntelligencePanel/>
  <section><h2>FYNQ Beta Unlock ($1)</h2>{data.billing?<><p>Paywall {data.billing.paywall_enabled?'ON':'OFF'} · Stripe key: {data.billing.stripe_livemode?'LIVE':'test mode'} · Grandfather cutoff {data.billing.cutoff}</p>
  <dl><div><dt>Grandfathered accounts</dt><dd>{data.billing.grandfathered_accounts}</dd></div><div><dt>Accounts after the cutoff</dt><dd>{data.billing.post_cutoff_accounts}</dd></div><div><dt>Admin/test accounts excluded</dt><dd>{data.billing.excluded_test_accounts}</dd></div></dl>
  <table><thead><tr><th>Metric</th><th>Live (production)</th><th>Stripe test mode</th></tr></thead><tbody>{FUNNEL.map(([key,label])=><tr key={key}><td>{label}</td><td>{billingValue(key,data.billing?.live[key])}</td><td>{billingValue(key,data.billing?.test_mode[key])}</td></tr>)}</tbody></table>
