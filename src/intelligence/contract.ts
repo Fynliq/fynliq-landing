@@ -26,6 +26,8 @@ export interface Comparison {
   current: number | null;
   numerator?: number | null;
   denominator?: number | null;
+  /** True for failure counts: a rise is bad news. */
+  lowerIsBetter: boolean;
   reliability: 'ok' | 'small' | 'very_small' | 'unavailable';
   previous: WindowComparison | null;
   trailing7: WindowComparison | null;
@@ -95,6 +97,7 @@ function parseComparison(v: unknown): Comparison | null {
   const reliability = ['ok', 'small', 'very_small', 'unavailable'].includes(v.reliability as string) ? (v.reliability as Comparison['reliability']) : 'unavailable';
   return {
     metric: v.metric, kind: v.kind, label: v.label, current: v.current, reliability,
+    lowerIsBetter: v.lowerIsBetter === true,
     numerator: isNumOrNull(v.numerator) ? v.numerator : null,
     denominator: isNumOrNull(v.denominator) ? v.denominator : null,
     previous: parseWindow(v.previous), trailing7: parseWindow(v.trailing7), trailing30: parseWindow(v.trailing30),
@@ -180,9 +183,17 @@ export function formatValue(c: Pick<Comparison, 'kind' | 'metric'>, v: number | 
 export function formatChange(w: WindowComparison | null): string {
   if (!w) return 'not available';
   if (w.reason === 'insufficient_history') return 'not enough history';
+  if (w.reason === 'different_window_length') return 'not comparable';
   if (w.changePercent === null) return w.reason === 'base_zero' ? 'new (was 0)' : 'not available';
   if (w.changePercent === 0) return 'no change';
   return `${w.changePercent > 0 ? '+' : '−'}${Math.abs(w.changePercent).toFixed(1)}%`;
+}
+
+/** Whether a move in `direction` is good news for this metric (null when flat or unknown). */
+export function isImprovement(metric: string, direction: Direction | null, snapshot: Snapshot | null): boolean | null {
+  if (direction !== 'up' && direction !== 'down') return null;
+  const lowerIsBetter = snapshot?.comparisons.find((c) => c.metric === metric)?.lowerIsBetter ?? false;
+  return (direction === 'up') !== lowerIsBetter;
 }
 
 export function labelFor(metric: string, snapshot: Snapshot | null): string {

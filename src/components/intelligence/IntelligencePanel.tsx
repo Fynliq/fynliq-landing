@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, Pill } from '../ui';
 import type { PillTone } from '../ui/Pill';
 import {
-  formatChange, formatRate, formatValue, labelFor, parseBriefFailure, parseBriefResult, parseSnapshot,
+  formatChange, formatRate, formatValue, isImprovement, labelFor, parseBriefFailure, parseBriefResult, parseSnapshot,
 } from '../../intelligence/contract';
 import type { BriefFailure, BriefResult, Comparison, Level, Period, Snapshot } from '../../intelligence/contract';
 import styles from './IntelligencePanel.module.css';
@@ -16,7 +16,7 @@ import styles from './IntelligencePanel.module.css';
  */
 
 const ENDPOINT = '/api/beta-admin';
-const HEADLINE = ['newVisitors', 'signups', 'uploads', 'checkoutStarts', 'payments', 'revenueCents'];
+const HEADLINE = ['newVisitors', 'signups', 'uploads', 'questions', 'checkoutStarts', 'payments', 'revenueCents'];
 const STAGES = ['visitorToSignup', 'signupToUpload', 'uploadToCheckout', 'checkoutToPayment'];
 const HEALTH_TONE: Record<string, PillTone> = { good: 'green', watch: 'gold', concerning: 'rust' };
 const LEVEL_TONE: Record<Level, PillTone> = { low: 'neutral', medium: 'gold', high: 'green' };
@@ -26,9 +26,13 @@ const day = (iso: string) => iso.slice(0, 10);
 const periodLabel = (s: Snapshot) => (s.period.type === 'day' ? `${day(s.period.start)} (UTC)` : `${day(s.period.start)} to ${day(new Date(Date.parse(s.period.end) - 1).toISOString())} (UTC)`);
 const when = (iso: string) => new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 
+/** Green for good news, rust for bad news: a rise in failures is bad news. */
+const toneOf = (good: boolean | null) => (good === null ? styles.flat : good ? styles.up : styles.down);
+
 function ChangeText({ c }: { c: Comparison }) {
   const w = c.previous;
-  const tone = !w || w.changePercent === null || w.changePercent === 0 ? styles.flat : w.changePercent > 0 ? styles.up : styles.down;
+  const good = !w || w.changePercent === null || w.changePercent === 0 ? null : (w.changePercent > 0) !== c.lowerIsBetter;
+  const tone = toneOf(good);
   return <span className={tone}>{formatChange(w)} <span className={styles.muted}>vs previous</span></span>;
 }
 
@@ -68,7 +72,8 @@ function SnapshotView({ snapshot }: { snapshot: Snapshot }) {
               <span className={styles.stepValue}>{formatRate(c.current)}</span>
               <span className={styles.muted}>
                 {c.numerator ?? '—'} of {c.denominator ?? '—'}
-                {c.trailing7?.value !== null && c.trailing7?.value !== undefined ? ` · 7-day ${formatRate(c.trailing7.value)}` : ''}
+                {/* Only a same-length window is a fair comparison for a cohort conversion rate. */}
+                {c.previous?.value !== null && c.previous?.value !== undefined ? ` · previous ${formatRate(c.previous.value)}` : ''}
               </span>
               {isBottleneck && <Pill tone="rust">Bottleneck</Pill>}
               <SampleNote c={c} />
@@ -112,7 +117,7 @@ function BriefView({ result, snapshot }: { result: BriefResult; snapshot: Snapsh
           <span className={styles.eyebrow}>Biggest change</span>
           <p className={styles.headline}>
             {brief.biggestChange.metric === 'none' ? 'No comparable change'
-              : <>{labelFor(brief.biggestChange.metric, snapshot)} <span className={brief.biggestChange.direction === 'down' ? styles.down : styles.up}>{arrow} {brief.biggestChange.magnitude}%</span></>}
+              : <>{labelFor(brief.biggestChange.metric, snapshot)} <span className={toneOf(isImprovement(brief.biggestChange.metric, brief.biggestChange.direction, snapshot))}>{arrow} {brief.biggestChange.magnitude}%</span></>}
           </p>
           <p className={styles.body}>{brief.biggestChange.explanation}</p>
         </Card>
