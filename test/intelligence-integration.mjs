@@ -111,6 +111,7 @@ await db.exec(`
  update public.acquisition_attribution set channel='direct', attribution_type='direct' where guest_id = '${id(3)}';
  -- More noise that must be excluded: the admin uploads and asks a question from its own browser (guest 901).
  insert into public.upload_events(account_id, outcome, files, figures, created_at) values ('${TEST_ACCOUNT}','read',1,2,'${D}08:00:00Z');
+ insert into public.upload_events(guest_id, outcome, files, figures, created_at) values ('${id(901)}','read',1,2,'${D}08:30:00Z');
  insert into public.beta_sessions(id, token_hash, user_id, kind) values ('${id(501)}','h2','${id(901)}','guest');
  insert into public.beta_questions(user_id, session_id, created_at, finished_at, state) values ('${id(901)}','${id(501)}','${D}12:00:00Z','${D}12:00:05Z','success');
  -- The old account paid long ago and uploads again on the day: it can't start checkout, so it is not in Upload -> Checkout.
@@ -121,7 +122,8 @@ await db.exec(`
 `);
 // The attribution migration backfills existing guests as legacy; fresh rows are needed for guests created after it.
 await db.exec(`insert into public.acquisition_attribution(guest_id, first_seen_at, attribution_type, channel, source, campaign) values
- ('${id(1)}','${D}01:00:00Z','utm','tiktok','tiktok','secret campaign text'),('${id(2)}','${D}02:00:00Z','utm','tiktok','tiktok',null),('${id(3)}','${D}03:00:00Z','direct','direct',null,null)
+ ('${id(1)}','${D}01:00:00Z','utm','tiktok','tiktok','secret campaign text'),('${id(2)}','${D}02:00:00Z','utm','tiktok','tiktok',null),('${id(3)}','${D}03:00:00Z','direct','direct',null,null),
+ ('${id(901)}','${D}07:00:00Z','utm','tiktok','tiktok',null)
  on conflict (guest_id) do update set channel=excluded.channel, attribution_type=excluded.attribution_type, first_seen_at=excluded.first_seen_at, source=excluded.source, campaign=excluded.campaign`);
 
 // Fallback before the migration: snapshot still works, from the per-day series.
@@ -130,7 +132,7 @@ const fallback = await buildSnapshot({ rpc, now, testIds: [TEST_ACCOUNT] });
 assert.equal(fallback.dataSource, 'fallback');
 assert.equal(fallback.traffic.visitors, 7, 'fallback counts every new browser that day');
 assert.equal(fallback.funnel.signups, 4, 'fallback cannot exclude test accounts (warned)');
-assert.equal(fallback.funnel.uploads, 4, 'fallback cannot exclude the admin upload either');
+assert.equal(fallback.funnel.uploads, 5, 'fallback cannot exclude the admin uploads either');
 assert.equal(fallback.funnel.payments, null);
 assert.ok(fallback.dataQualityWarnings.some((w) => w.includes('include admin and test accounts')));
 console.log('✓ fallback snapshot before the migration');
@@ -155,7 +157,7 @@ const result = await rpc('intelligence_metrics', {
 });
 const w = result.windows.day;
 const expected = {
-  new_visitors: 7, new_visitors_signed_up: 3, new_visitors_paid: 1, returning_accounts: 1, attributed_visitors: 3,
+  new_visitors: 6, new_visitors_signed_up: 3, new_visitors_paid: 1, returning_accounts: 1, attributed_visitors: 3,
   signups: 3, signups_uploaded: 2, logins: 1, uploads: 3, uploads_read: 2, uploads_failed: 1, uploaders: 3,
   questions: 2, questions_answered: 1, questions_failed: 1, askers: 1,
   my_aid_accounts: 2, eligible_upload_accounts: 2, preview_accounts: 2, unlock_click_accounts: 1,
@@ -187,7 +189,7 @@ console.log('✓ invalid windows rejected');
 // End to end through the snapshot builder.
 const snapshot = await buildSnapshot({ rpc, now, testIds: [TEST_ACCOUNT] });
 assert.equal(snapshot.dataSource, 'rpc');
-assert.equal(snapshot.traffic.visitors, 7);
+assert.equal(snapshot.traffic.visitors, 6, 'the admin\'s own browser (guest 901) is not a visitor');
 assert.equal(snapshot.funnel.signups, 3);
 assert.equal(snapshot.revenue.gross, 1);
 assert.equal(snapshot.conversion.uploadToCheckout, 0.5);

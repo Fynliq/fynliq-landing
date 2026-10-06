@@ -38,20 +38,26 @@ returns jsonb
 language sql stable security definer set search_path='' as $$
  with
  test as (select coalesce(p_test, '{}'::uuid[]) ids),
+ -- Guest browsers linked to an admin/test account are internal traffic.
+ test_guests as (
+  select g.guest_id from public.account_guests g, test where g.user_id = any(test.ids)),
  new_guests as (
-  select u.id from public.anonymous_users u where u.created_at >= p_start and u.created_at < p_end),
+  select u.id from public.anonymous_users u
+  where u.created_at >= p_start and u.created_at < p_end
+   and u.id not in (select guest_id from test_guests)),
  new_accounts as (
   select a.user_id from public.accounts a, test
   where a.created_at >= p_start and a.created_at < p_end and a.user_id <> all(test.ids)),
  uploads as (
   select e.* from public.upload_events e, test
   where e.created_at >= p_start and e.created_at < p_end
-   and (e.account_id is null or e.account_id <> all(test.ids))),
+   and (e.account_id is null or e.account_id <> all(test.ids))
+   and (e.guest_id is null or e.guest_id not in (select guest_id from test_guests))),
  -- Questions belong to guest browsers; drop the ones linked to an admin/test account.
  questions as (
-  select q.* from public.beta_questions q, test
+  select q.* from public.beta_questions q
   where q.created_at >= p_start and q.created_at < p_end
-   and not exists(select 1 from public.account_guests g where g.guest_id = q.user_id and g.user_id = any(test.ids))),
+   and q.user_id not in (select guest_id from test_guests)),
  -- Accounts that had already paid before the window can never start checkout,
  -- so their uploads are not part of the Upload -> Checkout step.
  entitled_before as (
@@ -90,7 +96,8 @@ language sql stable security definer set search_path='' as $$
   union select g.user_id from questions q join public.account_guests g on g.guest_id = q.user_id),
  attributed as (
   select x.channel, count(*) n from public.acquisition_attribution x
-  where x.first_seen_at >= p_start and x.first_seen_at < p_end and x.channel <> 'legacy' group by 1)
+  where x.first_seen_at >= p_start and x.first_seen_at < p_end and x.channel <> 'legacy'
+   and (x.guest_id is null or x.guest_id not in (select guest_id from test_guests)) group by 1)
  select jsonb_build_object(
   'start', p_start, 'end', p_end,
   -- Traffic
