@@ -144,7 +144,7 @@ function countComparison(key, def, rows, plan, history) {
   const cur = rows.current;
   const current = get(cur, def.field);
   const entry = {
-    metric: key, kind: 'count', label: def.label, current,
+    metric: key, kind: 'count', label: def.label, current, lowerIsBetter: Boolean(def.lowerIsBetter),
     sampleSize: current, reliability: current === null ? 'unavailable' : reliabilityOf(current), notes: [],
     previous: null, trailing7: null, trailing30: null,
   };
@@ -182,6 +182,13 @@ function rateComparison(key, def, rows, plan, history) {
     if (n === null || d === null || !rows[name]) { entry[name] = null; continue; }
     if (!coveredBy(w, def.since, history)) { entry[name] = { value: null, changePercent: null, direction: null, sampleSize: d, reason: 'insufficient_history' }; continue; }
     const value = safeRate(n, d); // pooled over the window, never an average of daily rates
+    // Conversions are cohort-in-window: a longer window gives people more time
+    // to reach the next step, so its rate is structurally higher. Only a window
+    // of the same length is a fair comparison; longer ones are context only.
+    if (w.days !== plan.days) {
+      entry[name] = { value, numerator: n, sampleSize: d, changePercent: null, direction: null, reason: 'different_window_length' };
+      continue;
+    }
     const change = current === null || value === null ? { changePercent: null, direction: null, reason: 'no_denominator' } : percentChange(current, value);
     entry[name] = { value, numerator: n, sampleSize: d, ...change, reason: change.reason ?? (reliabilityOf(Math.min(d, den)) !== 'ok' ? 'small_sample' : null) };
   }
@@ -223,7 +230,7 @@ export function rankBiggestChanges(comparisons, limit = 5) {
         : reliabilityOf(Math.min(c.denominator ?? 0, c.previous.sampleSize ?? 0)) === 'very_small'
           || Math.max(c.numerator ?? 0, c.previous.numerator ?? 0) < VERY_SMALL_SAMPLE;
       return {
-        metric: c.metric, label: c.label, kind: c.kind, current: c.current, base: c.previous.value,
+        metric: c.metric, label: c.label, kind: c.kind, lowerIsBetter: Boolean(c.lowerIsBetter), current: c.current, base: c.previous.value,
         changePercent: c.previous.changePercent, magnitude: Math.abs(c.previous.changePercent),
         direction: c.previous.direction, reliability: lowSample ? 'low_sample' : 'ok',
       };
@@ -236,7 +243,9 @@ export function rankBiggestChanges(comparisons, limit = 5) {
 /**
  * Funnel steps ranked as bottleneck candidates.
  *   1. Steps whose rate fell by >= DETERIORATION_THRESHOLD vs the baseline
- *      (trailing 7-day pooled rate, else the previous period), largest drop first.
+ *      (the most recent like-for-like window: trailing 7 days when it is the
+ *      same length as the period, else the previous period), largest drop first.
+ *      A longer window is never a baseline: its cohort had more time to convert.
  *   2. Then the remaining eligible steps by people lost at the step
  *      (denominator - numerator), most first.
  * A step is eligible only with denominator >= MIN_BOTTLENECK_DENOMINATOR.
@@ -244,7 +253,7 @@ export function rankBiggestChanges(comparisons, limit = 5) {
 export function rankBottlenecks(comparisons) {
   const steps = comparisons.filter((c) => c.kind === 'rate' && RATE_METRICS[c.metric]?.stage);
   const candidates = steps.map((c) => {
-    const baseline = [c.trailing7, c.previous].find((b) => b && Number.isFinite(b.value)) ?? null;
+    const baseline = [c.trailing7, c.previous].find((b) => b && Number.isFinite(b.value) && b.reason !== 'different_window_length') ?? null;
     const eligible = Number.isFinite(c.denominator) && c.denominator >= MIN_BOTTLENECK_DENOMINATOR && c.current !== null;
     const relativeDrop = eligible && baseline && baseline.value > 0 ? round((baseline.value - c.current) / baseline.value, 4) : null;
     const deteriorating = relativeDrop !== null && relativeDrop >= DETERIORATION_THRESHOLD;
@@ -278,7 +287,7 @@ export function dataQualityWarnings({ comparisons, bottlenecks, dataSource, hist
       w.push(`Possible anomaly: ${c.label} moved ${c.changePercent}% vs the previous period. Rule out bots, tracking errors or test traffic before acting on it.`);
     }
   }
-  if (dataSource === 'fallback') w.push('The intelligence_metrics migration is not applied, so only visitors, sign-ups and uploads are available. Ask, paywall, checkout and payment comparisons are missing.');
+  if (dataSource === 'fallback') w.push('The full metrics function (intelligence_metrics) could not be read: either its migration is not applied yet, or the database call failed (see the fynliq_intelligence log line). Only visitors, sign-ups and uploads are available; Ask, paywall, checkout and payment comparisons are missing.');
   w.push('Visitors are new browsers (guest cookies), not people. Sessions are not tracked.');
   const stages = comparisons.filter((c) => c.kind === 'rate' && RATE_METRICS[c.metric]?.stage && Number.isFinite(c.denominator));
   const thin = stages.filter((c) => c.denominator > 0 && c.reliability !== 'ok');

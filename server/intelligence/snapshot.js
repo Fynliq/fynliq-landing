@@ -54,10 +54,12 @@ function cleanHistory(h) {
 // ------------------------------------------------------------------ sources
 
 async function fromIntelligenceRpc(rpc, plan, testIds) {
-  const p_windows = RPC_WINDOWS.map((key) => ({ key, start: plan.windows[key].start, end: plan.windows[key].end }));
+  // Zero-length windows (today-so-far at exactly 00:00 UTC) are skipped; the RPC rejects them.
+  const keys = RPC_WINDOWS.filter((key) => Date.parse(plan.windows[key].end) > Date.parse(plan.windows[key].start));
+  const p_windows = keys.map((key) => ({ key, start: plan.windows[key].start, end: plan.windows[key].end }));
   const data = await rpc('intelligence_metrics', { p_windows, p_test: [...testIds], p_livemode: true });
   if (!data || typeof data !== 'object' || !data.windows) throw new Error('intelligence_metrics returned no windows');
-  const rows = Object.fromEntries(RPC_WINDOWS.map((k) => [k, cleanWindowRow(data.windows[k])]));
+  const rows = Object.fromEntries(RPC_WINDOWS.map((k) => [k, keys.includes(k) ? cleanWindowRow(data.windows[k]) : null]));
   return { dataSource: 'rpc', rows, history: cleanHistory(data.history) };
 }
 
@@ -141,7 +143,9 @@ export async function buildSnapshot({ rpc, now = new Date(), period = 'day', tes
   const warnings = dataQualityWarnings({ comparisons, bottlenecks, dataSource, history, plan, paywall, biggestChanges });
   if (dataSource === 'fallback') warnings.push('In fallback mode, sign-ups include admin and test accounts.');
 
-  const unavailable = comparisons.filter((c) => c.current === null).map((c) => ({ metric: c.metric, reason: 'not_collected_by_current_data_source' }));
+  // Only metrics the data source does not provide. A step nobody entered (rate
+  // with a 0 denominator) is available data, flagged in its notes instead.
+  const unavailable = comparisons.filter((c) => c.notes.includes('not_collected')).map((c) => ({ metric: c.metric, reason: 'not_collected_by_current_data_source' }));
   unavailable.unshift({ metric: 'sessions', reason: 'not_tracked' });
 
   return {
