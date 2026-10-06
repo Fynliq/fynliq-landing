@@ -67,7 +67,11 @@ export function allowedNumbers(input) {
   };
   const walk = (v) => {
     if (typeof v === 'number') add(v);
-    else if (typeof v === 'string') { for (const m of v.replace(ISO_DATE, ' ').match(NUMBER) ?? []) add(Number(m.replace(/,/g, ''))); }
+    else if (typeof v === 'string') {
+      // Dates in the input may be named in prose ("October 5, 2026"): allow their year and day.
+      for (const d of v.match(ISO_DATE) ?? []) { set.add(Number(d.slice(0, 4))); set.add(Number(d.slice(8, 10))); }
+      for (const m of v.replace(ISO_DATE, ' ').match(NUMBER) ?? []) add(Number(m.replace(/,/g, '')));
+    }
     else if (Array.isArray(v)) v.forEach(walk);
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
@@ -89,6 +93,38 @@ export function ungroundedNumbers(text, allowed) {
 }
 
 export const CAUSAL = /\b(because|caused|causes|causing|due to|led to|leads to|leading to|resulted in|results in|drove|driven by|thanks to|as a result of|attributable to)\b/i;
+
+// The digit check alone misses invented numbers written another way.
+const SMALL_NUMBER_WORDS = {
+  two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20,
+  thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
+};
+const LARGE_NUMBER_WORDS = /\b(hundreds?|thousands?|millions?|billions?|dozens?)\b/i;
+const NUMBER_WORD = new RegExp(`\\b(${Object.keys(SMALL_NUMBER_WORDS).join('|')})\\b`, 'gi');
+const UNITS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
+// "forty-three" is 43, not a grounded 40 and a grounded 3.
+const COMPOUND_WORD = /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[-\s](one|two|three|four|five|six|seven|eight|nine)\b/gi;
+export const MULTIPLIER = /\b(doubl(?!e-check)\w*|tripl\w*|quadrupl\w*|halv\w*|twice|thrice|tenfold|\d+(?:\.\d+)?\s?x)\b/i;
+const FUTURE = /\b(will|would|could|should|might|may|expect(?:s|ed)? to|projected to|likely to|on track to)\b/i;
+const GROWTH_THEN_NUMBER = /\b(add|increase|grow|rise|raise|lift|boost|generate|bring|gain|reach|recover|improve|cut|reduce|lose)\w*\s+(?:by\s+|to\s+|about\s+|around\s+|roughly\s+|up to\s+)?\$?\d/i;
+const NUMBER_MORE = /\$?\d[\d,.]*%?\s+(more|extra|additional)\b/i;
+
+/** Spelled-out numbers, multipliers and numeric forecasts in a piece of prose. */
+export function inventedQuantities(text, allowed) {
+  const s = String(text); const issues = [];
+  const grounded = (n) => [...allowed].some((a) => Math.abs(a - n) < 0.051);
+  if (LARGE_NUMBER_WORDS.test(s)) issues.push('spelled_number');
+  const values = [];
+  const rest = s.replace(COMPOUND_WORD, (_m, tens, unit) => { values.push(SMALL_NUMBER_WORDS[tens.toLowerCase()] + UNITS[unit.toLowerCase()]); return ' '; });
+  for (const m of rest.match(NUMBER_WORD) ?? []) values.push(SMALL_NUMBER_WORDS[m.toLowerCase()]);
+  if (values.some((n) => !grounded(n))) issues.push('spelled_number');
+  if (MULTIPLIER.test(s)) issues.push('multiplier');
+  for (const sentence of s.split(/(?<=[.!?;])\s+/)) {
+    if (FUTURE.test(sentence) && (GROWTH_THEN_NUMBER.test(sentence) || NUMBER_MORE.test(sentence))) { issues.push('forecast'); break; }
+  }
+  return [...new Set(issues)];
+}
 
 // ------------------------------------------------------------- validator
 
@@ -132,6 +168,7 @@ export function validateBrief(brief, ctx) {
   if (pb.stage !== ctx.primaryBottleneck) grounding.push(`bottleneck_mismatch:expected_${ctx.primaryBottleneck}`);
   if (bc.metric === 'none') {
     if (ctx.biggestChanges.length) grounding.push('biggest_change_none_but_candidates_exist');
+    if (bc.direction !== 'flat' || bc.magnitude !== 0) grounding.push('biggest_change_none_must_be_flat_zero');
   } else {
     const c = ctx.biggestChanges.find((x) => x.metric === bc.metric);
     if (!c) grounding.push('biggest_change_not_a_candidate');
@@ -155,6 +192,7 @@ export function validateBrief(brief, ctx) {
   for (const [field, text] of Object.entries(prose)) {
     const bad = ungroundedNumbers(text, allowed);
     if (bad.length) grounding.push(`ungrounded_number:${field}:${bad.slice(0, 3).join('|')}`);
+    for (const issue of inventedQuantities(text, allowed)) grounding.push(`${issue}:${field}`);
   }
 
   // ---- facts vs hypotheses
