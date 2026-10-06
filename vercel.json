@@ -28,6 +28,14 @@
       }
     },
     {
+      "src": "(?i)^/tiktok/?$",
+      "status": 307,
+      "headers": {
+        "Location": "/?ref=tiktok",
+        "Cache-Control": "no-store"
+      }
+    },
+    {
       "handle": "filesystem"
     },
     {
