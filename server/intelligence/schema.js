@@ -67,16 +67,36 @@ export function allowedNumbers(input) {
   };
   const walk = (v) => {
     if (typeof v === 'number') add(v);
-    else if (typeof v === 'string') {
-      // Dates in the input may be named in prose ("October 5, 2026"): allow their year and day.
-      for (const d of v.match(ISO_DATE) ?? []) { set.add(Number(d.slice(0, 4))); set.add(Number(d.slice(8, 10))); }
-      for (const m of v.replace(ISO_DATE, ' ').match(NUMBER) ?? []) add(Number(m.replace(/,/g, '')));
-    }
+    else if (typeof v === 'string') { for (const m of v.replace(ISO_DATE, ' ').match(NUMBER) ?? []) add(Number(m.replace(/,/g, ''))); }
     else if (Array.isArray(v)) v.forEach(walk);
     else if (v && typeof v === 'object') Object.values(v).forEach(walk);
   };
   walk(input);
   return set;
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * Removes date phrases for the period's own days ("October 5", "Oct 5, 2026",
+ * "5 October") and its year, so they aren't read as metric numbers. Any other
+ * date, or a bare day number, is still checked like every other number.
+ */
+export function stripPeriodDates(text, period) {
+  const start = Date.parse(period?.start ?? ''); const end = Date.parse(period?.end ?? '');
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return String(text);
+  const days = [];
+  for (let t = start; t <= end && days.length < 9; t += 86_400_000) days.push(new Date(t)); // period days plus the day it ends
+  let out = String(text);
+  for (const d of days) {
+    const full = MONTHS[d.getUTCMonth()]; const abbr = full.slice(0, 3); const day = d.getUTCDate(); const year = d.getUTCFullYear();
+    const month = `(?:${full}|${abbr}\\.?)`;
+    out = out.replace(new RegExp(`\\b${month}\\s+${day}(?:st|nd|rd|th)?\\b(?:,?\\s+${year}\\b)?`, 'gi'), ' ')
+      .replace(new RegExp(`\\b${day}(?:st|nd|rd|th)?\\s+(?:of\\s+)?${month}\\b(?:,?\\s+${year}\\b)?`, 'gi'), ' ');
+  }
+  const years = new Set(days.map((d) => d.getUTCFullYear()));
+  for (const y of years) out = out.replace(new RegExp(`\\b${y}\\b`, 'g'), ' ');
+  return out;
 }
 
 /** Numbers in a piece of prose that are not in `allowed`. */
@@ -105,9 +125,17 @@ const NUMBER_WORD = new RegExp(`\\b(${Object.keys(SMALL_NUMBER_WORDS).join('|')}
 const UNITS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
 // "forty-three" is 43, not a grounded 40 and a grounded 3.
 const COMPOUND_WORD = /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[-\s](one|two|three|four|five|six|seven|eight|nine)\b/gi;
-export const MULTIPLIER = /\b(doubl(?!e-check)\w*|tripl\w*|quadrupl\w*|halv\w*|twice|thrice|tenfold|\d+(?:\.\d+)?\s?x)\b/i;
-const FUTURE = /\b(will|would|could|should|might|may|expect(?:s|ed)? to|projected to|likely to|on track to)\b/i;
-const GROWTH_THEN_NUMBER = /\b(add|increase|grow|rise|raise|lift|boost|generate|bring|gain|reach|recover|improve|cut|reduce|lose)\w*\s+(?:by\s+|to\s+|about\s+|around\s+|roughly\s+|up to\s+)?\$?\d/i;
+// "double-check" and "double-counting" are not multipliers. "Halved" is left
+// out: a -50% change is a true, grounded description.
+export const MULTIPLIER = /\b(doubl(?!e[- ]?(?:check|count))\w*|tripl\w*|quadrupl\w*|twice|thrice|tenfold|\d+(?:\.\d+)?\s?x)\b/i;
+// A forecast is a modal that governs a growth verb whose target is a number:
+// "would add 20", "will increase sign-ups to 50", "should return to 40%".
+// Hedges ("may", "might") and modals without a numeric target ("could improve
+// Upload → Checkout", "will be more reliable") are not forecasts.
+const MODAL = '(?:will|would|could|should|(?:is|are)\\s+expected\\s+to|expected\\s+to|projected\\s+to|likely\\s+to|on\\s+track\\s+to)';
+const GROWTH = '(?:add|increase|grow|rise|raise|lift|boost|generate|bring|gain|reach|recover|improve|cut|reduce|lose|return|hit|halve|drop|fall|climb|jump)';
+const FORECAST = new RegExp(`\\b${MODAL}\\s+(?:\\w+\\s+){0,2}?${GROWTH}\\w*\\s+(?:(?:\\S+\\s+){0,4}?(?:by|to|about|around|roughly|over|up\\s+to|another|an\\s+extra|an\\s+additional)\\s+)?\\$?\\d`, 'i');
+const MODAL_SENTENCE = new RegExp(`\\b${MODAL}\\b`, 'i');
 const NUMBER_MORE = /\$?\d[\d,.]*%?\s+(more|extra|additional)\b/i;
 
 /** Spelled-out numbers, multipliers and numeric forecasts in a piece of prose. */
@@ -121,7 +149,7 @@ export function inventedQuantities(text, allowed) {
   if (values.some((n) => !grounded(n))) issues.push('spelled_number');
   if (MULTIPLIER.test(s)) issues.push('multiplier');
   for (const sentence of s.split(/(?<=[.!?;])\s+/)) {
-    if (FUTURE.test(sentence) && (GROWTH_THEN_NUMBER.test(sentence) || NUMBER_MORE.test(sentence))) { issues.push('forecast'); break; }
+    if (FORECAST.test(sentence) || (MODAL_SENTENCE.test(sentence) && NUMBER_MORE.test(sentence))) { issues.push('forecast'); break; }
   }
   return [...new Set(issues)];
 }
@@ -189,10 +217,15 @@ export function validateBrief(brief, ctx) {
     actionTitle: ra.title, actionReason: ra.reason,
     ...Object.fromEntries(brief.dataQualityWarnings.map((w, i) => [`warning${i}`, w])),
   };
-  for (const [field, text] of Object.entries(prose)) {
-    const bad = ungroundedNumbers(text, allowed);
+  // The action may count things to do ("test 3 versions"): small counts there are
+  // instructions, not metric claims. Forecasts and multipliers are still rejected.
+  const allowedInAction = new Set([...allowed, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  for (const [field, raw] of Object.entries(prose)) {
+    const text = stripPeriodDates(raw, ctx.input?.period);
+    const ok = field.startsWith('action') ? allowedInAction : allowed;
+    const bad = ungroundedNumbers(text, ok);
     if (bad.length) grounding.push(`ungrounded_number:${field}:${bad.slice(0, 3).join('|')}`);
-    for (const issue of inventedQuantities(text, allowed)) grounding.push(`${issue}:${field}`);
+    for (const issue of inventedQuantities(text, ok)) grounding.push(`${issue}:${field}`);
   }
 
   // ---- facts vs hypotheses
