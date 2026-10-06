@@ -58,3 +58,5 @@ jobs:
         run: npm run test:billing
       - name: Integration - attribution (PGlite, all migrations, fake Stripe)
         run: node test/attribution-integration.mjs
+      - name: Integration - intelligence metrics (PGlite, all migrations, read-only RPC)
+        run: npm run test:intelligence
