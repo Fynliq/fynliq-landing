@@ -23,7 +23,7 @@
 #   untracked_prod_objects (see ops/runbooks/database.md drift)    ?       in prod, not in git, unused by code
 #   errors                 (none)                                   NO      no error tracking (Sentry etc.)
 #   function_logs          Vercel runtime logs                      partial no drain or retention configured
-#   uptime                 (none)                                   NO      no synthetic checks
+#   uptime                 .github/workflows/uptime.yml             added   inactive until it is on the default branch
 #   qualified_session      (none)                                   NO      not defined or instrumented yet
 #   web_vitals             (none)                                   NO      Speed Insights not installed
 #
@@ -46,7 +46,7 @@ milestones:
       reproduces each metric below.
     metrics_required: [journey_step_events, errors, uptime, function_logs, qualified_session]
     agents_activated: [qa-agent (journey checks against telemetry)]
-    monitoring_activated: [error-rate alert, uptime check on / , /beta, /api/billing GET, webhook failure alert]
+    monitoring_activated: [error-rate alert, uptime checks (/, session, log-in, billing, reader, webhook; .github/workflows/uptime.yml), webhook failure alert]
     reports_activated: [weekly funnel report (manual run)]
     human_approval: Approve the instrumentation PRs (phase 2), and approve turning on scheduled reports.
 
