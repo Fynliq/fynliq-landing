@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyTouch, cleanHost, cleanPath, stripeAttributionMetadata } from '../server/attribution.js';
-import { arrivalFrom } from '../src/analytics/attribution.ts';
+import { arrivalFrom, inAppBrowser } from '../src/analytics/attribution.ts';
 
 const env = { BETA_ORIGIN: 'https://www.fynliq.com' };
 const touch = (href, referrer = '') => classifyTouch(arrivalFrom(href, referrer), env);
@@ -113,4 +113,60 @@ test('browser capture: same-site referrer and odd paths', () => {
   assert.deepEqual(a.utm, { source: 'tiktok' });
   assert.equal(arrivalFrom('https://www.fynliq.com/%3Cx%3E', '').landing, '/');
   assert.ok(JSON.stringify(arrivalFrom(`https://www.fynliq.com/?utm_campaign=${'z'.repeat(5000)}`, '')).length < 1500);
+});
+
+// Representative user agents of each app's built-in browser, and ordinary browsers.
+const UA = {
+  tiktokIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 musical_ly_36.5.0 JsSdk/2.0 NetType/WIFI Channel/App Store ByteLocale/en Region/US BytedanceWebview/d8a21c6',
+  tiktokAndroid: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Mobile Safari/537.36 trill_360504 JsSdk/1.0 NetType/WIFI Channel/googleplay AppName/trill app_version/36.5.4 ByteLocale/en',
+  instagramIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 350.0.0.0.0 (iPhone15,2; iOS 18_0; en_US; en-US; scale=3.00; 1179x2556; 654321)',
+  instagramAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-S911U Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/128.0.0.0 Mobile Safari/537.36 Instagram 350.0.0.0 Android (34/14; 480dpi; 1080x2340; samsung; SM-S911U; dm1q; qcom; en_US; 654321)',
+  facebookIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/480.0.0.0;FBBV/650000000;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/18.0;FBSS/3;FBCR/;FBID/phone;FBLC/en_US;FBOP/80]',
+  safari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+  chrome: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+};
+const appTouch = (href, ua, referrer = '') => classifyTouch(arrivalFrom(href, referrer, ua), env);
+
+test('in-app browsers name themselves; ordinary browsers do not', () => {
+  assert.equal(inAppBrowser(UA.tiktokIos), 'tiktok');
+  assert.equal(inAppBrowser(UA.tiktokAndroid), 'tiktok');
+  assert.equal(inAppBrowser(UA.instagramIos), 'instagram');
+  assert.equal(inAppBrowser(UA.instagramAndroid), 'instagram');
+  assert.equal(inAppBrowser(UA.facebookIos), 'facebook');
+  assert.equal(inAppBrowser(UA.safari), undefined);
+  assert.equal(inAppBrowser(UA.chrome), undefined);
+  assert.equal(inAppBrowser(''), undefined);
+});
+
+test('plain fynliq.com tapped in a TikTok bio counts as TikTok, not Direct', () => {
+  const t = appTouch('https://www.fynliq.com/', UA.tiktokIos);
+  assert.equal(t.attribution_type, 'in_app');
+  assert.equal(t.channel, 'tiktok');
+  assert.equal(t.source, 'tiktok');
+  assert.equal(t.medium, 'social');
+  assert.equal(appTouch('https://www.fynliq.com/', UA.instagramIos).channel, 'instagram');
+  assert.equal(appTouch('https://www.fynliq.com/', UA.facebookIos).channel, 'facebook');
+  assert.equal(appTouch('https://www.fynliq.com/', UA.safari).channel, 'direct', 'an ordinary browser with no tags stays Direct');
+});
+
+test('explicit tags still win over the in-app browser', () => {
+  const t = appTouch('https://www.fynliq.com/?utm_source=tiktok&utm_campaign=profile&utm_content=bio', UA.tiktokIos);
+  assert.equal(t.attribution_type, 'utm');
+  assert.equal(t.content, 'bio');
+  assert.equal(appTouch('https://www.fynliq.com/?ref=friend', UA.tiktokIos).channel, 'referral');
+  assert.equal(appTouch('https://www.fynliq.com/?ttclid=abc', UA.tiktokIos).attribution_type, 'click_id');
+});
+
+test('fbclid opened inside Instagram is Instagram, not Facebook', () => {
+  assert.equal(appTouch('https://www.fynliq.com/?fbclid=abc', UA.instagramIos).channel, 'instagram');
+  assert.equal(appTouch('https://www.fynliq.com/?fbclid=abc', UA.facebookIos).channel, 'facebook');
+});
+
+test('only the app name is captured, never the user agent; unknown app names are ignored', () => {
+  const a = arrivalFrom('https://www.fynliq.com/', '', UA.tiktokIos);
+  assert.equal(a.app, 'tiktok');
+  assert.ok(!JSON.stringify(a).includes('Mozilla') && !JSON.stringify(a).includes('musical_ly'));
+  const t = classifyTouch({ landing: '/', app: 'snapchat' }, env);
+  assert.equal(t.channel, 'direct');
+  assert.equal(classifyTouch({ landing: '/', app: { evil: true } }, env).channel, 'direct');
 });

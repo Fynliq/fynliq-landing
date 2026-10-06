@@ -111,7 +111,7 @@ async function call(handler, { method = 'POST', body, cookie = '' } = {}) {
   return res;
 }
 const cookieValue = (res) => String(res.headers['Set-Cookie'] || '').split(';')[0];
-const visit = (cookie, href, referrer = '') => call(createAuthHandler(deps), { body: { action: 'guest', touch: arrivalFrom(href, referrer) }, cookie });
+const visit = (cookie, href, referrer = '', ua = '') => call(createAuthHandler(deps), { body: { action: 'guest', touch: arrivalFrom(href, referrer, ua) }, cookie });
 const row = async (guest) => (await pg.query('select * from public.acquisition_attribution where guest_id = $1', [guest]))[0];
 
 let passed = 0;
@@ -286,6 +286,24 @@ try {
     assert.equal((await row(plain.body.user.id)), undefined, 'no touch, no row');
     assert.equal((await db.rpc('attribution_touch', { p_guest: plain.body.user.id, p_touch: { attribution_type: 'utm', channel: 'nonsense' } })).data, 'first_touch');
     assert.equal((await row(plain.body.user.id)).channel, 'direct', 'unknown channels are stored as direct, never guessed');
+  });
+
+  await test('10b. plain fynliq.com opened in TikTok\'s built-in browser is TikTok (in_app), and later tags only move last touch', async () => {
+    const TIKTOK_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 musical_ly_36.5.0 BytedanceWebview/d8a21c6';
+    const res = await visit('', `${ORIGIN}/`, '', TIKTOK_UA);
+    assert.equal(res.statusCode, 200);
+    const cookie = cookieValue(res);
+    let r = await row(res.body.user.id);
+    assert.equal(r.attribution_type, 'in_app');
+    assert.equal(r.channel, 'tiktok');
+    assert.equal(r.source, 'tiktok');
+    assert.equal(r.last_attribution_type, 'in_app');
+    assert.ok(!JSON.stringify(r).includes('Mozilla'), 'the user agent is never stored');
+    await visit(cookie, `${ORIGIN}/?utm_source=instagram&utm_medium=social`, '');
+    r = await row(res.body.user.id);
+    assert.equal(r.channel, 'tiktok', 'first touch kept');
+    assert.equal(r.last_channel, 'instagram');
+    assert.equal((await db.rpc('attribution_touch', { p_guest: res.body.user.id, p_touch: { attribution_type: 'in_app', channel: 'direct' } })).data, 'touched', 'a mismatched type/channel pair is treated as direct');
   });
 
   await test('11. browsers cannot read or write attribution', async () => {
