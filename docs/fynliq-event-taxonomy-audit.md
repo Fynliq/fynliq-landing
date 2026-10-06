@@ -67,3 +67,5 @@ step.
    admin numbers, so it needs a human decision.
 6. **Exclude admin browsers** from visitor counts, for example by linking the
    admin session's guest browser to a test flag.
+   Intelligence v1 already excludes browsers linked to admin/test accounts
+   (through `account_guests`); one that never signed in is still counted.

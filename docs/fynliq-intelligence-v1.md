@@ -83,7 +83,7 @@ collected since 2026-10-06), and the production-only `usage_metrics()` and
 
 | Metric | Status | Source of truth | Caveat |
 | --- | --- | --- | --- |
-| Visitors | ◐ | `anonymous_users.created_at` (a guest browser is created on the first page load with JS, `api/beta-auth.js` `guest`) | Counts **new browsers**, not people. Cleared cookies or a new device create a new one. Bots without JS aren't counted. Admin browsers can't be excluded. Vercel Analytics also counts pageviews, but that data lives in Vercel, not Supabase. |
+| Visitors | ◐ | `anonymous_users.created_at` (a guest browser is created on the first page load with JS, `api/beta-auth.js` `guest`) | Counts **new browsers**, not people. Cleared cookies or a new device create a new one. Bots without JS aren't counted. Intelligence v1 excludes browsers linked to admin/test accounts; an admin browser that never signed in can't be recognised. Vercel Analytics also counts pageviews, but that data lives in Vercel, not Supabase. |
 | Sessions | ✗ | — | No session or visit log exists. |
 | Returning users | ◐ | Activity by accounts created before the window: `account_events` log-ins, `upload_events`, `monetization_events`, Ask questions via `account_guests` | Account-level only. Guest return visits only update `acquisition_attribution.last_seen_at` (it overwrites, so there's no history). |
 | Account registrations | ✅ | `accounts.created_at` (`account_events.signed_up`) | Test and admin accounts are excluded by id where configured. |
@@ -209,9 +209,15 @@ unreliable. A zero base gives `changePercent: null` with a reason, never
 source doesn't provide are listed in `unavailable`).
 
 Admin and test accounts (`BETA_ADMIN_USER_IDS`, `FYNQ_BILLING_TEST_ACCOUNT_IDS`,
-`is_test_account`) are excluded from sign-ups, uploads, Ask questions (through
-the guest browsers linked to them), the paywall funnel and revenue. Guest
-browsers that never signed in can't be excluded (see Missing data).
+`is_test_account`) are excluded from visitors, attribution, sign-ups, uploads and
+Ask questions (through the guest browsers linked to those accounts), the paywall
+funnel and revenue. An admin browser that never signed in can't be recognised
+and still counts as a visitor.
+
+A bottleneck baseline needs at least 5 people in it, like the step itself: "1
+of 2 yesterday" is noise, not a rate a step can fall from. When a step is
+flagged as deteriorating, the smaller of its two samples decides whether the
+brief must treat the evidence as a small sample.
 
 ### Where intelligence is served (no new Vercel functions)
 
@@ -250,8 +256,13 @@ file). It's easy to add later; see §9.
   capped at 45 s, and the retry is skipped when under 12 s remain, so a slow
   model ends in a logged `502 brief_unavailable`, never a platform 504.
 * **Validator:** besides digits, it rejects numbers written as words, multipliers
-  ("double", "3x") and numeric forecasts ("would add 20 …"), so an invented
-  projection can't reach the CEO in another form.
+  ("double", "3x") and numeric forecasts (a modal governing a growth verb with a
+  numeric target: "would add 20", "should return to 40%"), so an invented
+  projection can't reach the CEO in another form. Hedged hypotheses ("may point
+  to"), "double-counting" and true descriptions ("halved") are allowed. The
+  recommended action may count things to do ("test 3 versions"). Only the
+  period's own dates ("October 5, 2026") are exempt from number grounding.
+  Non-comparable windows are sent to the model without their value.
 * **SQL:** only `intelligence_metrics` (which validates its windows) is
   executable by `service_role`. The inner `intelligence_window` has no bounds
   and is callable only from inside it.
@@ -327,6 +338,8 @@ Order: the migration and the code are independent. Either can go first.
   window, so that comparison appears twice.
 * **Guest-only admin traffic** (an admin browser that never signed in) still
   counts as visitors.
+* **A hung snapshot RPC** has no timeout of its own, so it can still end in a
+  platform 504 (the model time budget starts after the snapshot).
 * **The live model has not been evaluated.** `npm run eval:intelligence` runs
   the 10 scenarios against the real provider and needs an API key and human
   approval. CI covers the deterministic engine and the validator.
