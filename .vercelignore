@@ -3,3 +3,10 @@
 docs
 README.md
 .env.example
+
+# Agent operating system: policies and tooling, never part of the site.
+/.claude
+/.github
+/ops
+/scripts
+/CLAUDE.md

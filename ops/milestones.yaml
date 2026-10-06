@@ -1,0 +1,124 @@
+# FYNQ milestone controller.
+#
+# Milestones never deploy, enable or change product features. Reaching one only
+# turns on monitoring, analysis, reports or extra agent capabilities. Each one
+# still needs the listed human approval, and nothing here changes
+# max_autonomy_level (ops/autonomy.yaml).
+#
+# Telemetry inventory, verified read-only on 2026-10-06 against the production
+# Supabase and Vercel projects:
+#
+#   source id              where                                   exists  notes
+#   accounts               public.accounts (+ account_metrics())    yes     sign-ups; includes admin/test accounts
+#   account_events         public.account_events                    yes     sign-up / log-in events
+#   upload_events          public.upload_events (+ upload_metrics()) yes    outcome only, no content
+#   monetization_events    public.monetization_events               yes     funnel steps (CLIENT_EVENTS + server events)
+#   billing                public.billing_entitlements, billing_stripe_events, billing_metrics()
+#                                                                   yes     livemode + test-account flags
+#   attribution            public.acquisition_attribution           yes     first/last touch per guest browser
+#   guest_sessions         public.anonymous_users, beta_sessions    yes     guest browsers
+#   questions              public.beta_questions                    yes     Ask usage (counts only)
+#   aid_analyses           public.aid_analyses                      yes     30-day stored verified figures
+#   pageviews              Vercel Analytics                         yes     allow-listed paths, www.fynliq.com only
+#   untracked_prod_objects (see ops/runbooks/database.md drift)    ?       in prod, not in git, unused by code
+#   errors                 (none)                                   NO      no error tracking (Sentry etc.)
+#   function_logs          Vercel runtime logs                      partial no drain or retention configured
+#   uptime                 (none)                                   NO      no synthetic checks
+#   qualified_session      (none)                                   NO      not defined or instrumented yet
+#   web_vitals             (none)                                   NO      Speed Insights not installed
+#
+# Current counts are computed on demand (read-only, aggregate RPCs) and are
+# not recorded in this public file. Exact milestone status must exclude
+# test/admin accounts and test-mode payments, as billing_metrics() already does.
+
+version: 1
+updated: 2026-10-06
+evaluation: manual   # becomes "scheduled" only after instrumentation_complete AND human approval
+
+milestones:
+
+  - id: instrumentation_complete
+    status: not_reached
+    trigger: >
+      Every critical-journey step in docs/critical-user-flows.md emits a
+      content-free event; error tracking, uptime checks and a log drain exist;
+      "qualified session" is defined and instrumented; and a dashboard query
+      reproduces each metric below.
+    metrics_required: [journey_step_events, errors, uptime, function_logs, qualified_session]
+    agents_activated: [qa-agent (journey checks against telemetry)]
+    monitoring_activated: [error-rate alert, uptime check on / , /beta, /api/billing GET, webhook failure alert]
+    reports_activated: [weekly funnel report (manual run)]
+    human_approval: Approve the instrumentation PRs (phase 2), and approve turning on scheduled reports.
+
+  - id: 25_registered_users
+    status: unverified   # compute with test/admin excluded
+    trigger: count(accounts) excluding BETA_ADMIN_USER_IDS and FYNQ_BILLING_TEST_ACCOUNT_IDS >= 25
+    metrics_required: [accounts]
+    agents_activated: []
+    monitoring_activated: [daily sign-up count]
+    reports_activated: [sign-up source breakdown from acquisition_attribution]
+    human_approval: Confirm the count excludes test accounts.
+
+  - id: 10_unique_uploaders
+    status: unknown
+    trigger: count(distinct coalesce(account_id, guest_id)) in upload_events where outcome = 'read' >= 10, test/admin excluded
+    metrics_required: [upload_events, accounts]
+    agents_activated: [backend-agent (read-only analysis of reader failure reasons)]
+    monitoring_activated: [reader outcome mix (read / no_aid_lines / unreadable / privacy_blocked / reader_error)]
+    reports_activated: [weekly reader-quality report: failure reasons, no content]
+    human_approval: Approve the report format, which must never include document content.
+
+  - id: 100_qualified_sessions
+    status: blocked   # "qualified session" is not defined or instrumented yet
+    trigger: 100 sessions meeting the qualified_session definition (to be agreed in phase 2)
+    metrics_required: [qualified_session, pageviews, attribution]
+    agents_activated: [performance-agent (mobile and in-app-browser load analysis)]
+    monitoring_activated: [web vitals, landing → /beta conversion]
+    reports_activated: [channel funnel: source → sign-up → upload → unlock]
+    human_approval: Define "qualified session" and approve its instrumentation.
+
+  - id: 10_real_payments
+    status: unverified   # compute live-mode only, test/admin excluded
+    trigger: billing_metrics() live-mode paid entitlements, test/admin excluded, >= 10
+    metrics_required: [billing, monetization_events, attribution]
+    agents_activated: [payments-agent (read-only reconciliation)]
+    monitoring_activated: [daily reconciliation: every live entitlement has a matching paid billing_stripe_events row; webhook failures]
+    reports_activated: [revenue and unlock-conversion report by channel]
+    human_approval: >
+      Approve the reconciliation queries. Any discrepancy goes to a human,
+      never to an automatic fix or refund.
+
+  - id: 250_registered_users
+    status: not_reached
+    trigger: count(accounts) excluding test/admin >= 250
+    metrics_required: [accounts, function_logs, errors]
+    agents_activated: [performance-agent, security-agent (periodic advisor + dependency review)]
+    monitoring_activated: [Supabase advisors weekly, function p95 duration, OpenAI spend per analysis]
+    reports_activated: [weekly security posture (advisors, npm audit), cost per unlock]
+    human_approval: Approve the periodic security review schedule.
+
+  - id: 500_registered_users
+    status: not_reached
+    trigger: count(accounts) excluding test/admin >= 500
+    metrics_required: [accounts, errors, uptime, function_logs]
+    agents_activated: [scheduled read-only analysis agents (phase 3), only if instrumentation_complete is reached]
+    monitoring_activated: [error budget, alert routing to the human]
+    reports_activated: [nightly read-only anomaly report]
+    human_approval: >
+      Explicitly approve phase 3 (scheduled autonomous analysis). The analysis
+      stays read-only and opens issues or PRs only, at Level 3.
+
+  - id: high_traffic_mode
+    status: not_reached
+    trigger: >
+      Any of: sustained > 5x the trailing-7-day hourly pageviews, rate-limit
+      (429) responses > 2% of API requests, or beta_rate_windows contention.
+      These thresholds are provisional and get recalibrated after
+      instrumentation_complete.
+    metrics_required: [pageviews, function_logs, errors]
+    agents_activated: [performance-agent, release-agent (freeze recommendation)]
+    monitoring_activated: [5-minute error and latency checks, OpenAI spend guard alert]
+    reports_activated: [incident-style status updates per ops/runbooks/incident-response.md]
+    human_approval: >
+      Firewall, rate-limit, BETA_MAX_QUESTIONS_PER_DAY and scaling changes are
+      all human-only. Agents may recommend a merge freeze but can't enforce one.

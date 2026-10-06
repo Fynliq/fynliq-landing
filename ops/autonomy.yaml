@@ -1,0 +1,136 @@
+# FYNQ agent autonomy policy.
+# Read by engineering-orchestrator and release-agent before any action.
+# Raising max_autonomy_level, or enabling Level 4 or 5, is a human decision
+# made in a reviewed PR.
+
+version: 1
+project: fynq
+updated: 2026-10-06
+
+max_autonomy_level: 3
+
+levels:
+  - level: 0
+    name: analyze_only
+    allows: [read code, read production telemetry (read-only), write reports in chat]
+    enabled: true
+  - level: 1
+    name: issues_docs_tests
+    allows: [open GitHub issues, edit docs, add or modify tests]
+    enabled: true
+  - level: 2
+    name: branch_code_changes
+    allows: [create branches/worktrees, change application code on a non-protected branch]
+    enabled: true
+  - level: 3
+    name: pr_and_preview
+    allows: [push non-protected branches, open PRs, read Vercel preview deployments created by those pushes]
+    enabled: true
+  - level: 4
+    name: autonomous_merge
+    allows: [merge PRs into a protected branch]
+    enabled: false
+    requires: explicit human authorization recorded in this file via a reviewed PR
+  - level: 5
+    name: autonomous_production_deploy
+    allows: [promote, alias, roll back, or apply production migrations]
+    enabled: false
+    requires: explicit human authorization recorded in this file via a reviewed PR
+
+# Merging into either of these is a production action (Level 4 or above).
+# feat/connect-ask-backend is what www.fynliq.com serves, through a branch alias.
+protected_branches:
+  - main
+  - feat/connect-ask-backend
+
+risk_classes:
+  GREEN:
+    description: No behaviour change for users or data.
+    examples: [tests, documentation, comments, non-functional internal refactors]
+    human_approval: none to open a PR; human merges
+    required_reviews: [code-review-agent]
+  YELLOW:
+    description: Ordinary product behaviour change.
+    examples: [ordinary application logic, UI behaviour, API behaviour, performance changes]
+    human_approval: human merges after reviewing the gate report
+    required_reviews: [qa-agent, code-review-agent]
+  RED:
+    description: Money, identity, access, personal data, secrets or infrastructure.
+    examples: [payments, authentication, authorization, Supabase RLS, database migrations, PII, secrets, billing, production infrastructure]
+    human_approval: required before work starts AND before merge
+    required_reviews: [security-agent, qa-agent, code-review-agent]
+
+# Paths that force a class. The highest class touched by a diff wins, so a
+# file listed under RED is RED even if a GREEN glob also matches it.
+# Paths matching no rule get default_class.
+default_class: YELLOW
+path_risk:
+  RED:
+    - supabase/migrations/**
+    - api/analyze.js
+    - api/ask.js
+    - api/account.js
+    - server/provider.js
+    - server/ask-service.js
+    - server/account-service.js
+    - server/limits.js
+    - server/attribution.js
+    - server/upload-tracking.js
+    - src/analytics/**
+    # Tests that guard security or payment properties: weakening them is RED.
+    - test/billing-integration.mjs
+    - test/beta-integration.mjs
+    - test/attribution-integration.mjs
+    - server/redact.test.js
+    - server/billing.test.js
+    - server/account-login.test.js
+    - server/account-auth.test.js
+    - src/analytics/privacy.test.ts
+    - src/search/__tests__/privacy.test.ts
+    - scripts/validate_ops.py
+    - ops/**
+    - .vercelignore
+    - vite.config.ts
+    - tsconfig.json
+    - server/billing.js
+    - server/stripe.js
+    - server/beta.js
+    - server/account-login.js
+    - server/account-auth.js
+    - server/privacy.js
+    - server/redact.js
+    - server/aid-overview.js
+    - api/billing.js
+    - api/stripe-webhook.js
+    - api/beta-auth.js
+    - api/beta-admin.js
+    - api/auth/**
+    - src/billing/**
+    - src/auth/**
+    - src/accounts/**
+    - vercel.json
+    - .github/workflows/**
+    - .claude/**
+    - CLAUDE.md
+    - .env.example
+  YELLOW:
+    - api/**
+    - server/**
+    - src/**
+    - index.html
+    - public/**
+    - package.json
+    - package-lock.json
+  GREEN:
+    - docs/**
+    - "**/__tests__/**"
+    - "**/*.test.*"
+    - test/**
+    - README.md
+
+# Actions that are never automatic at any level.
+always_human:
+  supabase: [apply migration to production, write production data, change RLS/policies/grants, change auth config, change storage policies, reveal service-role key]
+  stripe: [any live-mode write, any test-mode write without explicit authorization, prices, products, refunds, webhooks, customers, subscriptions, payment configuration]
+  vercel: [promote, roll back, assign/alter aliases or domains, change env vars, change firewall/security, change project config, decrypt env values]
+  git: [push/force-push/merge/rebase a protected branch]
