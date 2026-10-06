@@ -28,7 +28,7 @@
       }
     },
     {
-      "src": "(?i)^/tiktok/?$",
+      "src": "/[Tt][Ii][Kk][Tt][Oo][Kk]/?",
       "status": 307,
       "headers": {
         "Location": "/?ref=tiktok",
