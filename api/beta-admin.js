@@ -6,7 +6,7 @@ export const config={maxDuration:60};
 export function createAdminHandler(dependencies={}){return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   try{
-    if(req.method!=='GET'&&req.method!=='POST')throw new BetaError(405,'Use GET.');
+    if(req.method!=='GET'&&req.method!=='POST')throw new BetaError(405,'Use GET or POST.');
     const env=dependencies.env||process.env,{db}=(dependencies.clients||clients)(env),user=await session(req,db,env,true);
     if(!isAdmin(user,env))throw new BetaError(403,'Administrator access is required.');
     // FYNLIQ Intelligence (read-only): GET ?view=intelligence-snapshot, POST {action:'intelligence-brief'}.

@@ -11,7 +11,7 @@
 // Helpers that need Supabase (rpc, sameOrigin, body, rate) are injected so
 // this file has no SDK dependency and is unit-testable.
 import { buildSnapshot } from './snapshot.js';
-import { runAnalyst, AnalystError } from './analyst.js';
+import { runAnalyst, AnalystError, DEFAULT_BUDGET_MS } from './analyst.js';
 import { createProvider, ProviderError } from './providers.js';
 import { createLogger, newRequestId } from './observability.js';
 
@@ -46,11 +46,21 @@ export async function handleIntelligence(req, res, ctx) {
   const { env, rpc, helpers, testIds, paywall } = ctx;
   const clock = ctx.clock ?? (() => new Date());
   const log = ctx.log ?? createLogger();
+  // The snapshot silently degrades when intelligence_metrics can't be read; make that visible in the logs.
+  const snapshotFor = async (period, requestId) => {
+    const snapshot = await buildSnapshot({ rpc, now: clock(), period, testIds, paywall });
+    if (snapshot.dataSource === 'fallback') {
+      log({ requestId, timestamp: clock().toISOString(), agent: 'snapshot', success: true, errorCode: snapshot.fallbackReason ?? 'snapshot_fallback', dataSource: 'fallback', period });
+    }
+    return snapshot;
+  };
 
   if (req.method === 'GET') {
     const period = queryParam(req, 'period') ?? 'day';
     if (!PERIODS.includes(period)) throw new helpers.BetaError(400, 'Unknown period.');
-    const snapshot = await buildSnapshot({ rpc, now: clock(), period, testIds, paywall });
+    // Each snapshot scans several tables for six windows; bound it even for admins.
+    await helpers.rate(req, 'intelligence-snapshot', 30);
+    const snapshot = await snapshotFor(period, newRequestId());
     return res.json({ snapshot });
   }
 
@@ -72,9 +82,11 @@ export async function handleIntelligence(req, res, ctx) {
   }
 
   const requestId = newRequestId();
-  const snapshot = await buildSnapshot({ rpc, now: clock(), period, testIds, paywall });
+  const started = Date.now();
+  const snapshot = await snapshotFor(period, requestId);
   try {
-    const result = await runAnalyst({ snapshot, provider, log, env, requestId });
+    // One budget for the whole request: whatever the snapshot used is taken off the model's time.
+    const result = await runAnalyst({ snapshot, provider, log, env, requestId, budgetMs: DEFAULT_BUDGET_MS - (Date.now() - started) });
     return res.json({ ...result, snapshot });
   } catch (error) {
     if (error instanceof AnalystError) {
