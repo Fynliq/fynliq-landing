@@ -15,6 +15,7 @@ import { useAccount } from '../accounts/AccountProvider';
 import { useBilling } from '../billing/BillingProvider';
 import { isLocked, onUnlockJourney, trackFunnel } from '../billing/client';
 import { useRouter } from '../router/router';
+import { trackEvent } from '../analytics/events';
 
 interface BetaUploadProps {
   /** Handed the finished read (full answer, or a preview before the $1 unlock). */
@@ -129,6 +130,10 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
       }
 
       setStage(null);
+      // Failures the server never saw (it records its own): network or format trouble.
+      if (!(thrown instanceof AnalysisError) || thrown.kind === 'network' || thrown.kind === 'format') {
+        trackEvent('upload_failed', { reason: thrown instanceof AnalysisError ? thrown.kind : 'client', files: files.length });
+      }
       setError(
         thrown instanceof AnalysisError
           ? thrown.message

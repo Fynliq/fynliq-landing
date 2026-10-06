@@ -1,5 +1,7 @@
+import { observe } from '../server/observability.js';
 import {clients,rpc,sameOrigin,body,session,token,hash,newSession,cookie,isAdmin,rate,fail,BetaError,guestId} from '../server/beta.js';
 import {recordTouch} from '../server/attribution.js';
+import {track,identify} from '../server/analytics.js';
 export function createAuthHandler(dependencies={}) {return async(req,res)=>{
   res.setHeader('Cache-Control','no-store');
   try {
@@ -12,11 +14,16 @@ export function createAuthHandler(dependencies={}) {return async(req,res)=>{
     if(input?.action==='guest'){
       // input.touch: where this page load came from (UTM tags, referrer host,
       // landing path). Recorded best effort; it never blocks the session.
-      try{const existing=await session(req,db,env);await recordTouch(db,existing.user_id,input.touch,env);return res.json({user:{id:existing.user_id},admin:false});}catch(e){if(e.status!==401)throw e;}
+      try{const existing=await session(req,db,env);await recordTouch(db,existing.user_id,input.touch,env);
+        // One landing per browser per day; a return session only after an earlier day (checked in the database).
+        await track(req,['landing_view','return_session'],{},{db,env});
+        return res.json({user:{id:existing.user_id},admin:false});}catch(e){if(e.status!==401)throw e;}
       await rate(db,req,'guest-create',100,env);
       const fresh=newSession(),id=guestId();
       await rpc(db,'beta_guest',{p_user:id,p_hash:fresh.digest});
       await recordTouch(db,id,input.touch,env);
+      // The new guest cookie isn't on this request yet, so name the guest explicitly.
+      await track(req,['landing_view','return_session'],{identity:async()=>({...await identify(req,db,env),guestId:id})},{db,env});
       res.setHeader('Set-Cookie',cookie(fresh.value,30*24*60*60));
       return res.json({user:{id},admin:false});
     }
@@ -39,4 +46,4 @@ export function createAuthHandler(dependencies={}) {return async(req,res)=>{
     return res.json({user:{id:data.user.id},admin:isAdmin({user_id:data.user.id},env)});
   }catch(error){return fail(res,error);}
 };}
-export default createAuthHandler();
+export default observe('/api/beta-auth', createAuthHandler());

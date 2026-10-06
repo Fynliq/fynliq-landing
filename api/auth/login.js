@@ -1,2 +1,3 @@
+import { observe } from '../../server/observability.js';
 import { createAccountHandler } from '../../server/account-login.js';
-export default createAccountHandler('login');
+export default observe('/api/auth/login', createAccountHandler('login'));

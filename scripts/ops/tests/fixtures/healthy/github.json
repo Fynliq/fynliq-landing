@@ -1,0 +1,37 @@
+{
+ "protected_branches": [
+  "main",
+  "feat/connect-ask-backend"
+ ],
+ "open_prs": [
+  {
+   "number": 21,
+   "title": "Fix typo on landing",
+   "draft": false,
+   "labels": [
+    "risk:green",
+    "agent:code-review",
+    "agent:release"
+   ],
+   "ci": "success",
+   "created_at": "2026-10-08T01:00:00Z"
+  }
+ ],
+ "ci_failures": [],
+ "uptime": {
+  "runs": 96,
+  "failures": 0
+ },
+ "deploy": {
+  "sha": "abcdef1234567",
+  "state": "success",
+  "summary": "\u2705 live build deployed"
+ },
+ "agent_issues_open": [],
+ "agents": {
+  "investigations_completed": 1,
+  "issues_created": 1,
+  "prs_created": 1,
+  "prs_awaiting_approval": 1
+ }
+}

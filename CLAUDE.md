@@ -54,7 +54,9 @@ node --test test/*.test.mjs             # node:test unit files (not vitest)
 npm run test:beta        # PGlite integration: guest beta auth/ask (closed-beta schema only)
 npm run test:billing     # PGlite integration: ALL migrations, billing + webhook, fake Stripe
 node test/attribution-integration.mjs   # PGlite integration: ALL migrations, attribution
-python3 scripts/validate_ops.py         # validates .claude/, ops/*.yaml (needs PyYAML)
+python3 scripts/validate_ops.py         # validates .claude/, ops/*.yaml, workflows (needs PyYAML)
+node test/observability-integration.mjs # PGlite integration: analytics events, health log, ops metrics
+python3 scripts/ops/tests/test_ops.py   # PR routing, triggers, milestones, reports (fixtures)
 ```
 
 The integration tests run against an in-memory Postgres (PGlite) and use fakes
@@ -145,6 +147,23 @@ should verify manually · The release-gate table from `release-agent`.
   metadata or third parties.
 - Never prefix a secret with `VITE_`, because that ships it to the browser.
 
+**Analytics**
+- Only the event names in `docs/analytics-events.md`, only through
+  `server/analytics.js` (server) or `src/analytics/events.ts` (browser).
+  Add new names; never rename them.
+- Identity comes from the httpOnly cookies, never from a request body.
+  Metadata must pass `sanitizeMetadata()`.
+- Read numbers only through the `ops_*` aggregate functions, never raw rows.
+
+**Enforcement.** `.claude/hooks/guard.mjs` is a `PreToolUse` hook that runs
+in every permission mode, auto-approve included. It hard-blocks merges,
+protected-branch pushes, production CLI and API writes, production MCP write
+tools, `.env` reads, and any agent SQL that isn't a read-only SELECT of
+`ops_*` or `*_metrics` functions. Agents act as the owner's GitHub account,
+so this hook, not the account's permissions, is what holds them at level 3.
+Never edit or disable it to get something done. That's a RED change for the
+human.
+
 **Stop the release** and explain why whenever something dangerous is found:
 leaked secrets, an auth bypass, a payment-integrity gap, PII exposure, an
 irreversible migration, or tests that can't be run for a RED change.
@@ -160,6 +179,12 @@ irreversible migration, or tests that can't be run for a RED change.
 - Architecture: `docs/architecture.md`
 - Critical journey: `docs/critical-user-flows.md`
 - How the agent system works: `docs/agent-system.md`
+- Analytics event model: `docs/analytics-events.md`
+- What wakes which agent: `ops/agent-triggers.yaml`; nightly autopilot:
+  `scripts/ops/`, `ops/ops-repo-template/`, `ops/autopilot-session.md`
+- GitHub's default branch is `feat/search-tabs-gradi` (stale) until the human
+  changes it. Scheduled and `workflow_run` workflows only run from the
+  default branch.
 - Existing contracts: `docs/AUTH_API.md`, `docs/ANALYSIS_API.md`,
   `docs/ASK_API.md`, `docs/BILLING.md`, `docs/DEPLOYMENT.md`. Note that
   DEPLOYMENT.md predates the live-branch alias. `docs/architecture.md`

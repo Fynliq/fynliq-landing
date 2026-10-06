@@ -20,3 +20,6 @@ docs/.tmp
 /.live.mjs
 /.diag.mjs
 /.chk.mjs
+
+# Python bytecode from scripts/ops
+__pycache__/

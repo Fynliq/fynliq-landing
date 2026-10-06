@@ -81,5 +81,19 @@ requests stop before any query).
   turns schedules off in public repos after 60 days without activity. A quiet
   inbox isn't proof of health; glance at the Actions tab now and then.
 
-Error tracking and journey events are the next phase-2 items. Wire each new
-alert to this runbook as it's added.
+### Health triggers (private `fynq-ops` repo, hourly and nightly)
+`scripts/ops/health_check.py` and `nightly.py` read the read-only metrics view
+and open one issue per fired trigger in `fynq-ops`, labelled with the agents
+to wake (`ops/agent-triggers.yaml`). GitHub notifies the owner.
+
+| Trigger | Threshold | First check |
+| --- | --- | --- |
+| `webhook_failure` | any problem outcome | `ops/runbooks/payments.md` → reconciliation; Stripe webhook delivery log |
+| `error_spike` | >5% 5xx with ≥50 requests | `ops_health` routes table → Vercel runtime logs for that route → recent deploy |
+| `ai_failure_spike` | reader success <80% with ≥10 analyses | OpenAI status, `OPENAI_*` env, `upload_events` reason codes |
+| `auth_failure_spike` | ≥50 failed log-ins | possible credential stuffing → rate limits, Vercel firewall (human) |
+| `frontend_error_spike` | ≥20 browser errors | `client_error` by `source_file` and `path` → last deploy |
+| `deployment_failed`, `uptime_failed`, `ci_failed` | any | sections above |
+
+Thresholds are conservative at FYNQ's current scale. Tune them in
+`ops/agent-triggers.yaml` (a RED change).

@@ -15,12 +15,14 @@
 // GET /api/analyze[?id=] returns the account's newest (or given) saved
 // analysis under the same rule, so a refresh, a Stripe return or a new login
 // finds it again. With the paywall off (the default) nothing is saved.
+import { observe } from '../server/observability.js';
 import { structuredResponse } from '../server/provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
 import { PrivacyError, PRIVACY_MESSAGE } from '../server/privacy.js';
 import { recordUpload } from '../server/upload-tracking.js';
+import { track as trackEvents } from '../server/analytics.js';
 import { clients, rpc, BetaError } from '../server/beta.js';
 import { analysisGate, track as trackFunnel } from '../server/billing.js';
 import { computeAidOverview, previewOf } from '../server/aid-overview.js';
@@ -369,6 +371,9 @@ export function createAnalyzeHandler(dependencies = {}) {
     if (legacy && gate.access === 'premium') await trackFunnel(gate.db, gate.account, legacy, env, false);
   };
   await funnel('aid_analysis_started', 'analysis_started');
+  // Canonical events: the redacted text reached the server and the read begins.
+  await trackEvents(req, [{ name: 'upload_completed', metadata: { files: documents.length } }, 'analysis_started'], {},
+    { env, clients: dependencies.clients || clients });
 
   // Defence in depth: whatever the browser did, redact again here.
   const redacted = redactDocuments(documents);
@@ -393,7 +398,7 @@ export function createAnalyzeHandler(dependencies = {}) {
     }
     // Never log the error body: it can echo document text.
     console.error('Document reader provider error:', error?.name ?? 'Error');
-    await track(req, { outcome: 'reader_error', files: documents.length });
+    await track(req, { outcome: 'reader_error', files: documents.length, ai_ms: Date.now() - started });
     return bad(res, 502, 'We couldn’t analyze your aid summary. Please try again.');
   }
 
@@ -448,11 +453,11 @@ export function createAnalyzeHandler(dependencies = {}) {
     let message = 'We couldn’t read enough information from this image. Try uploading a clearer screenshot.';
     if (!names && amounts) message = 'This screenshot shows amounts but not the award names next to them, so Fynliq cannot tell which is which. Upload it together with a screenshot that shows the award names (you can choose up to 3 files at once).';
     else if (names && !rowAmounts) message = 'This screenshot shows the award names but not the amount for each one. If your aid table scrolls sideways, take a second screenshot of the amounts and upload both together.';
-    await track(req, { outcome: 'unreadable', files: documents.length, reason: ref });
+    await track(req, { outcome: 'unreadable', files: documents.length, reason: ref, ai_ms: Date.now() - started, second_pass: secondPass });
     return bad(res, 422, `${message} (ref: ${ref})`);
   }
 
-  await track(req, { outcome: 'read', files: documents.length, figures: facts.length });
+  await track(req, { outcome: 'read', files: documents.length, figures: facts.length, ai_ms: Date.now() - started, second_pass: secondPass });
   const overview = computeAidOverview(facts, scans.map((s) => s.scan));
   if (env.FYNQ_READER_DEBUG === 'true' || env.NODE_ENV === 'development') {
     // Development only. Types and counts; never images, names, IDs or amounts.
@@ -483,4 +488,4 @@ export function createAnalyzeHandler(dependencies = {}) {
   };
 }
 
-export default createAnalyzeHandler();
+export default observe('/api/analyze', createAnalyzeHandler());

@@ -86,8 +86,8 @@ server-only, and `VITE_*` values are public. Details are in
 | CI | None before this PR. Added `.github/workflows/ci.yml` (build, unit, PGlite integration, ops validation) | 1 (this PR) |
 | Lint | No ESLint or Prettier configured | 2 |
 | E2E | No automated journey test; screenshot harnesses are manual | 2 |
-| Observability | Uptime checks every 15 min added (`.github/workflows/uptime.yml`), active once the default branch contains them. Still to do: error tracking, log retention, OpenAI latency and cost metrics | 2 |
-| "Qualified session" | Undefined | 2 |
+| Observability | Phase 2 adds the canonical events (`docs/analytics-events.md`), the API request log (errors, p50/p95 latency, DB failures), frontend error counts, AI reader latency, read-only `ops_*` metrics, and nightly and hourly reports in the private `fynq-ops` repo. Uptime checks are active once the default branch contains them. Still to do: OpenAI cost per analysis, Vercel log retention | 2 |
+| "Qualified session" | Defined: the person reached My Aid (`my_aid_viewed`) | done |
 | Test wiring | `npm test` (vitest) also collects the `node:test` files in `test/`; `attribution-integration.mjs` has no npm script. CI runs them correctly. | 2 |
 | Schema drift | Production has migration records not in git | Human decision |
 | Staging | None | Later |
