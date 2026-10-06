@@ -61,7 +61,14 @@ export const PRODUCT_CONTEXT = [
   'Volumes are early-stage and small; most rates are based on single or double-digit samples.',
 ];
 
-const compactWindow = (w) => (w ? { value: w.value, changePercent: w.changePercent, direction: w.direction, reason: w.reason } : null);
+// A window that isn't comparable (a longer cohort window for a conversion
+// rate) is sent without its value, so the model can't cite it as a baseline;
+// the validator then rejects that number as ungrounded.
+const compactWindow = (w) => {
+  if (!w) return null;
+  if (w.reason === 'different_window_length') return { value: null, changePercent: null, direction: null, reason: w.reason };
+  return { value: w.value, changePercent: w.changePercent, direction: w.direction, reason: w.reason };
+};
 
 /** The projection of a snapshot that is sent to the model. */
 export function modelInputFromSnapshot(snapshot) {
@@ -89,6 +96,7 @@ export function modelInputFromSnapshot(snapshot) {
     bottleneckCandidates: snapshot.candidates.bottlenecks.map((b) => ({
       stage: b.stage, label: b.label, rate: b.rate, numerator: b.numerator, denominator: b.denominator, lost: b.lost,
       baselineRate: b.baselineRate, baselineWindow: b.baselineWindow, changePercent: b.changePercent,
+      baselineSampleSize: b.baselineSampleSize, baselineReliability: b.baselineReliability,
       reliability: b.reliability, eligible: b.eligible, deteriorating: b.deteriorating, reason: b.reason,
     })),
     unavailable: snapshot.unavailable,

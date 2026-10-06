@@ -35,9 +35,10 @@ Rules:
 5. biggestChange must be one of biggestChangeCandidates, copying its metric, direction and magnitude exactly. Use "none" with direction "flat" and magnitude 0 only when there are no candidates. Mention low_sample reliability when present.
 6. Small samples (reliability "small"/"very_small", or warnings about samples): never use "high" confidence, say the result is directional, and include at least one dataQualityWarning.
 7. Prioritize the recommendation by: expected revenue impact, user impact, confidence in evidence, implementation effort, reversibility, risk. Prefer small, reversible experiments. The recommendation must be something FYNLIQ can do (product, copy, onboarding, marketing, instrumentation) — never a production data change, price change, refund or security change.
-8. recommendedAction.metricToImprove must be an available metric, and watchMetrics must include it. expectedImpact is a qualitative level, not a number.
+8. recommendedAction.metricToImprove must be an available metric, and watchMetrics must include it. expectedImpact is a qualitative level, not a number. The action may count things to do (for example "test 3 versions"), but never a predicted result.
 9. If key data is unavailable, say so plainly and consider recommending the instrumentation that would make the decision possible.
-10. Be concise and concrete. Plain English for a busy founder. No hype.`;
+10. Be concise and concrete. Plain English for a busy founder. No hype.
+11. Compare rates only with the baselines the input gives you (previousPeriod, or a bottleneck candidate's baselineRate). A window whose reason is "different_window_length" is not comparable: never cite it.`;
 
 export class AnalystError extends Error {
   constructor(code, requestId, details = []) { super(`Analyst failed: ${code}`); this.name = 'AnalystError'; this.code = code; this.requestId = requestId; this.details = details; }
@@ -46,7 +47,9 @@ export class AnalystError extends Error {
 /** The validation context derived from a snapshot. */
 export function validationContext(snapshot, input) {
   const bottleneck = snapshot.candidates.bottlenecks.find((b) => b.stage === snapshot.candidates.primaryBottleneck);
-  const stageSmall = !bottleneck || bottleneck.reliability !== 'ok';
+  // A deteriorating step is only as reliable as the smaller of its two samples.
+  const stageSmall = !bottleneck || bottleneck.reliability !== 'ok'
+    || (bottleneck.deteriorating && bottleneck.baselineReliability !== 'ok');
   const changeSmall = snapshot.candidates.biggestChanges.length === 0 || snapshot.candidates.biggestChanges[0].reliability !== 'ok';
   return {
     input,

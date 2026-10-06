@@ -248,12 +248,15 @@ export function rankBiggestChanges(comparisons, limit = 5) {
  *      A longer window is never a baseline: its cohort had more time to convert.
  *   2. Then the remaining eligible steps by people lost at the step
  *      (denominator - numerator), most first.
- * A step is eligible only with denominator >= MIN_BOTTLENECK_DENOMINATOR.
+ * A step is eligible only with denominator >= MIN_BOTTLENECK_DENOMINATOR, and a
+ * baseline counts only with the same minimum: "1 of 2 yesterday" is noise, not
+ * a rate a step can fall from.
  */
 export function rankBottlenecks(comparisons) {
   const steps = comparisons.filter((c) => c.kind === 'rate' && RATE_METRICS[c.metric]?.stage);
   const candidates = steps.map((c) => {
-    const baseline = [c.trailing7, c.previous].find((b) => b && Number.isFinite(b.value) && b.reason !== 'different_window_length') ?? null;
+    const baseline = [c.trailing7, c.previous].find((b) => b && Number.isFinite(b.value) && b.reason !== 'different_window_length'
+      && Number.isFinite(b.sampleSize) && b.sampleSize >= MIN_BOTTLENECK_DENOMINATOR) ?? null;
     const eligible = Number.isFinite(c.denominator) && c.denominator >= MIN_BOTTLENECK_DENOMINATOR && c.current !== null;
     const relativeDrop = eligible && baseline && baseline.value > 0 ? round((baseline.value - c.current) / baseline.value, 4) : null;
     const deteriorating = relativeDrop !== null && relativeDrop >= DETERIORATION_THRESHOLD;
@@ -262,6 +265,7 @@ export function rankBottlenecks(comparisons) {
       lost: eligible ? c.denominator - c.numerator : null,
       baselineRate: baseline?.value ?? null, baselineWindow: baseline === c.trailing7 && baseline ? 'trailing7' : baseline ? 'previous' : null,
       changePercent: baseline?.changePercent ?? null, reliability: c.reliability,
+      baselineSampleSize: baseline?.sampleSize ?? null, baselineReliability: baseline ? reliabilityOf(baseline.sampleSize) : null,
       relativeDrop, eligible, deteriorating,
       reason: !eligible ? (c.denominator ? `fewer than ${MIN_BOTTLENECK_DENOMINATOR} entered this step` : 'no one entered this step')
         : deteriorating ? 'rate fell vs baseline' : 'most people lost at this step',

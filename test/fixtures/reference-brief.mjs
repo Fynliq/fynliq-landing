@@ -9,7 +9,7 @@ export function referenceBrief(snapshot) {
   const stage = snapshot.candidates.primaryBottleneck;
   const b = snapshot.candidates.bottlenecks.find((x) => x.stage === stage);
   const bc = snapshot.candidates.biggestChanges[0] ?? null;
-  const small = !b || b.reliability !== 'ok' || !bc || bc.reliability !== 'ok';
+  const small = !b || b.reliability !== 'ok' || (b.deteriorating && b.baselineReliability !== 'ok') || !bc || bc.reliability !== 'ok';
   const available = new Set(snapshot.comparisons.filter((c) => c.current !== null).map((c) => c.metric));
   const metricToImprove = b ? stage : ['newVisitors', 'signups', 'uploads'].find((m) => available.has(m));
   const evidence = b

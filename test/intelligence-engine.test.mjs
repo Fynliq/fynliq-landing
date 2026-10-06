@@ -69,7 +69,7 @@ test('metrics recorded only since mid-window are not compared (no fake growth)',
 });
 
 test('bottleneck ranking: deteriorating steps first, then people lost; needs a minimum denominator', () => {
-  const step = (metric, current, num, den, base) => ({ metric, kind: 'rate', label: metric, current, numerator: num, denominator: den, reliability: reliabilityOf(den), trailing7: base === null ? null : { value: base, changePercent: percentChange(current, base).changePercent }, previous: null });
+  const step = (metric, current, num, den, base) => ({ metric, kind: 'rate', label: metric, current, numerator: num, denominator: den, reliability: reliabilityOf(den), trailing7: base === null ? null : { value: base, sampleSize: 40, changePercent: percentChange(current, base).changePercent }, previous: null });
   const r = rankBottlenecks([
     step('visitorToSignup', 0.1, 10, 100, 0.1),
     step('signupToUpload', 0.5, 5, 10, 0.5),
