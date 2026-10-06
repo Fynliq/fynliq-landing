@@ -9,8 +9,10 @@
  * this is only the hand-off.
  *
  * Privacy: only utm_* values, a ?ref= tag, the referring site's HOST name,
- * the landing PATH, and whether an ad click id was present (never the id
- * itself). No full URLs, no search text, nothing typed by the student.
+ * the landing PATH, whether an ad click id was present (never the id
+ * itself), and which app's built-in browser opened the page, if any (just
+ * the app's name, never the user-agent string). No full URLs, no search
+ * text, nothing typed by the student.
  */
 
 export interface ArrivalTouch {
@@ -19,6 +21,25 @@ export interface ArrivalTouch {
   landing: string;
   clickIds: { ttclid: boolean; gclid: boolean; fbclid: boolean };
   ref?: string;
+  /** Opened inside this app's built-in browser (bio links, DMs). */
+  app?: InAppBrowser;
+}
+
+export type InAppBrowser = 'tiktok' | 'instagram' | 'facebook';
+
+/**
+ * TikTok, Instagram and Facebook open links in their own built-in browsers,
+ * which name themselves in the user agent. TikTok's sends no referrer, so
+ * this is the only way a plain fynliq.com link in a TikTok bio can be told
+ * apart from someone typing the address. Instagram is checked before
+ * Facebook because both are Meta apps.
+ */
+export function inAppBrowser(userAgent: string): InAppBrowser | undefined {
+  const ua = userAgent || '';
+  if (/musical_ly|bytedancewebview|\btrill\b|trill_|tiktok/i.test(ua)) return 'tiktok';
+  if (/\binstagram\b/i.test(ua)) return 'instagram';
+  if (/\bFBAN\/|\bFBAV\/|\bFB_IAB\/|\bFBIOS\b/.test(ua)) return 'facebook';
+  return undefined;
 }
 
 const KEY = 'fynq.arrival';
@@ -30,7 +51,7 @@ const short = (value: string | null): string | undefined => {
 };
 
 /** Builds the touch for a URL and referrer. Pure, for tests. */
-export function arrivalFrom(href: string, referrer: string): ArrivalTouch {
+export function arrivalFrom(href: string, referrer: string, userAgent = ''): ArrivalTouch {
   const url = new URL(href);
   const q = url.searchParams;
   let host: string | undefined;
@@ -47,13 +68,14 @@ export function arrivalFrom(href: string, referrer: string): ArrivalTouch {
     landing: /^\/[A-Za-z0-9/_.-]{0,199}$/.test(url.pathname) ? url.pathname : '/',
     clickIds: { ttclid: q.has('ttclid'), gclid: q.has('gclid'), fbclid: q.has('fbclid') },
     ref: short(q.get('ref')),
+    app: inAppBrowser(userAgent),
   };
 }
 
 /** Called once per full page load, before React renders. */
 export function captureArrival(): void {
   try {
-    const touch = arrivalFrom(window.location.href, document.referrer);
+    const touch = arrivalFrom(window.location.href, document.referrer, navigator.userAgent);
     sessionStorage.setItem(KEY, JSON.stringify(touch));
   } catch { /* storage blocked: the visit is simply not attributed */ }
 }

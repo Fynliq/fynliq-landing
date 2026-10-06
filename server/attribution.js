@@ -5,7 +5,8 @@
 //
 // What a browser may send (src/analytics/attribution.ts builds it):
 //   { utm: { source, medium, campaign, content, term }, referrer: <host>,
-//     landing: <path>, clickIds: { ttclid, gclid, fbclid }: booleans, ref }
+//     landing: <path>, clickIds: { ttclid, gclid, fbclid }: booleans, ref,
+//     app: 'tiktok' | 'instagram' | 'facebook' (built-in browser, if any) }
 // Everything is re-validated here. Only host names are accepted for the
 // referrer and only a path for the landing page, so a full URL, a search
 // query or anything personal never reaches the database. Click ids are
@@ -13,6 +14,9 @@
 import { rpc } from './beta.js';
 
 export const CHANNELS = ['tiktok', 'instagram', 'facebook', 'google', 'referral', 'direct', 'other'];
+
+/** Built-in app browsers the client may report, by name only. */
+const IN_APP = ['tiktok', 'instagram', 'facebook'];
 
 const LIMITS = { source: 100, medium: 100, campaign: 150, content: 150, term: 150 };
 
@@ -89,8 +93,9 @@ function channelForSource(source) {
  *   1. explicit UTM tags (utm_source present)
  *   2. a ?ref= shared link
  *   3. an ad click id (ttclid -> TikTok, gclid -> Google, fbclid -> Meta)
- *   4. a recognizable outside referrer
- *   5. direct
+ *   4. an app's built-in browser (TikTok, Instagram, Facebook)
+ *   5. a recognizable outside referrer
+ *   6. direct
  * utm_campaign / utm_content are kept whichever rule decides the source.
  * Returns the object stored by public.attribution_touch.
  */
@@ -103,6 +108,7 @@ export function classifyTouch(input, env = process.env) {
   if (referrer && isInternal(referrer, internalHosts(env))) referrer = null;
   const clickIds = raw.clickIds && typeof raw.clickIds === 'object' ? raw.clickIds : {};
   const ref = clean(raw.ref, 100);
+  const app = IN_APP.includes(raw.app) ? raw.app : null;
   const raw_utm = Object.fromEntries(Object.entries(utm).filter(([, v]) => v !== null).map(([k, v]) => [`utm_${k}`, v]));
   const base = { landing_page, referrer, raw_utm, term: utm.term, campaign: utm.campaign, content: utm.content };
 
@@ -117,9 +123,12 @@ export function classifyTouch(input, env = process.env) {
   if (clickIds.fbclid === true) {
     // Meta adds fbclid to links opened from both Instagram and Facebook; the
     // referrer, when there is one, says which.
-    const instagram = referrer && /(^|\.)instagram\.com$/.test(referrer);
+    const instagram = app === 'instagram' || Boolean(referrer && /(^|\.)instagram\.com$/.test(referrer));
     return { ...base, attribution_type: 'click_id', channel: instagram ? 'instagram' : 'facebook', source: instagram ? 'instagram' : 'facebook', medium: utm.medium ?? 'social' };
   }
+  // Opened inside TikTok / Instagram / Facebook: their bio links and DMs
+  // usually arrive with no referrer at all.
+  if (app) return { ...base, attribution_type: 'in_app', channel: app, source: app, medium: utm.medium ?? 'social' };
   if (referrer) {
     for (const [channel, pattern, source] of REFERRER_CHANNELS) {
       if (pattern.test(referrer)) return { ...base, attribution_type: 'referrer', channel, source, medium: utm.medium ?? (channel === 'google' ? 'organic' : 'social') };
