@@ -177,8 +177,17 @@ rejected.
 | Trailing 30-day average | The 30 days before the current period. `null` when the data history is shorter than 30 days |
 | Today so far vs yesterday at the same time | A partial day compared like-for-like (yesterday from 00:00 to the same clock time) |
 
-Counts compare per-day averages. Rates compare pooled rates (Σ numerator ÷
+Counts compare per-day averages. Rates use pooled rates (Σ numerator ÷
 Σ denominator), never averages of daily rates.
+
+**Conversion rates are compared only against windows of the same length.**
+They are cohort-in-window: a longer window gives its cohort more time to reach
+the next step, so a 7-day or 30-day rate is structurally higher than a 1-day
+rate even when nothing changed. For `period=day`, the trailing 7-day and 30-day
+rates are still reported (as context, `reason: "different_window_length"`, no
+`changePercent`), but only the previous day is a baseline. For `period=week`,
+the previous 7 days are the baseline and the 30-day rate is context only.
+Counts are unaffected (per-day averages are fair at any window length).
 
 ### Conversion definitions (cohort-in-window, always 0–1)
 
@@ -186,7 +195,7 @@ Counts compare per-day averages. Rates compare pooled rates (Σ numerator ÷
 | --- | --- |
 | `visitorToSignup` | New browsers in the window that are linked to an account created in the window ÷ new browsers |
 | `signupToUpload` | Accounts created in the window with an upload batch in the window ÷ accounts created |
-| `uploadToCheckout` | Paywall-eligible accounts that completed an aid upload in the window and started checkout in the window ÷ eligible uploaders |
+| `uploadToCheckout` | Paywall-eligible accounts that completed an aid upload in the window and started checkout in the window ÷ eligible uploaders (accounts already entitled before the window are excluded: they can't start checkout) |
 | `checkoutToPayment` | Accounts that started checkout in the window and paid (live, verified) in the window ÷ checkout starters |
 | `visitorToPayment` | New browsers in the window whose account paid in the window ÷ new browsers |
 | `uploadReadRate` | Upload batches read successfully ÷ upload batches |
@@ -195,7 +204,14 @@ Counts compare per-day averages. Rates compare pooled rates (Σ numerator ÷
 Sample-size rules: a rate whose denominator is under 10 is `very_small`, and
 under 30 is `small`. Percentage changes on counts under 10 are flagged as
 unreliable. A zero base gives `changePercent: null` with a reason, never
-`Infinity` or `NaN`.
+`Infinity` or `NaN`. A step nobody entered has a `null` rate with the note
+`no_one_entered_this_step`; it is still *available* data (only metrics the data
+source doesn't provide are listed in `unavailable`).
+
+Admin and test accounts (`BETA_ADMIN_USER_IDS`, `FYNQ_BILLING_TEST_ACCOUNT_IDS`,
+`is_test_account`) are excluded from sign-ups, uploads, Ask questions (through
+the guest browsers linked to them), the paywall funnel and revenue. Guest
+browsers that never signed in can't be excluded (see Missing data).
 
 ### Where intelligence is served (no new Vercel functions)
 
@@ -226,8 +242,19 @@ file). It's easy to add later; see §9.
 * **Provider call:** `store:false`, strict JSON schema, bounded output tokens,
   timeout.
 * **Access:** admin session plus the `BETA_ADMIN_USER_IDS` allow-list. POST
-  needs a same-origin check and a DB-backed rate limit, which bounds
-  model-cost abuse.
+  needs a same-origin check and a DB-backed rate limit (5/min), which bounds
+  model-cost abuse. The snapshot GET is rate limited too (30/min), because
+  each call scans several tables for six windows.
+* **Time budget:** one brief has 50 s for all model attempts (the function's
+  `maxDuration` is 60 s). Each attempt's provider timeout is the time left,
+  capped at 45 s, and the retry is skipped when under 12 s remain, so a slow
+  model ends in a logged `502 brief_unavailable`, never a platform 504.
+* **Validator:** besides digits, it rejects numbers written as words, multipliers
+  ("double", "3x") and numeric forecasts ("would add 20 …"), so an invented
+  projection can't reach the CEO in another form.
+* **SQL:** only `intelligence_metrics` (which validates its windows) is
+  executable by `service_role`. The inner `intelligence_window` has no bounds
+  and is callable only from inside it.
 * **Logging:** one structured line per request. It holds metadata only
   (§8), never the snapshot or the brief.
 * **Read-only:** the new RPC only runs `SELECT`s. Nothing in v1 writes
@@ -243,6 +270,12 @@ Vercel runtime logs with: `requestId`, `timestamp`, `agent`, `provider`,
 `INTELLIGENCE_COST_INPUT_PER_MTOK` and `INTELLIGENCE_COST_OUTPUT_PER_MTOK` are
 set. Prices are never hard-coded. The `requestId` is returned to the Command
 Center so a brief can be matched to its log line.
+
+A snapshot that falls back to the existing RPCs (because `intelligence_metrics`
+couldn't be read: not applied yet, or a database error) also writes a line, with
+`agent: "snapshot"`, `errorCode: "intelligence_metrics_unavailable"` and
+`dataSource: "fallback"`, so a broken RPC is visible rather than silently
+degraded.
 
 ## 9. Extension points (not implemented)
 
@@ -284,3 +317,16 @@ v1.
    deploy.
 
 Order: the migration and the code are independent. Either can go first.
+
+## 12. Known limitations (v1)
+
+* **No daily spending cap on briefs.** The brief POST is limited to 5 a minute
+  per IP address (each brief makes at most 2 model calls), not per admin per day.
+  A per-day cap needs a small counter table, so it's a follow-up.
+* **Week view:** the previous period and the trailing 7 days are the same
+  window, so that comparison appears twice.
+* **Guest-only admin traffic** (an admin browser that never signed in) still
+  counts as visitors.
+* **The live model has not been evaluated.** `npm run eval:intelligence` runs
+  the 10 scenarios against the real provider and needs an API key and human
+  approval. CI covers the deterministic engine and the validator.
