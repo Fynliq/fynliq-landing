@@ -109,6 +109,15 @@ await db.exec(`
  -- Attribution: guests 1-2 from TikTok, guest 3 direct, guest 99 legacy.
  update public.acquisition_attribution set channel='tiktok', attribution_type='utm', source='tiktok', campaign='secret campaign text' where guest_id in ('${id(1)}','${id(2)}');
  update public.acquisition_attribution set channel='direct', attribution_type='direct' where guest_id = '${id(3)}';
+ -- More noise that must be excluded: the admin uploads and asks a question from its own browser (guest 901).
+ insert into public.upload_events(account_id, outcome, files, figures, created_at) values ('${TEST_ACCOUNT}','read',1,2,'${D}08:00:00Z');
+ insert into public.beta_sessions(id, token_hash, user_id, kind) values ('${id(501)}','h2','${id(901)}','guest');
+ insert into public.beta_questions(user_id, session_id, created_at, finished_at, state) values ('${id(901)}','${id(501)}','${D}12:00:00Z','${D}12:00:05Z','success');
+ -- The old account paid long ago and uploads again on the day: it can't start checkout, so it is not in Upload -> Checkout.
+ insert into public.billing_checkouts(checkout_session_id, account_id, livemode, is_test_account, status, amount_total, currency, expires_at, created_at, paid_at) values
+  ('cs_live_inteloldpaid000005','${id(199)}',true,false,'paid',100,'usd','${OLD}','${OLD}','${OLD}');
+ insert into public.billing_entitlements(account_id, checkout_session_id, amount, currency, livemode, paid_at) values ('${id(199)}','cs_live_inteloldpaid000005',100,'usd',true,'${OLD}');
+ insert into public.monetization_events(account_id, event_type, livemode, is_test_account, created_at) values ('${id(199)}','aid_upload_completed',true,false,'${D}10:01:00Z');
 `);
 // The attribution migration backfills existing guests as legacy; fresh rows are needed for guests created after it.
 await db.exec(`insert into public.acquisition_attribution(guest_id, first_seen_at, attribution_type, channel, source, campaign) values
@@ -121,7 +130,7 @@ const fallback = await buildSnapshot({ rpc, now, testIds: [TEST_ACCOUNT] });
 assert.equal(fallback.dataSource, 'fallback');
 assert.equal(fallback.traffic.visitors, 7, 'fallback counts every new browser that day');
 assert.equal(fallback.funnel.signups, 4, 'fallback cannot exclude test accounts (warned)');
-assert.equal(fallback.funnel.uploads, 3);
+assert.equal(fallback.funnel.uploads, 4, 'fallback cannot exclude the admin upload either');
 assert.equal(fallback.funnel.payments, null);
 assert.ok(fallback.dataQualityWarnings.some((w) => w.includes('include admin and test accounts')));
 console.log('✓ fallback snapshot before the migration');
@@ -137,6 +146,7 @@ for (const role of ['anon', 'authenticated']) {
   assert.equal(await db.value(`select has_function_privilege('${role}', 'public.intelligence_window(timestamptz, timestamptz, uuid[], boolean)', 'execute')`), false, `${role} cannot execute window`);
 }
 assert.equal(await db.value(`select has_function_privilege('service_role', 'public.intelligence_metrics(jsonb, uuid[], boolean)', 'execute')`), true);
+assert.equal(await db.value(`select has_function_privilege('service_role', 'public.intelligence_window(timestamptz, timestamptz, uuid[], boolean)', 'execute')`), false, 'the unbounded window function is internal only');
 console.log('✓ service_role only');
 
 const result = await rpc('intelligence_metrics', {

@@ -16,10 +16,14 @@
 -- is returned as counts per fixed channel enum.
 --
 -- Exclusions: admin/test accounts (p_test, the same list billing_metrics
--- receives) and rows flagged is_test_account. Revenue counts only Stripe mode
--- p_livemode (the server passes true: live money only).
+-- receives) and rows flagged is_test_account, across sign-ups, uploads, Ask
+-- questions (via the guest browsers linked to those accounts), the paywall
+-- funnel and revenue. Revenue counts only Stripe mode p_livemode (the server
+-- passes true: live money only). Accounts already entitled before a window are
+-- left out of that window's Upload -> Checkout step (they can't check out).
 --
--- Access: service_role only, like every other FYNQ RPC.
+-- Access: intelligence_metrics is service_role only, like every other FYNQ
+-- RPC. intelligence_window (unbounded) is callable only from inside it.
 --
 -- Rollback (safe, nothing depends on these):
 --   drop function public.intelligence_metrics(jsonb, uuid[], boolean);
@@ -40,9 +44,19 @@ language sql stable security definer set search_path='' as $$
   select a.user_id from public.accounts a, test
   where a.created_at >= p_start and a.created_at < p_end and a.user_id <> all(test.ids)),
  uploads as (
-  select e.* from public.upload_events e where e.created_at >= p_start and e.created_at < p_end),
+  select e.* from public.upload_events e, test
+  where e.created_at >= p_start and e.created_at < p_end
+   and (e.account_id is null or e.account_id <> all(test.ids))),
+ -- Questions belong to guest browsers; drop the ones linked to an admin/test account.
  questions as (
-  select q.* from public.beta_questions q where q.created_at >= p_start and q.created_at < p_end),
+  select q.* from public.beta_questions q, test
+  where q.created_at >= p_start and q.created_at < p_end
+   and not exists(select 1 from public.account_guests g where g.guest_id = q.user_id and g.user_id = any(test.ids))),
+ -- Accounts that had already paid before the window can never start checkout,
+ -- so their uploads are not part of the Upload -> Checkout step.
+ entitled_before as (
+  select b.account_id from public.billing_entitlements b
+  where b.status = 'active' and b.paid_at < p_start),
  mev as (
   select m.account_id, m.created_at,
    case m.event_type
@@ -64,7 +78,8 @@ language sql stable security definer set search_path='' as $$
   join public.billing_checkouts c on c.checkout_session_id = e.checkout_session_id, test
   where e.livemode = p_livemode and e.received_at >= p_start and e.received_at < p_end
    and not c.is_test_account and c.account_id <> all(test.ids)),
- first_upload as (select account_id, min(created_at) at from mev where step = 'upload' group by 1),
+ first_upload as (select account_id, min(created_at) at from mev
+  where step = 'upload' and account_id not in (select account_id from entitled_before) group by 1),
  first_checkout as (select account_id, min(created_at) at from mev where step = 'checkout' group by 1),
  activity as (
   select l.user_id account_id from public.account_events l
@@ -170,8 +185,11 @@ $$;
 
 revoke all on function public.intelligence_window(timestamptz, timestamptz, uuid[], boolean),
  public.intelligence_metrics(jsonb, uuid[], boolean) from public, anon, authenticated;
-grant execute on function public.intelligence_window(timestamptz, timestamptz, uuid[], boolean),
- public.intelligence_metrics(jsonb, uuid[], boolean) to service_role;
+-- intelligence_window has no input bounds, so nobody may call it directly: it
+-- runs only inside intelligence_metrics (security definer, as the owner),
+-- which validates the windows first.
+revoke all on function public.intelligence_window(timestamptz, timestamptz, uuid[], boolean) from service_role;
+grant execute on function public.intelligence_metrics(jsonb, uuid[], boolean) to service_role;
 commit;
 
 -- After applying (read-only smoke test in the SQL editor):
