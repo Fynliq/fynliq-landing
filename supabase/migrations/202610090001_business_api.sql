@@ -283,6 +283,7 @@ declare v_rows integer; v_pending record;
 begin
  if p_credits is null or p_credits < 1 or p_credits > 1000000 then raise exception 'invalid_credits'; end if;
  if p_livemode is null then raise exception 'invalid_input'; end if;
+ if p_payment_intent is not null then perform pg_advisory_xact_lock(hashtextextended('biz-pi:' || p_payment_intent, 0)); end if;
  perform pg_advisory_xact_lock(hashtextextended('biz:' || p_org::text, 0));
  perform 1 from public.business_orgs where id = p_org;
  if not found then raise exception 'org_not_found'; end if;
@@ -310,6 +311,8 @@ language plpgsql security definer set search_path = '' as $$
 declare v_purchase record; v_target integer; v_done integer; v_delta integer;
 begin
  if p_payment_intent is null or p_total_amount is null or p_total_amount <= 0 or p_reversed_amount is null or p_reversed_amount < 0 then raise exception 'invalid_input'; end if;
+ -- Serializes with biz_grant_purchase for the same payment, so a refund racing its grant is never lost.
+ perform pg_advisory_xact_lock(hashtextextended('biz-pi:' || p_payment_intent, 0));
  select org_id, delta, livemode into v_purchase from public.business_credit_ledger
  where kind = 'purchase' and stripe_payment_intent = p_payment_intent and livemode = p_livemode;
  if not found then
@@ -319,6 +322,8 @@ begin
   on conflict (stripe_payment_intent) do update set
    reversed_amount = greatest(public.business_pending_reversals.reversed_amount, excluded.reversed_amount),
    dispute = public.business_pending_reversals.dispute or excluded.dispute;
+  -- Unmatched reversals (refunds of other charges on the account) are dropped after 90 days.
+  delete from public.business_pending_reversals where created_at < now() - interval '90 days';
   return jsonb_build_object('result', 'no_purchase');
  end if;
  perform pg_advisory_xact_lock(hashtextextended('biz:' || v_purchase.org_id::text, 0));
