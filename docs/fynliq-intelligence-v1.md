@@ -209,9 +209,11 @@ unreliable. A zero base gives `changePercent: null` with a reason, never
 source doesn't provide are listed in `unavailable`).
 
 Admin and test accounts (`BETA_ADMIN_USER_IDS`, `FYNQ_BILLING_TEST_ACCOUNT_IDS`,
-`is_test_account`) are excluded from visitors, attribution, sign-ups, uploads and
-Ask questions (through the guest browsers linked to those accounts), the paywall
-funnel and revenue. An admin browser that never signed in can't be recognised
+`is_test_account`) are excluded from sign-ups, uploads, the paywall funnel and
+revenue. Guest browsers linked *only* to those accounts are excluded from
+visitors, attribution, guest-only uploads and Ask questions; a student's browser
+that an admin once signed into still counts, and a real account's upload always
+counts. An admin browser that never signed in can't be recognised
 and still counts as a visitor.
 
 A bottleneck baseline needs at least 5 people in it, like the step itself: "1
@@ -255,13 +257,17 @@ file). It's easy to add later; see §9.
   `maxDuration` is 60 s). Each attempt's provider timeout is the time left,
   capped at 45 s, and the retry is skipped when under 12 s remain, so a slow
   model ends in a logged `502 brief_unavailable`, never a platform 504.
-* **Validator:** besides digits, it rejects numbers written as words, multipliers
-  ("double", "3x") and numeric forecasts (a modal governing a growth verb with a
-  numeric target: "would add 20", "should return to 40%"), so an invented
-  projection can't reach the CEO in another form. Hedged hypotheses ("may point
-  to"), "double-counting" and true descriptions ("halved") are allowed. The
-  recommended action may count things to do ("test 3 versions"). Only the
-  period's own dates ("October 5, 2026") are exempt from number grounding.
+* **Validator:** besides digits, it rejects numbers written as words,
+  multipliers ("doubled", "halved", "3x", "2 times higher"; the computed
+  percentage can be quoted instead), goal-setting with a number ("aim for 8
+  sign-ups", "expect 8 more") and numeric forecasts: any modal, hedged or not
+  ("will", "should", "may", "might"…), governing a change verb with a numeric
+  target ("may add 20", "should be back at 40%"). A modal without a numeric
+  target ("may point to unclear copy") and sample-size advice ("would need to
+  reach 30") are allowed. Exempt from number grounding: the period's own date
+  phrases, window phrases ("7-day", "30 days") and, in the recommended action
+  only, counts of things to do ("post 4 TikToks", "test two versions"). The
+  engine's sample-size thresholds are in the model input, so they are grounded.
   Non-comparable windows are sent to the model without their value.
 * **SQL:** only `intelligence_metrics` (which validates its windows) is
   executable by `service_role`. The inner `intelligence_window` has no bounds

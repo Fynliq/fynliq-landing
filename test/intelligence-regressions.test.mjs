@@ -238,3 +238,63 @@ test('non-comparable windows are sent to the model without their value', async (
   assert.ok(!allowedNumbers(input).has(14.29), 'the 7-day cohort rate (14.29%) cannot be cited');
   assert.equal(input.comparisons.find((c) => c.metric === 'newVisitors').trailing7DayAverage.value, 100, 'counts keep their trailing average');
 });
+
+// ---- third review round: hedged forecasts, action counts, window phrases
+// Sentences taken from code-review-agent and security-agent probes.
+
+const briefWith = async (id, field, text) => {
+  const s = await buildSnapshot({ rpc: scenarioRpc(SCENARIOS.find((x) => x.id === id)), now: NOW });
+  const ctx = validationContext(s, prepareModelInput(s).value);
+  const b = referenceBrief(s);
+  if (field === 'hyp') b.hypotheses[0].evidence = text;
+  else if (field === 'reason') b.recommendedAction.reason = text;
+  else if (field === 'title') b.recommendedAction.title = text;
+  else if (field === 'warn') b.dataQualityWarnings.push(text);
+  return validateBrief(b, ctx).errors.filter((e) => !e.startsWith('missing_small'));
+};
+
+const MUST_PASS = [
+  ['uploads_up_checkout_collapse', 'hyp', 'Checkout starts reached 4 out of 40 uploaders, so the paywall step might be confusing.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'Upload → Checkout loses 36 of 40 uploaders, which may point to unclear unlock copy.'],
+  ['uploads_up_checkout_collapse', 'warn', 'Rerun this comparison once the step reaches 30 people, when the rate will be more reliable.'],
+  ['uploads_up_checkout_collapse', 'warn', 'Checkout starts would need to reach 30 before this is reliable.'],
+  ['uploads_up_checkout_collapse', 'warn', 'Check that checkout events are not being double-counted.'],
+  ['uploads_up_checkout_collapse', 'reason', 'A clearer unlock message could improve Upload → Checkout (currently 10%).'],
+  ['zero_visitors', 'title', 'Post 4 short TikToks and test two versions of the welcome copy'],
+  ['zero_visitors', 'reason', 'Share the link in three campus groups and run it for 7 days.'],
+  ['zero_visitors', 'reason', 'Double-check the tracking for one more day.'],
+];
+const MUST_FAIL = [
+  ['uploads_up_checkout_collapse', 'hyp', 'This may add 20 paying students.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'It may reach 40% again next week.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'Sign-ups may grow 25%.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'Fixing copy might bring 20 more students.'],
+  ['uploads_up_checkout_collapse', 'reason', 'With clearer copy, Upload → Checkout should return to 40.0%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'Clearer copy will get Upload → Checkout back to 40%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'Upload → Checkout should be back at 40% within a week.'],
+  ['uploads_up_checkout_collapse', 'reason', 'We expect Upload → Checkout to return to 40%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'Conversion would rise back toward 40%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'Conversion would go up by 10%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'It would take Upload → Checkout to 40%.'],
+  ['uploads_up_checkout_collapse', 'reason', 'This would win back 36 lost uploaders.'],
+  ['uploads_up_checkout_collapse', 'reason', 'The fix will increase the number of students who start checkout to 40.'],
+  ['uploads_up_checkout_collapse', 'reason', 'It might lift Upload to Checkout to 40%.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'Upload → Checkout halved.'],
+  ['uploads_up_checkout_collapse', 'hyp', 'Sign-ups would be 2 times higher.'],
+  ['zero_visitors', 'reason', 'Post 9 TikToks and you should see 9 new sign-ups.'],
+  ['zero_visitors', 'reason', 'Run it for 7 days; expect 8 more sign-ups.'],
+  ['zero_visitors', 'title', 'Aim for 8 sign-ups tomorrow'],
+  ['zero_visitors', 'reason', 'Testing this would make sign-ups 3 times higher.'],
+  ['zero_visitors', 'reason', 'Upload → Checkout is 7% today.'],
+  ['zero_visitors', 'reason', 'This may add 8 sign-ups.'],
+  ['zero_visitors', 'reason', 'It might bring 8 more paying students.'],
+  ['zero_visitors', 'reason', 'Expect 8 more sign-ups next week.'],
+];
+
+test('validator: honest hedges, sample-size advice and action counts are accepted', async () => {
+  for (const [id, field, text] of MUST_PASS) assert.deepEqual(await briefWith(id, field, text), [], text);
+});
+
+test('validator: hedged and unhedged forecasts, goals, multipliers and false metric claims are rejected', async () => {
+  for (const [id, field, text] of MUST_FAIL) assert.ok((await briefWith(id, field, text)).length > 0, `not rejected: ${text}`);
+});
