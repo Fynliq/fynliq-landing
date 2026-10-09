@@ -86,7 +86,7 @@ server-only, and `VITE_*` values are public. Details are in
 | CI | None before this PR. Added `.github/workflows/ci.yml` (build, unit, PGlite integration, ops validation) | 1 (this PR) |
 | Lint | No ESLint or Prettier configured | 2 |
 | E2E | No automated journey test; screenshot harnesses are manual | 2 |
-| Observability | Error tracking, alerting, log retention, uptime, and OpenAI latency and cost metrics | 2 |
+| Observability | Uptime checks every 15 min added (`.github/workflows/uptime.yml`), active once the default branch contains them. Still to do: error tracking, log retention, OpenAI latency and cost metrics | 2 |
 | "Qualified session" | Undefined | 2 |
 | Test wiring | `npm test` (vitest) also collects the `node:test` files in `test/`; `attribution-integration.mjs` has no npm script. CI runs them correctly. | 2 |
 | Schema drift | Production has migration records not in git | Human decision |

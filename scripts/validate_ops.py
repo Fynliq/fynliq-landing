@@ -207,30 +207,36 @@ def check_files_and_links() -> None:
                 fail(f"{rel}: references missing path {ref}")
 
 
-def check_ci() -> None:
-    path = ROOT / ".github" / "workflows" / "ci.yml"
-    if not path.is_file():
+def check_workflows() -> None:
+    folder = ROOT / ".github" / "workflows"
+    if not (folder / "ci.yml").is_file():
         fail("missing .github/workflows/ci.yml")
-        return
-    text = path.read_text(encoding="utf-8")
-    data = yaml.safe_load(text)
-    triggers = data.get(True, data.get("on", {}))  # YAML 1.1 parses the key `on` as True
-    if "pull_request_target" in (triggers or {}):
-        fail("ci.yml: pull_request_target is not allowed (runs untrusted code with secrets)")
-    if "secrets." in text:
-        fail("ci.yml: CI must not use secrets")
-    if data.get("permissions") != {"contents": "read"}:
-        fail("ci.yml: top-level permissions must be exactly contents: read")
-    runs = " ".join(str(s.get("run", "")) for j in data.get("jobs", {}).values() for s in j.get("steps", []))
-    for cmd in ("npm ci", "npm run build", "vitest run", "node --test", "npm run test:beta",
-                "npm run test:billing", "test/attribution-integration.mjs", "scripts/validate_ops.py"):
-        if cmd not in runs:
-            fail(f"ci.yml: required step missing: {cmd}")
-    for job in data.get("jobs", {}).values():
-        for step in job.get("steps", []):
-            uses = step.get("uses")
-            if uses and not re.search(r"@[0-9a-f]{40}$", uses):
-                fail(f"ci.yml: action not pinned to a commit SHA: {uses}")
+    for path in sorted(folder.glob("*.y*ml")):
+        name = path.name
+        text = path.read_text(encoding="utf-8")
+        data = yaml.safe_load(text) or {}
+        triggers = data.get(True, data.get("on", {}))  # YAML 1.1 parses the key `on` as True
+        if "pull_request_target" in (triggers or {}):
+            fail(f"{name}: pull_request_target is not allowed (runs untrusted code with secrets)")
+        if re.search(r"\bsecrets\s*[.\[]|toJSON\(\s*secrets", text):
+            fail(f"{name}: workflows must not use secrets")
+        if data.get("permissions") != {"contents": "read"}:
+            fail(f"{name}: top-level permissions must be exactly contents: read")
+        for job in data.get("jobs", {}).values():
+            if "permissions" in job:
+                fail(f"{name}: jobs must not set their own permissions (keep the top-level contents: read)")
+            for step in job.get("steps", []):
+                uses = step.get("uses")
+                if uses and not re.search(r"@[0-9a-f]{40}$", uses):
+                    fail(f"{name}: action not pinned to a commit SHA: {uses}")
+                if uses and "checkout" in uses and (step.get("with") or {}).get("persist-credentials") is not False:
+                    fail(f"{name}: actions/checkout must set persist-credentials: false")
+        if name == "ci.yml":
+            runs = " ".join(str(s.get("run", "")) for j in data.get("jobs", {}).values() for s in j.get("steps", []))
+            for cmd in ("npm ci", "npm run build", "vitest run", "node --test", "npm run test:beta",
+                        "npm run test:billing", "test/attribution-integration.mjs", "scripts/validate_ops.py"):
+                if cmd not in runs:
+                    fail(f"ci.yml: required step missing: {cmd}")
 
 
 # Identifiers and secrets that must never be committed in these public files.
@@ -265,7 +271,7 @@ def main() -> int:
     check_milestones()
     check_settings()
     check_files_and_links()
-    check_ci()
+    check_workflows()
     check_no_leaks()
     if errors:
         print(f"ops validation FAILED ({len(errors)}):")
