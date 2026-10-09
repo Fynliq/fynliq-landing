@@ -1,0 +1,9 @@
+torch>=2.4,<3
+transformers>=4.48,<5
+peft>=0.14,<1
+trl>=0.15,<1
+accelerate>=1.2,<2
+datasets>=3,<5
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+pydantic>=2.9,<3
