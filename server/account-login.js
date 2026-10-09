@@ -6,6 +6,7 @@
 // so page scripts can never read it. Sign-ups and log-ins are recorded for the
 // /admin dashboard (email, dates, counts), never any aid or question content.
 import { clients, rpc, sameOrigin, body, session as guestSession, hash, newSession, rate, BetaError } from './beta.js';
+import { track } from './analytics.js';
 
 export const ACCOUNT_COOKIE = '__Host-fynliq_account';
 // Browsers cap cookie lifetimes at about 400 days. Every visit renews both
@@ -66,6 +67,8 @@ export function createAccountHandler(action, dependencies = {}) {
         // Keep attributing this browser's questions to the account.
         const guest = await guestId(req, db, env);
         if (guest) await rpc(db, 'account_link_guest', { p_user: row.user_id, p_guest: guest }).catch(() => {});
+        // A visit on a later day than the last one (the database checks that).
+        await track(req, 'return_session', { identity: { userId: String(row.user_id).toLowerCase(), guestId: guest } }, { db, env });
         return res.json(sessionBody(row));
       }
 
@@ -93,17 +96,24 @@ export function createAccountHandler(action, dependencies = {}) {
           throw new BetaError(503, 'Accounts are temporarily unavailable. Please try again in a moment.');
         }
         await rpc(db, 'account_signed_up', { p_user: data.user.id, p_email: email });
-        return start(res, req, db, env, { id: data.user.id, email });
+        const result = await start(res, req, db, env, { id: data.user.id, email });
+        await track(req, 'signup_completed', { identity: async () => ({ userId: String(data.user.id).toLowerCase(), guestId: await guestId(req, db, env) }) }, { db, env });
+        return result;
       }
 
       if (action === 'login') {
         if (!password || password.length > 200) throw new BetaError(401, 'That email and password do not match an account.');
         const { data, error } = await auth.auth.signInWithPassword({ email, password });
         if (error || !data?.user || data.user.email?.toLowerCase() !== email) {
+          // Counted against the guest browser only: no email, no account id.
+          await track(req, { name: 'login_failed', metadata: { reason: 'credentials' } },
+            { identity: async () => ({ userId: null, guestId: await guestId(req, db, env) }) }, { db, env });
           throw new BetaError(401, 'That email and password do not match an account.');
         }
         // Only our own cookie session is used; the provider session is dropped.
-        return start(res, req, db, env, { id: data.user.id, email });
+        const result = await start(res, req, db, env, { id: data.user.id, email });
+        await track(req, 'login_completed', { identity: async () => ({ userId: String(data.user.id).toLowerCase(), guestId: await guestId(req, db, env) }) }, { db, env });
+        return result;
       }
 
       throw new BetaError(404, 'Not found.');

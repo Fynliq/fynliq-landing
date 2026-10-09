@@ -1,0 +1,120 @@
+{
+ "generated_at": "2026-10-08T10:30:00Z",
+ "window": {
+  "since": "2026-10-07T10:30:00Z",
+  "until": "2026-10-08T10:30:00Z",
+  "segment": "none"
+ },
+ "funnel": [
+  {
+   "segment": "all",
+   "visitors": 120,
+   "signups": 9,
+   "qualified_sessions": 30,
+   "upload_starters": 12,
+   "uploaders": 10,
+   "analysed": 8,
+   "analyses": 9,
+   "analysis_failures": 1,
+   "upload_failures": 2,
+   "result_viewers": 8,
+   "checkout_viewers": 6,
+   "checkout_starters": 4,
+   "payers": 2,
+   "payment_failures": 0,
+   "returning_users": 7
+  }
+ ],
+ "revenue": {
+  "checkout_starts": 4,
+  "checkout_starters": 4,
+  "payments": 2,
+  "payers": 2,
+  "duplicate_payments": 0,
+  "revenue_cents": 200,
+  "currency": "usd",
+  "payment_failures": 0,
+  "checkouts_expired": 1,
+  "webhook_events": 5,
+  "webhook_problems": 2,
+  "webhook_outcomes": {
+   "ownership_mismatch": 2
+  }
+ },
+ "health": {
+  "requests": 1000,
+  "errors_5xx": 90,
+  "errors_4xx": 80,
+  "error_rate": 0.09,
+  "db_errors": 1,
+  "p50_ms": 85,
+  "p95_ms": 4000,
+  "routes": [
+   {
+    "route": "/api/analyze",
+    "requests": 20,
+    "errors_5xx": 1,
+    "errors_4xx": 3,
+    "rate_limited": 0,
+    "db_errors": 0,
+    "p50_ms": 9000,
+    "p95_ms": 21000
+   },
+   {
+    "route": "/api/beta-auth",
+    "requests": 1500,
+    "errors_5xx": 0,
+    "errors_4xx": 0,
+    "rate_limited": 0,
+    "db_errors": 0,
+    "p50_ms": 60,
+    "p95_ms": 180
+   }
+  ],
+  "ai": {
+   "completed": 4,
+   "failed": 8,
+   "success_rate": 0.3333,
+   "p50_ms": 8500,
+   "p95_ms": 19000
+  },
+  "auth_failures": 120,
+  "webhook_failures": 0,
+  "frontend_errors": 2
+ },
+ "milestones": {
+  "registered_users": 41,
+  "unique_successful_uploaders": 12,
+  "qualified_sessions": 60,
+  "successful_non_test_payments": 4,
+  "visitors_last_24h": 120,
+  "visitors_daily_avg_7d": 95,
+  "api_requests_24h": 2400,
+  "rate_limited_share_24h": 0.001,
+  "events_last_seen": {
+   "landing_view": "2026-10-08T09:00:00Z",
+   "signup_completed": "2026-10-08T09:00:00Z",
+   "login_completed": "2026-10-08T09:00:00Z",
+   "my_aid_viewed": "2026-10-08T09:00:00Z",
+   "upload_started": "2026-10-08T09:00:00Z",
+   "upload_completed": "2026-10-08T09:00:00Z",
+   "analysis_completed": "2026-10-08T09:00:00Z",
+   "results_viewed": "2026-10-08T09:00:00Z",
+   "checkout_viewed": "2026-10-08T09:00:00Z"
+  },
+  "api_requests_last_seen": "2026-10-08T10:29:00Z"
+ },
+ "applied_migrations": [
+  "closed_beta",
+  "accounts_tracking",
+  "account_sessions_stay_logged_in",
+  "upload_tracking",
+  "milestones",
+  "page_analytics",
+  "beta_unlock_billing",
+  "aid_preview_before_pay",
+  "cost_estimate_kind",
+  "acquisition_attribution",
+  "in_app_browser_attribution"
+ ]
+}

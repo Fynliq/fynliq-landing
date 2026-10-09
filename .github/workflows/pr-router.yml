@@ -1,0 +1,45 @@
+# Labels each PR with its risk class and the agents that must review it, and
+# keeps one sticky comment listing them (scripts/ops/route_pr.py). The routing
+# code is checked out from the BASE branch, never from the PR, so a PR can't
+# change how it is classified. Fork PRs get a read-only token: they are routed
+# in the job summary only. Nothing here approves, merges or deploys.
+name: PR router
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-router-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  route:
+    name: Route to agents
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            ops
+            scripts/ops
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml==6.0.2
+      - name: Classify and label
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: python3 scripts/ops/route_pr.py --repo "$REPO" --pr "$PR_NUMBER" --apply

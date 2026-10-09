@@ -10,7 +10,9 @@
 // The account always comes from the httpOnly session cookie; an account id in
 // the request body is never read. With PAYWALL_ENABLED unset or false every
 // account is 'open' and nothing touches Stripe or the billing tables.
+import { observe } from '../server/observability.js';
 import { clients, sameOrigin, body, rate, fail, BetaError } from '../server/beta.js';
+import { track as trackEvents } from '../server/analytics.js';
 import {
   paywallEnabled, currentAccount, resolveAccess, createCheckout, track, CLIENT_EVENTS, UNLOCK_PRICE, inPilot,
 } from '../server/billing.js';
@@ -57,6 +59,9 @@ export function createBillingHandler(dependencies = {}) {
         if (!locked) return res.json({ access: status.access, unlocked: true });
         await track(db, account, 'unlock_clicked', env, status.testAccount);
         const checkout = await createCheckout(db, account, env, { fetchImpl: dependencies.fetchImpl || fetch });
+        // Canonical event, once per Stripe Checkout Session (a reused session is not a new start).
+        await trackEvents(req, { name: 'checkout_started', key: checkout.id, livemode: checkout.livemode, metadata: { reused: checkout.reused } },
+          { identity: async () => ({ userId: account.id, guestId: null }) }, { db, env });
         return res.json({ url: checkout.url });
       }
 
@@ -68,4 +73,4 @@ export function createBillingHandler(dependencies = {}) {
   };
 }
 
-export default createBillingHandler();
+export default observe('/api/billing', createBillingHandler());

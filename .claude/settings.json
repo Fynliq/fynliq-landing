@@ -161,5 +161,19 @@
       "mcp__supabase__reset_branch",
       "mcp__Supabase__reset_branch"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }

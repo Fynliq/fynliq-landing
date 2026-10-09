@@ -47,5 +47,53 @@ human **acts** on production.
   `ops/milestones.yaml` `instrumentation_complete`).
 
 ## Monitoring
-Error tracking, uptime checks, alerting and log retention are the subject of
-phase 2 (observability). Wire each alert to this runbook as it's added.
+
+### Uptime checks (`.github/workflows/uptime.yml`)
+**Status: added, but NOT active yet.** Scheduled workflows run only from the
+repository's default branch, which is currently `feat/search-tabs-gradi`. It
+becomes active once a human sets the default branch to the live branch
+(Settings → General → Default branch).
+
+Every 15 minutes, GitHub Actions makes anonymous, read-only GETs to the
+landing page and the guest-session, account-session, log-in, billing, reader
+and webhook routes (`scripts/uptime-check.mjs`). Each probe confirms the page
+or function is deployed and answers as expected. The session and log-in
+routes also fail closed with 503 when server configuration is missing, so
+those catch a broken env; billing and the reader only check configuration in
+some paywall modes. None of this proves the database is healthy (anonymous
+requests stop before any query).
+
+- **Alert:** a failed run emails the person who last changed the schedule in
+  the workflow file (GitHub's rule for scheduled workflows). The run's summary
+  shows which check failed and the HTTP status.
+- **First response:** open the failed run. If a route returns 503, check the
+  live env vars (`deployment.md`), then recent deploys, then roll back the alias.
+- **Inconclusive:** a Vercel bot challenge (403 + `x-vercel-mitigated`) is
+  marked inconclusive, not down. If every check is challenged, the run fails,
+  because nothing was verified.
+- **Run it now:** `node scripts/uptime-check.mjs` locally, or (once active)
+  Actions → Uptime → Run workflow.
+- **Who gets the email:** GitHub emails the account that last changed the
+  schedule or last re-enabled the workflow. Once active, the human should
+  disable and re-enable "Uptime" in the Actions tab to become the recipient,
+  and check that GitHub notifications for failed Actions runs are on.
+- **Caveats:** GitHub may delay or skip scheduled runs under load, and it
+  turns schedules off in public repos after 60 days without activity. A quiet
+  inbox isn't proof of health; glance at the Actions tab now and then.
+
+### Health triggers (private `fynq-ops` repo, hourly and nightly)
+`scripts/ops/health_check.py` and `nightly.py` read the read-only metrics view
+and open one issue per fired trigger in `fynq-ops`, labelled with the agents
+to wake (`ops/agent-triggers.yaml`). GitHub notifies the owner.
+
+| Trigger | Threshold | First check |
+| --- | --- | --- |
+| `webhook_failure` | any problem outcome | `ops/runbooks/payments.md` → reconciliation; Stripe webhook delivery log |
+| `error_spike` | >5% 5xx with ≥50 requests | `ops_health` routes table → Vercel runtime logs for that route → recent deploy |
+| `ai_failure_spike` | reader success <80% with ≥10 analyses | OpenAI status, `OPENAI_*` env, `upload_events` reason codes |
+| `auth_failure_spike` | ≥50 failed log-ins | possible credential stuffing → rate limits, Vercel firewall (human) |
+| `frontend_error_spike` | ≥20 browser errors | `client_error` by `source_file` and `path` → last deploy |
+| `deployment_failed`, `uptime_failed`, `ci_failed` | any | sections above |
+
+Thresholds are conservative at FYNQ's current scale. Tune them in
+`ops/agent-triggers.yaml` (a RED change).

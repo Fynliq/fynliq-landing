@@ -1,0 +1,45 @@
+# When CI fails on a protected branch, open (or update) one issue labelled for
+# engineering-orchestrator, so the next scheduled agent session investigates.
+# Reads run metadata only; runs no code from the failed commit.
+# workflow_run fires only from the default branch's copy of this file.
+name: CI failure triage
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main, feat/connect-ask-backend]
+
+permissions:
+  contents: read
+
+jobs:
+  triage:
+    if: github.event.workflow_run.conclusion == 'failure'
+    name: Open an issue for the orchestrator
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - name: Open or update the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          title="[ci-failed] $BRANCH"
+          body="CI failed on \`$BRANCH\` at \`${SHA:0:7}\`: $RUN_URL
+
+          Agents: engineering-orchestrator investigates read-only, finds the failing step and proposes a fix as a PR. Nothing is merged or deployed automatically."
+          existing=$(gh issue list --repo "$REPO" --state open --label ci-failed --json number,title --jq ".[] | select(.title == \"$title\") | .number" | head -1)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+          else
+            gh issue create --repo "$REPO" --title "$title" --body "$body" --label "agent:engineering-orchestrator" --label "ci-failed" \
+              || gh issue create --repo "$REPO" --title "$title" --body "$body"
+          fi

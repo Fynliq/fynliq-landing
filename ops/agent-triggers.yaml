@@ -1,0 +1,75 @@
+# What wakes each agent up. Read by scripts/ops/route_pr.py (PR routing),
+# scripts/ops/nightly.py and scripts/ops/health_check.py (event triggers).
+#
+# Triggers only ever: label a PR, post a comment, or open/update an issue.
+# They never merge, deploy, or write to production. The agents themselves run
+# in Claude scheduled sessions on the owner's plan (see docs/agent-system.md),
+# which pick up the labels and issues created here.
+
+version: 1
+
+# Every PR gets these reviewers. Docs/tests-only (GREEN) PRs skip qa-agent.
+pr_always: [code-review-agent, qa-agent]
+pr_green_skip: [qa-agent]
+
+# Path rules: a PR touching any listed path adds those agents. First match per
+# file is NOT enough; every rule that matches any file applies.
+pr_routes:
+  - name: payments
+    paths: [server/billing.js, server/stripe.js, api/billing.js, api/stripe-webhook.js, server/aid-overview.js,
+            src/billing/**, src/pages/CheckoutReturn.tsx, src/pages/UnlockMyAid.tsx, src/pages/AidPreview.tsx]
+    agents: [payments-agent, security-agent, qa-agent]
+  - name: database
+    paths: [supabase/**]
+    agents: [supabase-agent, security-agent, qa-agent]
+  - name: auth_rls_secrets
+    paths: [server/beta.js, server/account-login.js, server/account-auth.js, api/auth/**, api/beta-auth.js,
+            src/auth/**, src/accounts/**, .env.example, vercel.json, server/privacy.js, server/redact.js, server/provider.js]
+    agents: [security-agent]
+  - name: analytics_pii
+    paths: [server/analytics.js, server/observability.js, server/ops-metrics.js, server/attribution.js,
+            api/activity.js, api/beta-admin.js, src/analytics/**]
+    agents: [security-agent, qa-agent]
+  - name: frontend
+    paths: [src/**, index.html, public/**]
+    agents: [frontend-agent, qa-agent]
+  - name: backend
+    paths: [api/**, server/**]
+    agents: [backend-agent, qa-agent]
+  - name: ops_and_ci
+    paths: [.github/**, .claude/**, ops/**, scripts/**, CLAUDE.md, .vercelignore]
+    agents: [security-agent]
+
+# Production signals, checked hourly (health_check.py) and nightly (nightly.py).
+# Each opens or updates ONE issue in the private ops repo, labelled with the
+# agents below. Thresholds are deliberately conservative at FYNQ's scale.
+events:
+  ci_failed:
+    agents: [engineering-orchestrator]
+    description: CI failed on a protected branch.
+  deployment_failed:
+    agents: [engineering-orchestrator]
+    description: The latest Vercel deployment of the live branch failed.
+  uptime_failed:
+    agents: [engineering-orchestrator]
+    description: A scheduled uptime check failed.
+  error_spike:
+    agents: [engineering-orchestrator, backend-agent]
+    when: {error_rate_at_least: 0.05, min_requests: 50}
+    description: More than 5% of API requests returned 5xx.
+  frontend_error_spike:
+    agents: [engineering-orchestrator, frontend-agent]
+    when: {frontend_errors_at_least: 20}
+    description: Many uncaught errors in browsers.
+  webhook_failure:
+    agents: [payments-agent, security-agent]
+    when: {webhook_problems_at_least: 1}
+    description: A Stripe webhook was rejected or could not be matched to a checkout.
+  ai_failure_spike:
+    agents: [backend-agent]
+    when: {ai_success_rate_below: 0.8, min_analyses: 10}
+    description: The document reader failed more than 20% of the time.
+  auth_failure_spike:
+    agents: [security-agent]
+    when: {auth_failures_at_least: 50}
+    description: Unusually many failed log-ins (possible credential stuffing).
