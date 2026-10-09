@@ -9,9 +9,10 @@
 --   * API keys are stored as SHA-256 hashes; the secret is shown once at creation.
 --   * The request log never stores the question. It stores the generated
 --     answer for 24 hours only, so an Idempotency-Key retry returns the same
---     answer without charging again; after that the answer is erased. Only a
---     SHA-256 fingerprint of the question is kept, to refuse reusing an
---     Idempotency-Key for a different question.
+--     answer without charging again; after that the answer is erased. When an
+--     Idempotency-Key is sent, a keyed HMAC fingerprint of the (redacted)
+--     question is kept for the same 24 hours, to refuse reusing the key for a
+--     different question; without a key, nothing about the question is kept.
 --   * Credits are a ledger (purchase, usage, refund, grant, adjustment,
 --     reversal); the balance is the sum, kept SEPARATELY for test and live
 --     mode: test credits (Stripe test payments) can never pay for live use,
@@ -35,10 +36,10 @@
 --     public.biz_reserve(uuid, uuid, text, text, text, text, integer, boolean),
 --     public.biz_finish(text, boolean, integer, integer, jsonb),
 --     public.biz_grant_purchase(uuid, integer, text, text, boolean),
---     public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean),
+--     public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean), public.biz_sweep(uuid),
 --     public.biz_adjust(uuid, integer, text, boolean),
 --     public.biz_orgs_overview(), public.biz_org_keys(uuid), public.biz_account(uuid, boolean);
---   drop table public.business_requests, public.business_credit_ledger, public.business_api_keys, public.business_orgs;
+--   drop table public.business_pending_reversals, public.business_requests, public.business_credit_ledger, public.business_api_keys, public.business_orgs;
 begin;
 
 create table public.business_orgs (
@@ -106,14 +107,28 @@ create table public.business_requests (
 create unique index business_requests_idempotency on public.business_requests (org_id, livemode, idempotency_key) where idempotency_key is not null;
 create index business_requests_org_time on public.business_requests (org_id, created_at);
 create index business_requests_pending on public.business_requests (org_id, created_at) where state = 'pending';
-create index business_requests_stored on public.business_requests (finished_at) where response is not null;
+create index business_requests_stored on public.business_requests (finished_at) where response is not null or fingerprint is not null;
 
+-- A refund or dispute that arrives before its purchase was credited (the grant
+-- is still being retried). Applied by biz_grant_purchase when the grant lands.
+-- Holds only Stripe ids and amounts. Refunds of non-business charges also land
+-- here (they never match a purchase) and are harmless.
+create table public.business_pending_reversals (
+ stripe_payment_intent text primary key check (stripe_payment_intent ~ '^pi_[A-Za-z0-9]{1,200}$'),
+ reversed_amount bigint not null check (reversed_amount >= 0),
+ total_amount bigint not null check (total_amount > 0),
+ livemode boolean not null,
+ dispute boolean not null,
+ created_at timestamptz not null default now()
+);
+
+alter table public.business_pending_reversals enable row level security;
 alter table public.business_orgs enable row level security;
 alter table public.business_api_keys enable row level security;
 alter table public.business_credit_ledger enable row level security;
 alter table public.business_requests enable row level security;
-revoke all on public.business_orgs, public.business_api_keys, public.business_credit_ledger, public.business_requests from public, anon, authenticated;
-grant select, insert, update, delete on public.business_orgs, public.business_api_keys, public.business_credit_ledger, public.business_requests to service_role;
+revoke all on public.business_orgs, public.business_api_keys, public.business_credit_ledger, public.business_requests, public.business_pending_reversals from public, anon, authenticated;
+grant select, insert, update, delete on public.business_orgs, public.business_api_keys, public.business_credit_ledger, public.business_requests, public.business_pending_reversals to service_role;
 revoke all on sequence public.business_credit_ledger_id_seq from public, anon, authenticated;
 grant usage, select on sequence public.business_credit_ledger_id_seq to service_role;
 
@@ -185,6 +200,19 @@ language sql stable security definer set search_path = '' as $$
  select coalesce(sum(delta), 0)::integer from public.business_credit_ledger where org_id = p_org and livemode = p_livemode;
 $$;
 
+-- Fail and refund this organization's reservations still pending after 2
+-- minutes (killed function, lost connection). Caller holds the org lock.
+create function public.biz_sweep(p_org uuid) returns void
+language sql security definer set search_path = '' as $$
+ with stale as (
+  update public.business_requests set state = 'failed', http_status = 504, finished_at = now()
+  where org_id = p_org and state = 'pending' and created_at < now() - interval '2 minutes'
+  returning request_id, org_id, cost, livemode)
+ insert into public.business_credit_ledger (org_id, delta, kind, request_id, livemode)
+ select org_id, cost, 'refund', request_id, livemode from stale
+ on conflict (request_id, kind) where request_id is not null do nothing;
+$$;
+
 -- Reserve credits for one request, atomically, in the key's mode. Results:
 --   reserved      a pending request row and a usage debit now exist
 --   replay        same Idempotency-Key and question succeeded in the last 24 h: its stored answer, no charge
@@ -197,17 +225,11 @@ language plpgsql security definer set search_path = '' as $$
 declare v_balance integer; v_prev record;
 begin
  if p_livemode is null then raise exception 'invalid_input'; end if;
+ if (p_idem is null) <> (p_fingerprint is null) then raise exception 'invalid_input'; end if;
  perform pg_advisory_xact_lock(hashtextextended('biz:' || p_org::text, 0));
  perform 1 from public.business_orgs where id = p_org and status = 'approved';
  if not found then return jsonb_build_object('result', 'org_inactive'); end if;
- -- Sweep: reservations that never finished (killed function, lost connection) fail and are refunded.
- with stale as (
-  update public.business_requests set state = 'failed', http_status = 504, finished_at = now()
-  where org_id = p_org and state = 'pending' and created_at < now() - interval '2 minutes'
-  returning request_id, org_id, cost, livemode)
- insert into public.business_credit_ledger (org_id, delta, kind, request_id, livemode)
- select org_id, cost, 'refund', request_id, livemode from stale
- on conflict (request_id, kind) where request_id is not null do nothing;
+ perform public.biz_sweep(p_org);
  if p_idem is not null then
   select state, http_status, response, fingerprint, finished_at into v_prev from public.business_requests
   where org_id = p_org and livemode = p_livemode and idempotency_key = p_idem;
@@ -249,14 +271,15 @@ begin
   end if;
  end if;
  -- Stored answers are kept 24 hours for idempotent replays, then erased (all organizations).
- update public.business_requests set response = null where response is not null and finished_at < now() - interval '24 hours';
+ update public.business_requests set response = null, fingerprint = null
+ where (response is not null or fingerprint is not null) and finished_at < now() - interval '24 hours';
  return jsonb_build_object('balance', public.biz_balance(r.org_id, r.livemode), 'state', (select state from public.business_requests where request_id = p_request));
 end $$;
 
 -- Credits from a verified, paid Stripe Checkout Session. Once per session.
 create function public.biz_grant_purchase(p_org uuid, p_credits integer, p_session text, p_payment_intent text, p_livemode boolean) returns jsonb
 language plpgsql security definer set search_path = '' as $$
-declare v_rows integer;
+declare v_rows integer; v_pending record;
 begin
  if p_credits is null or p_credits < 1 or p_credits > 1000000 then raise exception 'invalid_credits'; end if;
  if p_livemode is null then raise exception 'invalid_input'; end if;
@@ -267,6 +290,14 @@ begin
  values (p_org, p_credits, 'purchase', p_session, p_payment_intent, p_livemode)
  on conflict (stripe_session_id) where kind = 'purchase' do nothing;
  get diagnostics v_rows = row_count;
+ -- A refund or dispute that arrived first is applied now.
+ if v_rows = 1 and p_payment_intent is not null then
+  select * into v_pending from public.business_pending_reversals where stripe_payment_intent = p_payment_intent and livemode = p_livemode;
+  if found then
+   perform public.biz_reverse_purchase(p_payment_intent, v_pending.reversed_amount, v_pending.total_amount, p_livemode, v_pending.dispute);
+   delete from public.business_pending_reversals where stripe_payment_intent = p_payment_intent;
+  end if;
+ end if;
  return jsonb_build_object('granted', v_rows = 1, 'balance', public.biz_balance(p_org, p_livemode));
 end $$;
 
@@ -281,7 +312,15 @@ begin
  if p_payment_intent is null or p_total_amount is null or p_total_amount <= 0 or p_reversed_amount is null or p_reversed_amount < 0 then raise exception 'invalid_input'; end if;
  select org_id, delta, livemode into v_purchase from public.business_credit_ledger
  where kind = 'purchase' and stripe_payment_intent = p_payment_intent and livemode = p_livemode;
- if not found then return jsonb_build_object('result', 'no_purchase'); end if;
+ if not found then
+  -- Not credited (yet): remember the largest reversal; biz_grant_purchase applies it if the purchase lands later.
+  insert into public.business_pending_reversals (stripe_payment_intent, reversed_amount, total_amount, livemode, dispute)
+  values (p_payment_intent, p_reversed_amount, p_total_amount, p_livemode, p_dispute)
+  on conflict (stripe_payment_intent) do update set
+   reversed_amount = greatest(public.business_pending_reversals.reversed_amount, excluded.reversed_amount),
+   dispute = public.business_pending_reversals.dispute or excluded.dispute;
+  return jsonb_build_object('result', 'no_purchase');
+ end if;
  perform pg_advisory_xact_lock(hashtextextended('biz:' || v_purchase.org_id::text, 0));
  v_target := case when p_dispute then v_purchase.delta
                   else least(v_purchase.delta, ceil(v_purchase.delta::numeric * p_reversed_amount / p_total_amount)::integer) end;
@@ -338,15 +377,21 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- What a customer may see about itself (GET /api/v1/account), in the calling key's mode.
+-- Sweeps stale reservations first, so the balance it reports is current.
 create function public.biz_account(p_org uuid, p_livemode boolean) returns jsonb
-language sql stable security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
+declare v jsonb;
+begin
+ perform pg_advisory_xact_lock(hashtextextended('biz:' || p_org::text, 0));
+ perform public.biz_sweep(p_org);
  select jsonb_build_object(
   'name', o.name, 'status', o.status, 'balance', public.biz_balance(o.id, p_livemode),
   'requests30d', (select count(*) from public.business_requests r where r.org_id = o.id and r.livemode = p_livemode and r.created_at > now() - interval '30 days'),
   'succeeded30d', (select count(*) from public.business_requests r where r.org_id = o.id and r.livemode = p_livemode and r.created_at > now() - interval '30 days' and r.state = 'succeeded'),
   'creditsUsed30d', (select coalesce(-sum(delta), 0) from public.business_credit_ledger l where l.org_id = o.id and l.livemode = p_livemode and l.kind in ('usage', 'refund') and l.created_at > now() - interval '30 days'))
- from public.business_orgs o where o.id = p_org;
-$$;
+ into v from public.business_orgs o where o.id = p_org;
+ return v;
+end $$;
 
 revoke all on function
  public.biz_apply(text, text, text, text), public.biz_set_status(uuid, text),
@@ -355,7 +400,7 @@ revoke all on function
  public.biz_reserve(uuid, uuid, text, text, text, text, integer, boolean),
  public.biz_finish(text, boolean, integer, integer, jsonb),
  public.biz_grant_purchase(uuid, integer, text, text, boolean),
- public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean),
+ public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean), public.biz_sweep(uuid),
  public.biz_adjust(uuid, integer, text, boolean),
  public.biz_orgs_overview(), public.biz_org_keys(uuid), public.biz_account(uuid, boolean)
 from public, anon, authenticated;
@@ -366,7 +411,7 @@ grant execute on function
  public.biz_reserve(uuid, uuid, text, text, text, text, integer, boolean),
  public.biz_finish(text, boolean, integer, integer, jsonb),
  public.biz_grant_purchase(uuid, integer, text, text, boolean),
- public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean),
+ public.biz_reverse_purchase(text, bigint, bigint, boolean, boolean), public.biz_sweep(uuid),
  public.biz_adjust(uuid, integer, text, boolean),
  public.biz_orgs_overview(), public.biz_org_keys(uuid), public.biz_account(uuid, boolean)
 to service_role;

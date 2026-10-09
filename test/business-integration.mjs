@@ -66,7 +66,7 @@ for (const fn of FNS) {
   for (const role of ['anon', 'authenticated']) assert.equal(await db.value(`has_function_privilege('${role}', 'public.${fn}', 'execute')`), false, `${role} cannot run ${fn}`);
   assert.equal(await db.value(`has_function_privilege('service_role', 'public.${fn}', 'execute')`), true, `service_role runs ${fn}`);
 }
-for (const t of ['business_orgs', 'business_api_keys', 'business_credit_ledger', 'business_requests']) {
+for (const t of ['business_orgs', 'business_api_keys', 'business_credit_ledger', 'business_requests', 'business_pending_reversals']) {
   assert.equal(await db.value(`has_table_privilege('anon', 'public.${t}', 'select')`), false);
   assert.equal(await db.value(`(select relrowsecurity from pg_class where oid = 'public.${t}'::regclass)`), true, `${t} has RLS on`);
 }
@@ -92,7 +92,8 @@ console.log('✓ apply, approve, issue key, authenticate by hash');
 
 // ---------------------------------------------------------------- credits
 const FP = hash('What is a Pell Grant?');
-const reserve = (idem = null, r = reqId(), live = false, fp = FP) => call('biz_reserve', org, keyId, r, 'POST /api/v1/answers', idem, fp, 1, live).then((x) => ({ ...x, r }));
+// A fingerprint is sent only with an Idempotency-Key (the app uses a keyed HMAC; any 64-hex value works here).
+const reserve = (idem = null, r = reqId(), live = false, fp = FP) => call('biz_reserve', org, keyId, r, 'POST /api/v1/answers', idem, idem ? fp : null, 1, live).then((x) => ({ ...x, r }));
 const bal = (live = false) => call('biz_balance', org, live);
 assert.deepEqual(await reserve().then(({ r, ...x }) => x), { result: 'insufficient', balance: 0 }, 'no credits, no charge');
 assert.equal(await db.value(`(select count(*) from public.business_requests)`), 0, 'nothing recorded for a refused reserve');
@@ -129,6 +130,9 @@ assert.equal((await reserve(IDEM, reqId(), true)).result, 'insufficient', 'idemp
 await db.exec(`update public.business_requests set finished_at = now() - interval '25 hours' where request_id = ${lit(first.r)}`);
 await call('biz_finish', ok.r, true, 200, 1, null); // any finish runs the global purge
 assert.equal(await db.value(`(select response from public.business_requests where request_id = ${lit(first.r)})`), null, 'answers erased after 24 h');
+assert.equal(await db.value(`(select fingerprint from public.business_requests where request_id = ${lit(first.r)})`), null, 'question fingerprints erased after 24 h');
+assert.equal(await db.value(`(select count(*) from public.business_requests where idempotency_key is null and fingerprint is not null)`), 0, 'no fingerprint without an Idempotency-Key');
+await fails(`public.biz_reserve(${lit(org)}, ${lit(keyId)}, ${lit(reqId())}, 'POST /api/v1/answers', NULL, ${lit(FP)}, 1, false)`, /invalid_input/, 'a fingerprint without a key is refused');
 await call('biz_adjust', org, 1, 'replay window', false);
 assert.equal((await reserve(IDEM)).result, 'reserved', 'after 24 h the key is a fresh request, not a replay');
 const failedIdem = await reserve('retry-after-fail-01');
@@ -141,6 +145,10 @@ await call('biz_adjust', org, 2, 'sweep test', false);
 const before = await bal();
 const stuck = await reserve('stuck-request-01');
 assert.equal(await bal(), before - 1);
+await db.exec(`update public.business_requests set created_at = now() - interval '3 minutes' where request_id = ${lit(stuck.r)}`);
+assert.equal((await call('biz_account', org, false)).balance, before, 'GET /account sweeps first, so its balance is current');
+await db.exec(`update public.business_requests set state = 'pending', finished_at = null, created_at = now() where request_id = ${lit(stuck.r)}`);
+await db.exec(`delete from public.business_credit_ledger where request_id = ${lit(stuck.r)} and kind = 'refund'`);
 assert.equal((await reserve('stuck-request-01')).result, 'in_progress');
 await db.exec(`update public.business_requests set created_at = now() - interval '3 minutes' where request_id = ${lit(stuck.r)}`);
 const after = await reserve('stuck-request-01');
@@ -179,13 +187,16 @@ assert.equal((await call('biz_reverse_purchase', 'pi_live2', 0, 4900, true, true
 assert.equal((await reserve(null, reqId(), true)).result, 'org_inactive');
 await call('biz_set_status', org, 'approved');
 assert.equal((await reserve(null, reqId(), true)).result, 'insufficient', 'a negative balance blocks spending');
-console.log('✓ refunds and disputes take credits back, cumulatively and once');
+assert.deepEqual(await call('biz_reverse_purchase', 'pi_live3', 4900, 4900, true, false), { result: 'no_purchase' }, 'refund before the grant landed');
+assert.deepEqual(await call('biz_grant_purchase', org, 4, 'cs_live_late1', 'pi_live3', true), { granted: true, balance: -4 }, 'the late grant applies the earlier refund');
+assert.equal(await db.value(`(select count(*) from public.business_pending_reversals where stripe_payment_intent = 'pi_live3')`), 0);
+console.log('✓ refunds and disputes take credits back, cumulatively and once, even before the grant');
 
 // ------------------------------------------------------------ concurrency
 await call('biz_adjust', org, 5, 'test grant', false);
 const balanceBefore = await bal();
 const N = db.concurrent ? 40 : 6;
-const reserveSql = () => `public.biz_reserve(${lit(org)}, ${lit(keyId)}, ${lit(reqId())}, 'POST /api/v1/answers', NULL, ${lit(FP)}, 1, false)`;
+const reserveSql = () => `public.biz_reserve(${lit(org)}, ${lit(keyId)}, ${lit(reqId())}, 'POST /api/v1/answers', NULL, NULL, 1, false)`;
 const results = await Promise.all(Array.from({ length: N }, () => db.valueAsync(reserveSql())));
 const reserved = results.filter((x) => x.result === 'reserved').length;
 assert.equal(reserved, Math.min(N, balanceBefore), `exactly ${balanceBefore} of ${N} parallel requests reserved`);
@@ -226,8 +237,8 @@ console.log('✓ suspension, revocation, no negative adjustments');
 const overview = await call('biz_orgs_overview');
 assert.equal(overview.length, 3);
 const acme = overview.find((o) => o.id === org);
-assert.equal(acme.creditsPurchased, 9, 'live purchases only (5 + 4)');
-assert.equal(acme.creditsReversed, 9);
+assert.equal(acme.creditsPurchased, 13, 'live purchases only (5 + 4 + 4)');
+assert.equal(acme.creditsReversed, 13);
 assert.equal(typeof acme.testBalance, 'number');
 const keys = await call('biz_org_keys', org);
 assert.equal(keys.length, 1);
