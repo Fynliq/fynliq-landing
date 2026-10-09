@@ -10,7 +10,7 @@
 //   3. the serialized payload must pass server/privacy.js assertSafeInput.
 // Anything unexpected fails closed (SanitizationError) — no model call.
 import { assertSafeInput } from '../privacy.js';
-import { METRIC_KEYS, STAGES } from './metrics.js';
+import { METRIC_KEYS, STAGES, VERY_SMALL_SAMPLE, SMALL_SAMPLE, MIN_BOTTLENECK_DENOMINATOR } from './metrics.js';
 
 export class SanitizationError extends Error {
   constructor(reason) { super('Intelligence input failed sanitization'); this.name = 'SanitizationError'; this.reason = reason; }
@@ -101,6 +101,8 @@ export function modelInputFromSnapshot(snapshot) {
     })),
     unavailable: snapshot.unavailable,
     dataQualityWarnings: snapshot.dataQualityWarnings,
+    // The engine's own thresholds, so the brief can cite them ("reliable once 30 people enter").
+    sampleSizeRules: { verySmallBelow: VERY_SMALL_SAMPLE, smallBelow: SMALL_SAMPLE, minPeopleForBottleneck: MIN_BOTTLENECK_DENOMINATOR },
     allowedMetricKeys: METRIC_KEYS,
     allowedStages: [...STAGES, 'insufficient_data'],
   };

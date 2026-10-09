@@ -57,7 +57,7 @@ const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
 
 /** Every number the prose may use: all numeric leaves of the input, as written, rounded, and as percentages. */
 export function allowedNumbers(input) {
-  const set = new Set([0, 1, 7, 30]); // window lengths the brief may name
+  const set = new Set([0, 1]); // window lengths are allowed only as window phrases (see WINDOW_PHRASE)
   const add = (n) => {
     if (!Number.isFinite(n)) return;
     const a = Math.abs(n);
@@ -99,6 +99,11 @@ export function stripPeriodDates(text, period) {
   return out;
 }
 
+// "7-day average", "the last 30 days": the brief's own window lengths, allowed
+// only in that form so "7%" or "30 sign-ups" can't hide behind them.
+const WINDOW_PHRASE = /\b(?:1|7|30)(?:[- ]day\b|\s+days\b)/gi;
+export const stripWindowPhrases = (text) => String(text).replace(WINDOW_PHRASE, ' ');
+
 /** Numbers in a piece of prose that are not in `allowed`. */
 export function ungroundedNumbers(text, allowed) {
   const found = String(text).replace(ISO_DATE, ' ').match(NUMBER) ?? [];
@@ -125,18 +130,32 @@ const NUMBER_WORD = new RegExp(`\\b(${Object.keys(SMALL_NUMBER_WORDS).join('|')}
 const UNITS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9 };
 // "forty-three" is 43, not a grounded 40 and a grounded 3.
 const COMPOUND_WORD = /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)[-\s](one|two|three|four|five|six|seven|eight|nine)\b/gi;
-// "double-check" and "double-counting" are not multipliers. "Halved" is left
-// out: a -50% change is a true, grounded description.
-export const MULTIPLIER = /\b(doubl(?!e[- ]?(?:check|count))\w*|tripl\w*|quadrupl\w*|twice|thrice|tenfold|\d+(?:\.\d+)?\s?x)\b/i;
-// A forecast is a modal that governs a growth verb whose target is a number:
-// "would add 20", "will increase sign-ups to 50", "should return to 40%".
-// Hedges ("may", "might") and modals without a numeric target ("could improve
-// Upload → Checkout", "will be more reliable") are not forecasts.
-const MODAL = '(?:will|would|could|should|(?:is|are)\\s+expected\\s+to|expected\\s+to|projected\\s+to|likely\\s+to|on\\s+track\\s+to)';
-const GROWTH = '(?:add|increase|grow|rise|raise|lift|boost|generate|bring|gain|reach|recover|improve|cut|reduce|lose|return|hit|halve|drop|fall|climb|jump)';
-const FORECAST = new RegExp(`\\b${MODAL}\\s+(?:\\w+\\s+){0,2}?${GROWTH}\\w*\\s+(?:(?:\\S+\\s+){0,4}?(?:by|to|about|around|roughly|over|up\\s+to|another|an\\s+extra|an\\s+additional)\\s+)?\\$?\\d`, 'i');
-const MODAL_SENTENCE = new RegExp(`\\b${MODAL}\\b`, 'i');
-const NUMBER_MORE = /\$?\d[\d,.]*%?\s+(more|extra|additional)\b/i;
+// "double-check" and "double-counting" are not multipliers. Multipliers of any
+// kind ("doubled", "halved", "3 times higher") are rejected: the true change is
+// a computed percentage, which the brief can quote instead.
+export const MULTIPLIER = /\b(doubl(?!e[- ]?(?:check|count))\w*|tripl\w*|quadrupl\w*|halv\w*|twice|thrice|tenfold|\d+(?:\.\d+)?\s?x|\d+(?:\.\d+)?\s+times\s+(?:higher|lower|more|less|larger|smaller|bigger|as))\b/i;
+// A forecast is a modal (hedged or not) that governs a change verb with a
+// numeric target: "would add 20", "may reach 40% again", "should be back at
+// 40%". A modal without a numeric target ("may point to unclear copy", "will
+// be more reliable") is not a forecast; neither is sample-size advice
+// ("would need to reach 30 before this is reliable").
+const MODAL = "(?:will|would|could|should|may|might|can|'ll|'d|(?:is|are)\\s+expected\\s+to|expect(?:s|ed)?\\s+(?:\\S+\\s+){0,4}?to|projected\\s+to|likely\\s+to|on\\s+track\\s+to)";
+const GROWTH = '(?:add|increase|grow|rise|raise|lift|boost|generate|bring|gain|reach|recover|improve|cut|reduce|lose|return|hit|halve|drop|fall|climb|jump|get|see|take|go|win|deliver|produce|make|be)';
+const TARGET = '(?:by|to|toward|towards|back|at|about|around|roughly|over|up\\s+to|from|another|an\\s+extra|an\\s+additional)';
+const FORECAST = new RegExp(`(?:^|\\s)${MODAL}\\s+(?:\\w+\\s+){0,2}?${GROWTH}\\w*\\s+(?:(?:\\S+\\s+){0,8}?${TARGET}\\s+(?:\\S+\\s+){0,2}?)?\\$?\\d`, 'i');
+const SAMPLE_ADVICE = /\b(?:need|needs|needed)\s+to\s+(?:reach|hit|get\s+to|be\s+at\s+least)\b/i;
+const MODAL_SENTENCE = new RegExp(`(?:^|\\s)${MODAL}(?=\\s)`, 'i');
+const NUMBER_MORE = /\$?\d[\d,.]*%?\s+(more|extra|additional|new)\b/i;
+// Goal-setting with a number is a predicted result too: "aim for 8 sign-ups".
+const GOAL = /\b(?:aim(?:ing)?\s+for|target(?:ing)?|goal\s+of|shoot\s+for|expect(?:s|ed|ing)?|forecast(?:s|ed)?|predict(?:s|ed)?|project(?:s|ed)?)\s+(?:\S+\s+){0,2}?\$?\d/i;
+
+// Counts of things to do are instructions, not metric claims: "post 4 TikToks",
+// "test two versions", "run it for 7 days". Only these phrases are exempt from
+// number grounding, and only in the recommended action.
+const ACTION_NOUN = '(?:versions?|variants?|variations?|posts?|videos?|tiktoks?|reels?|stories|emails?|messages?|texts?|days?|weeks?|tests?|experiments?|groups?|clubs?|campus(?:es)?|interviews?|calls?|users?|students?\\s+interviews?|screens?|steps?|options?|headlines?|subject\\s+lines?|questions?|sessions?|schools?)';
+const COUNT_WORD = '(?:[2-9]|10|two|three|four|five|six|seven|eight|nine|ten)';
+const ACTION_COUNT = new RegExp(`\\b${COUNT_WORD}\\s+(?:(?:short|more|new|different|quick|small|separate|test|a/b)\\s+)?${ACTION_NOUN}\\b`, 'gi');
+export const stripActionCounts = (text) => String(text).replace(ACTION_COUNT, ' ');
 
 /** Spelled-out numbers, multipliers and numeric forecasts in a piece of prose. */
 export function inventedQuantities(text, allowed) {
@@ -149,7 +168,8 @@ export function inventedQuantities(text, allowed) {
   if (values.some((n) => !grounded(n))) issues.push('spelled_number');
   if (MULTIPLIER.test(s)) issues.push('multiplier');
   for (const sentence of s.split(/(?<=[.!?;])\s+/)) {
-    if (FORECAST.test(sentence) || (MODAL_SENTENCE.test(sentence) && NUMBER_MORE.test(sentence))) { issues.push('forecast'); break; }
+    if (SAMPLE_ADVICE.test(sentence)) continue;
+    if (FORECAST.test(sentence) || GOAL.test(sentence) || (MODAL_SENTENCE.test(sentence) && NUMBER_MORE.test(sentence))) { issues.push('forecast'); break; }
   }
   return [...new Set(issues)];
 }
@@ -217,15 +237,15 @@ export function validateBrief(brief, ctx) {
     actionTitle: ra.title, actionReason: ra.reason,
     ...Object.fromEntries(brief.dataQualityWarnings.map((w, i) => [`warning${i}`, w])),
   };
-  // The action may count things to do ("test 3 versions"): small counts there are
-  // instructions, not metric claims. Forecasts and multipliers are still rejected.
-  const allowedInAction = new Set([...allowed, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  // The action may count things to do ("test 3 versions", "for 7 days"): only
+  // those phrases are exempt from grounding. Forecasts are checked first, on the
+  // full text, so "post 9 TikToks and you should see 9 new sign-ups" fails.
   for (const [field, raw] of Object.entries(prose)) {
-    const text = stripPeriodDates(raw, ctx.input?.period);
-    const ok = field.startsWith('action') ? allowedInAction : allowed;
-    const bad = ungroundedNumbers(text, ok);
+    const text = stripWindowPhrases(stripPeriodDates(raw, ctx.input?.period));
+    const checked = field.startsWith('action') ? stripActionCounts(text) : text;
+    for (const issue of inventedQuantities(checked, allowed)) grounding.push(`${issue}:${field}`);
+    const bad = ungroundedNumbers(checked, allowed);
     if (bad.length) grounding.push(`ungrounded_number:${field}:${bad.slice(0, 3).join('|')}`);
-    for (const issue of inventedQuantities(text, ok)) grounding.push(`${issue}:${field}`);
   }
 
   // ---- facts vs hypotheses
