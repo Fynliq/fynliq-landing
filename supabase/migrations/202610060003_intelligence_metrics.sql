@@ -16,9 +16,9 @@
 -- is returned as counts per fixed channel enum.
 --
 -- Exclusions: admin/test accounts (p_test, the same list billing_metrics
--- receives) and rows flagged is_test_account, across sign-ups, uploads, Ask
--- questions (via the guest browsers linked to those accounts), the paywall
--- funnel and revenue. Revenue counts only Stripe mode p_livemode (the server
+-- receives) and rows flagged is_test_account, across sign-ups, uploads, the
+-- paywall funnel and revenue; and guest browsers linked only to those accounts,
+-- across visitors, attribution, guest-only uploads and Ask questions. Revenue counts only Stripe mode p_livemode (the server
 -- passes true: live money only). Accounts already entitled before a window are
 -- left out of that window's Upload -> Checkout step (they can't check out).
 --
@@ -38,9 +38,13 @@ returns jsonb
 language sql stable security definer set search_path='' as $$
  with
  test as (select coalesce(p_test, '{}'::uuid[]) ids),
- -- Guest browsers linked to an admin/test account are internal traffic.
+ -- A guest browser is internal traffic only when it is linked to an
+ -- admin/test account and to no real account: a student's browser that an
+ -- admin once signed into (a demo on their laptop) still counts.
  test_guests as (
-  select g.guest_id from public.account_guests g, test where g.user_id = any(test.ids)),
+  select g.guest_id from public.account_guests g, test where g.user_id = any(test.ids)
+  except
+  select g.guest_id from public.account_guests g, test where g.user_id <> all(test.ids)),
  new_guests as (
   select u.id from public.anonymous_users u
   where u.created_at >= p_start and u.created_at < p_end
@@ -52,7 +56,8 @@ language sql stable security definer set search_path='' as $$
   select e.* from public.upload_events e, test
   where e.created_at >= p_start and e.created_at < p_end
    and (e.account_id is null or e.account_id <> all(test.ids))
-   and (e.guest_id is null or e.guest_id not in (select guest_id from test_guests))),
+   -- The guest rule applies only to guest-only uploads; a real account's upload always counts.
+   and (e.account_id is not null or e.guest_id is null or e.guest_id not in (select guest_id from test_guests))),
  -- Questions belong to guest browsers; drop the ones linked to an admin/test account.
  questions as (
   select q.* from public.beta_questions q

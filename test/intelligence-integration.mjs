@@ -112,6 +112,10 @@ await db.exec(`
  -- More noise that must be excluded: the admin uploads and asks a question from its own browser (guest 901).
  insert into public.upload_events(account_id, outcome, files, figures, created_at) values ('${TEST_ACCOUNT}','read',1,2,'${D}08:00:00Z');
  insert into public.upload_events(guest_id, outcome, files, figures, created_at) values ('${id(901)}','read',1,2,'${D}08:30:00Z');
+ -- Shared browser: the admin also signed into student 102's browser (guest 2) for a demo.
+ -- Guest 2 is still a real visitor, and 102's uploads from it still count.
+ insert into public.account_guests(user_id, guest_id) values ('${TEST_ACCOUNT}','${id(2)}');
+ update public.upload_events set guest_id = '${id(2)}' where account_id = '${id(102)}';
  insert into public.beta_sessions(id, token_hash, user_id, kind) values ('${id(501)}','h2','${id(901)}','guest');
  insert into public.beta_questions(user_id, session_id, created_at, finished_at, state) values ('${id(901)}','${id(501)}','${D}12:00:00Z','${D}12:00:05Z','success');
  -- The old account paid long ago and uploads again on the day: it can't start checkout, so it is not in Upload -> Checkout.
