@@ -4,10 +4,15 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
 from peft import LoraConfig
 from trl import SFTTrainer
 
-SYSTEM = "You are FYNQ AI, a specialist in US financial aid. Explain FAFSA, Pell, grants, loans, SAI, school aid offers and refunds accurately. Do not invent eligibility, amounts or deadlines. Protect sensitive information and advise users to verify with StudentAid.gov and their school's aid office."
+from prompt import SYSTEM
 def load_examples(path):
     with open(path, encoding="utf-8") as f:
-        return [json.loads(line) for line in f if line.strip()]
+        rows = [json.loads(line) for line in f if line.strip()]
+    # Examples a human hasn't cleared yet are never trained on (see build_dataset.py).
+    held = [r for r in rows if r.get("needs_review")]
+    if held:
+        raise SystemExit(f"{len(held)} examples in {path} still need review; rebuild with build_dataset.py")
+    return rows
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--model",default="Qwen/Qwen2.5-1.5B-Instruct")
