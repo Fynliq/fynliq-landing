@@ -181,6 +181,21 @@ export function Auth({ mode, destination, onAuthenticated }: AuthProps) {
               <span aria-hidden="true">→</span> Then straight on to {destination}.
             </p>
           )}
+          {/*
+            "Join the beta" lands here, on log-in, by the client's choice — so
+            most people reading "Welcome back" have never been here before.
+            The way to an account is said up front, before they try a school
+            or FAFSA password, rather than only after one is refused.
+          */}
+          {!isSignup && (
+            <p className={styles.newcomer}>
+              New to Fynliq?{' '}
+              <a className={styles.switchLink} href={COPY.login.switchHref}>
+                Create your account
+              </a>
+              . Your school or FAFSA login will not work here.
+            </p>
+          )}
         </div>
 
         <form className={styles.form} onSubmit={submit} noValidate>
