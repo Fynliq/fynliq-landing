@@ -38,6 +38,18 @@
   font-weight: 500;
 }
 
+/* The way in for somebody who has no account yet. Neutral rather than
+   green: it is a direction, not a confirmation. */
+.newcomer {
+  margin-top: var(--s-12);
+  padding: var(--s-12) var(--s-16);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-input);
+  font-size: var(--t-14);
+  color: var(--mid);
+  text-wrap: pretty;
+}
+
 /* ---- The form --------------------------------------------------------- */
 
 .form {
