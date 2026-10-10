@@ -3,7 +3,7 @@ from fastapi import FastAPI,Header,HTTPException
 from pydantic import BaseModel,Field
 from transformers import AutoTokenizer,AutoModelForCausalLM,pipeline
 from peft import PeftModel
-from train import SYSTEM
+from prompt import SYSTEM
 from guards import bearer_matches,contains_ssn
 app=FastAPI(title="FYNQ AI 1.0",version="1.0.0")
 model_id=os.getenv("FYNQ_BASE_MODEL","Qwen/Qwen2.5-1.5B-Instruct")
