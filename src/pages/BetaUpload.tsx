@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Analyzing } from '../components/beta/Analyzing/Analyzing';
 import { Dropzone } from '../components/beta/Dropzone/Dropzone';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
@@ -9,6 +9,7 @@ import {
   type AnalyzeStage,
 } from '../beta/analyzer';
 import { triageFiles, type Rejection } from '../beta/files';
+import { uploadReadiness } from '../beta/readiness';
 import type { AidAnalysis } from '../core';
 import styles from './BetaUpload.module.css';
 import { useAccount } from '../accounts/AccountProvider';
@@ -51,6 +52,7 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   const [stage, setStage] = useState<AnalyzeStage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  const noteId = useId();
 
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => { abort.current?.abort(); }, []);
@@ -133,6 +135,12 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
     }
   }
 
+  const readiness = uploadReadiness({
+    fileCount: files.length,
+    consentRequired: analyzer.connected,
+    consented: consent,
+  });
+
   // Nothing to draw until we know which step this account starts on.
   if (billing.loading) return <FlowShell step={1}>{null}</FlowShell>;
   if (locked) return <UnlockMyAid onUnlocked={() => void billing.refresh()} />;
@@ -188,20 +196,36 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
               </div>
 
               <div className={styles.actions}>
-                {analyzer.connected && <label><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} /> I agree to send the aid lines from these documents to OpenAI for AI processing. Personal details are removed on this device first, but automated removal can miss something. <a href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a></label>}
+                {/* The whole row is the target, not just the box: a 13px
+                    native checkbox is hard to hit on a phone. */}
+                {analyzer.connected && (
+                  <label className={styles.consent}>
+                    <input
+                      type="checkbox"
+                      className={styles.consentBox}
+                      checked={consent}
+                      onChange={(event) => setConsent(event.target.checked)}
+                    />
+                    <span>
+                      I agree to send the aid lines from these documents to OpenAI for AI processing. Personal details are removed on this device first, but automated removal can miss something.{' '}
+                      <a className={styles.consentLink} href="https://openai.com/policies/privacy-policy/" target="_blank" rel="noreferrer">Privacy information</a>
+                    </span>
+                  </label>
+                )}
+                {/* The note says what is holding the button back, and is read
+                    with it, so a disabled button is never left unexplained. */}
                 <button
                   type="button"
                   className={styles.submit}
                   onClick={start}
-                  disabled={files.length === 0 || (analyzer.connected && !consent)}
+                  disabled={!readiness.canSubmit}
+                  aria-describedby={noteId}
                 >
                   Analyse my aid
                   <span aria-hidden="true">&rarr;</span>
                 </button>
-                <p className={styles.actionNote}>
-                  {files.length === 0
-                    ? 'Add at least one file to continue.'
-                    : `${files.length} file${files.length === 1 ? '' : 's'} ready. This takes a few seconds.`}
+                <p className={styles.actionNote} id={noteId}>
+                  {readiness.note}
                 </p>
               </div>
             </>
