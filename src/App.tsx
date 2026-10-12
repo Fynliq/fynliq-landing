@@ -10,7 +10,7 @@ import { createAnalyzer, type AnalyzeResult } from './beta/analyzer';
 import { isLockedPreview, type LockedPreview } from './beta/preview';
 import { exampleAnalysis } from './beta/example';
 import { BillingProvider, useBilling } from './billing/BillingProvider';
-import { isLocked } from './billing/client';
+import { isLocked, takeUnlockSurface, trackFunnel } from './billing/client';
 import { UnlockMyAid } from './pages/UnlockMyAid';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
@@ -243,8 +243,20 @@ function Routes() {
     setIntended(path);
     // Replace, so the back button from the log-in page goes where they came
     // from rather than bouncing them straight back into the gate.
-    navigate(GATE_LANDS_ON, { replace: true });
+    // Coming back from Stripe without a session means they already have an
+    // account — the one they paid from. Sign-up would invite a second
+    // account that has not paid.
+    navigate(path === ROUTES.checkout ? ROUTES.login : GATE_LANDS_ON, { replace: true });
   }, [locked, path, navigate]);
+
+  // Back through Stripe's Cancel link. Recorded once per visit, so the data
+  // can tell "chose not to pay" from "closed the tab".
+  const cancelSeen = useRef(false);
+  useEffect(() => {
+    if (!cancelled || !session || cancelSeen.current) return;
+    cancelSeen.current = true;
+    trackFunnel('checkout_cancelled');
+  }, [cancelled, session]);
 
   useEffect(() => {
     if (orphaned) navigate(ROUTES.upload, { replace: true });
@@ -318,7 +330,11 @@ function Routes() {
         <CheckoutReturn
           onConfirmed={async () => {
             const saved = await loadSaved().catch(() => null);
-            navigate(saved ? ROUTES.results : ROUTES.upload, { replace: true });
+            // No saved analysis: go back to what they paid to open (Ask,
+            // Search, Earn) rather than always dropping them on upload.
+            const from = takeUnlockSurface();
+            const back = from === 'ask' ? ROUTES.ask : from === 'search' ? ROUTES.search : from === 'earn' ? ROUTES.gradi : ROUTES.upload;
+            navigate(saved ? ROUTES.results : back, { replace: true });
           }}
         />
       );

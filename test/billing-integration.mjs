@@ -94,6 +94,8 @@ const ids = {
   tester: '10000000-0000-4000-8000-000000000006',
   decliner: '10000000-0000-4000-8000-000000000007',
   canceller: '10000000-0000-4000-8000-000000000008',
+  statement: '10000000-0000-4000-8000-000000000009',
+  funnel: '10000000-0000-4000-8000-00000000000a',
 };
 const env = {
   PAYWALL_ENABLED: 'true', BETA_ENABLED: 'true', BETA_ORIGIN: ORIGIN, BETA_RATE_SECRET: 'synthetic-rate-secret-at-least-32-chars',
@@ -108,6 +110,7 @@ const created = {
   after: '2026-09-30T18:53:52.654623Z', // one microsecond after the cutoff
   buyer: '2026-10-01T09:00:00Z', other: '2026-10-01T09:05:00Z', tester: '2026-10-01T09:10:00Z',
   decliner: '2026-10-02T09:00:00Z', canceller: '2026-10-02T10:00:00Z', previewer: '2026-10-04T10:00:00Z',
+  statement: '2026-10-05T10:00:00Z', funnel: '2026-10-06T10:00:00Z',
 };
 for (const [key, id] of Object.entries(ids)) {
   await pg.exec(`insert into public.accounts(user_id, email, created_at) values ('${id}', '${key}@example.test', '${created[key]}')`);
@@ -609,6 +612,110 @@ try {
         await assert.rejects(pg.exec(`set role ${role}; ${sql}; reset role;`), `${role}: ${sql}`);
         await pg.exec('reset role');
       }
+    }
+  });
+
+  // -------------------------------------------- purchase funnel audit (2026-10-12)
+
+  // Synthetic statement with two "Payment" rows in one term. The first read
+  // finds one, the second read finds the other and the amount due. Before the
+  // fix the merged set was saved although it fails validateSummary, so the
+  // reload after paying answered 404 and the student was sent to upload.
+  const STATEMENT = [{ name: 'synthetic_statement.png', pages: ['Student Account Statement\nAccount activity\nPayment Fall 2026 $500.00\nPayment Fall 2026 $300.00\nTotal charges Fall 2026 $4,000.00\nAmount due Fall 2026 $3,200.00'] }];
+  const row = { page: 1, document: 1, kind: 'account-statement', period: 'Fall 2026', estimated: false, context: 'Account activity', confidence: 0.9 };
+  const statementReads = [
+    [{ ...row, field: 'paymentApplied', label: 'Payment', value: '$500.00', quote: 'Payment Fall 2026 $500.00' }],
+    [{ ...row, field: 'paymentApplied', label: 'Payment', value: '$300.00', quote: 'Payment Fall 2026 $300.00' },
+      { ...row, field: 'balanceDue', label: 'Amount due', value: '$3,200.00', quote: 'Amount due Fall 2026 $3,200.00' }],
+  ];
+  const sequenceFetch = (reads) => { let n = 0; return async () => ({ ok: true, json: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ supported: true, conflicts: [], facts: reads[Math.min(n++, reads.length - 1)] }) }] }] }) }); };
+  const events = async (who, type) => (await pg.query('select event_type, surface from public.monetization_events where account_id = $1 and event_type = $2', [ids[who], type]));
+
+  await test('audit H7: a read whose passes disagree is saved in a form that still loads after paying', async () => {
+    const body = assertPreviewOnly(await call(analyze({ fetchImpl: sequenceFetch(statementReads) }), { body: { consent: true, documents: STATEMENT }, cookie: cookies.statement }));
+    assert.ok(body.analysisId);
+    const started = await startCheckout('statement');
+    const paid = await deliver(stripeEvent('checkout.session.completed', sessionFor(ids.statement, sessionIdFromUrl(started.url))));
+    assert.equal(paid.statusCode, 200);
+    const full = await saved('statement');
+    assert.equal(full.statusCode, 200, `paid student could not reload the analysis they paid for: ${JSON.stringify(full.body)}`);
+    assert.equal(full.body.analysisId, body.analysisId);
+    const fields = full.body.summaryFacts.map((f) => `${f.field}:${f.value}`);
+    assert.ok(fields.includes('balanceDue:$3,200.00'), 'the figure both reads agree on is kept');
+    assert.ok(!fields.some((f) => f.startsWith('paymentApplied')), 'conflicting figures are dropped, not chosen between');
+  });
+
+  await test('audit H7: rows saved before the fix are repaired on reload; an unrecoverable one is reported, not hidden', async () => {
+    // A row exactly as the old finalise() fallback stored it (conflicting payments).
+    const conflicted = [...statementReads[0], ...statementReads[1]];
+    const repairedId = await db.rpc('aid_analysis_save', { p_user: ids.statement, p_kind: 'account-statement', p_files: 1, p_facts: conflicted, p_overview: {} }).then((r) => r.data);
+    const repaired = await saved('statement', repairedId);
+    assert.equal(repaired.statusCode, 200, JSON.stringify(repaired.body));
+    assert.deepEqual(repaired.body.summaryFacts.map((f) => f.field), ['balanceDue']);
+
+    // Nothing in it survives validation: a distinct answer and a server-side event.
+    const broken = [{ ...row, field: 'balanceDue', label: 'Amount due', value: '$9,999.00', quote: 'Amount due Fall 2026 $3,200.00' }];
+    const brokenId = await db.rpc('aid_analysis_save', { p_user: ids.statement, p_kind: 'account-statement', p_files: 1, p_facts: broken, p_overview: {} }).then((r) => r.data);
+    const before = (await events('statement', 'saved_analysis_unavailable')).length;
+    const missing = await saved('statement', brokenId);
+    assert.equal(missing.statusCode, 404);
+    assert.equal(missing.body.error, 'unavailable', 'a broken saved analysis is not reported as "none"');
+    assert.equal((await events('statement', 'saved_analysis_unavailable')).length, before + 1);
+    assert.equal((await saved('statement', '10000000-0000-4000-8000-0000000000ff')).body.error, 'none', 'a missing one still reads as none');
+  });
+
+  await test('audit telemetry: unlock surface, return and cancel events are recorded, and only known values', async () => {
+    const send = (body) => call(billing(), { body: { action: 'track', ...body }, cookie: cookies.funnel });
+    for (const event of ['checkout_return_viewed', 'checkout_cancelled', 'unlock_confirmed_viewed']) assert.equal((await send({ event })).statusCode, 200, event);
+    assert.equal((await send({ event: 'unlock_button_clicked', surface: 'ask' })).statusCode, 200);
+    assert.equal((await send({ event: 'unlock_button_clicked', surface: 'nowhere' })).statusCode, 400, 'unknown surface is refused');
+    assert.equal((await send({ event: 'saved_analysis_unavailable' })).statusCode, 400, 'server-only events cannot be sent by a browser');
+    assert.deepEqual((await events('funnel', 'unlock_button_clicked')).map((e) => e.surface), ['ask']);
+    for (const event of ['checkout_return_viewed', 'checkout_cancelled', 'unlock_confirmed_viewed']) assert.equal((await events('funnel', event)).length, 1, event);
+
+    await clearRates();
+    const checkout = await call(billing(), { body: { action: 'checkout', surface: 'my_aid_preview' }, cookie: cookies.funnel });
+    assert.equal(checkout.statusCode, 200);
+    assert.deepEqual((await events('funnel', 'unlock_clicked')).map((e) => e.surface), ['my_aid_preview']);
+    // A label the server does not know never blocks the $1 button; it is just not stored.
+    const odd = await call(billing(), { body: { action: 'checkout', surface: 'banner<script>' }, cookie: cookies.funnel });
+    assert.equal(odd.statusCode, 200, JSON.stringify(odd.body));
+    assert.deepEqual((await events('funnel', 'unlock_clicked')).map((e) => e.surface).sort(), ['my_aid_preview', null].sort());
+  });
+
+  await test('audit: funnel events have their own rate budget, so they can never 429 the $1 button', async () => {
+    await clearRates();
+    const sameIp = (body) => { const res = response(); return billing()({ method: 'POST', url: '/api/billing', body, headers: { 'content-type': 'application/json', origin: ORIGIN, cookie: cookies.funnel }, socket: { remoteAddress: '198.51.100.77' } }, res).then(() => res); };
+    for (let i = 0; i < 40; i++) await sameIp({ action: 'track', event: 'my_aid_page_view' });
+    const checkout = await sameIp({ action: 'checkout' });
+    assert.equal(checkout.statusCode, 200, `checkout was refused after page views: ${checkout.body}`);
+  });
+
+  await test('audit H3: an expired session keeps its PaymentIntent, so "tried to pay" is visible without Stripe', async () => {
+    const started = await startCheckout('canceller');
+    const id = sessionIdFromUrl(started.url);
+    const res = await deliver(stripeEvent('checkout.session.expired', sessionFor(ids.canceller, id, { status: 'expired', payment_status: 'unpaid', payment_intent: 'pi_synthetic_attempt01' })));
+    assert.equal(res.statusCode, 200);
+    const stored = (await pg.query('select status, payment_intent_id from public.billing_checkouts where checkout_session_id = $1', [id]))[0];
+    assert.deepEqual([stored.status, stored.payment_intent_id], ['expired', 'pi_synthetic_attempt01']);
+    assert.equal(await entitlement(ids.canceller), null, 'an expired session still unlocks nothing');
+  });
+
+  await test('audit: purchase_funnel_metrics() gives the dashboard numbers, excludes test accounts, and is service-role only', async () => {
+    const m = (await db.rpc('purchase_funnel_metrics', { p_test: [ids.tester], p_since: '2026-09-01T00:00:00Z', p_livemode: false })).data;
+    for (const key of ['checkout_accounts', 'paid_accounts', 'checkout_to_paid_rate', 'expired_sessions', 'expired_with_payment_attempt', 'cancel_returns',
+      'return_viewed_accounts', 'paid_with_analysis', 'paid_with_analysis_viewed_24h', 'paid_without_analysis_24h', 'saved_analysis_unavailable', 'by_surface', 'duplicate_payments']) {
+      assert.ok(key in m, `missing ${key}`);
+    }
+    assert.ok(m.paid_accounts >= 2);
+    assert.ok(m.paid_with_analysis_viewed_24h <= m.paid_with_analysis);
+    assert.ok(m.expired_with_payment_attempt >= 1);
+    assert.ok(m.saved_analysis_unavailable >= 1);
+    const metrics = JSON.stringify(m);
+    for (const id of Object.values(ids)) assert.ok(!metrics.includes(id), 'no account ids in metrics');
+    for (const role of ['anon', 'authenticated']) {
+      await assert.rejects(pg.exec(`set role ${role}; select public.purchase_funnel_metrics('{}', now(), true); reset role;`));
+      await pg.exec('reset role');
     }
   });
 

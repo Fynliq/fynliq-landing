@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { AidGlance } from '../components/AidGlance/AidGlance';
-import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
+import { CheckoutError, rememberUnlockSurface, startCheckout, trackFunnel } from '../billing/client';
 import type { LockedPreview } from '../beta/preview';
 import styles from './AidPreview.module.css';
 
@@ -50,9 +50,10 @@ export function AidPreview({ preview, notice = null, onUnlocked, onRestart }: Ai
     if (busy) return;
     setBusy(true);
     setError(null);
-    trackFunnel('unlock_button_clicked');
+    trackFunnel('unlock_button_clicked', 'my_aid_preview');
+    rememberUnlockSurface('my_aid_preview');
     try {
-      const result = await startCheckout();
+      const result = await startCheckout('my_aid_preview');
       if (result.url) { window.location.assign(result.url); return; }
       onUnlocked();
     } catch (thrown) {

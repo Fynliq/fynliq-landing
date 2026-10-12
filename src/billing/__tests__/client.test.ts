@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isLocked, onUnlockJourney, parseStatus, startCheckout } from '../client';
+import {
+  isLocked, onUnlockJourney, parseStatus, readBillingStatus, rememberUnlockSurface, startCheckout, takeUnlockSurface, waitForUnlock,
+} from '../client';
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -30,5 +32,53 @@ describe('checkout', () => {
   it('only follows Stripe-hosted checkout URLs', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ url: 'https://evil.example/pay' }) })));
     await expect(startCheckout()).rejects.toThrow();
+  });
+});
+
+describe('the return from Stripe', () => {
+  const ENDPOINT = '/api/billing';
+  const reply = (status: number, body: unknown = {}) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
+
+  it('tells "not logged in here" apart from "could not tell"', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => reply(401)));
+    expect(await readBillingStatus(undefined, ENDPOINT)).toEqual({ status: null, signedOut: true });
+    vi.stubGlobal('fetch', vi.fn(async () => reply(503)));
+    expect(await readBillingStatus(undefined, ENDPOINT)).toEqual({ status: null, signedOut: false });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('offline'); }));
+    expect(await readBillingStatus(undefined, ENDPOINT)).toEqual({ status: null, signedOut: false });
+  });
+
+  it('stops waiting at once when signed out, instead of polling for ten minutes', async () => {
+    const fetchMock = vi.fn(async () => reply(401));
+    vi.stubGlobal('fetch', fetchMock);
+    const onSignedOut = vi.fn();
+    const unlocked = await waitForUnlock({ endpoint: ENDPOINT, intervalMs: 5, timeoutMs: 60000, onSignedOut }).done;
+    expect(unlocked).toBe(false);
+    expect(onSignedOut).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps waiting through a server hiccup and resolves once the webhook has unlocked the account', async () => {
+    const answers = [reply(503), reply(200, { paywallEnabled: true, access: 'locked' }), reply(200, { paywallEnabled: true, access: 'premium' })];
+    vi.stubGlobal('fetch', vi.fn(async () => answers.shift() ?? reply(200, { paywallEnabled: true, access: 'premium' })));
+    const onSignedOut = vi.fn();
+    expect(await waitForUnlock({ endpoint: ENDPOINT, intervalMs: 5, onSignedOut }).done).toBe(true);
+    expect(onSignedOut).not.toHaveBeenCalled();
+  });
+
+  it('remembers where the unlock was asked for, once, and never trusts an unknown value', () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('window', { sessionStorage: { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); }, removeItem: (k: string) => { store.delete(k); } } });
+    rememberUnlockSurface('ask');
+    expect(takeUnlockSurface()).toBe('ask');
+    expect(takeUnlockSurface()).toBeNull();
+    store.set('fynliq:unlock-from', '/admin');
+    expect(takeUnlockSurface()).toBeNull();
+  });
+
+  it('works without storage (blocked or private mode): no surface, no error', () => {
+    vi.stubGlobal('window', { get sessionStorage() { throw new Error('blocked'); } });
+    expect(() => rememberUnlockSurface('search')).not.toThrow();
+    expect(takeUnlockSurface()).toBeNull();
   });
 });

@@ -12,7 +12,7 @@
 // account is 'open' and nothing touches Stripe or the billing tables.
 import { clients, sameOrigin, body, rate, fail, BetaError } from '../server/beta.js';
 import {
-  paywallEnabled, currentAccount, resolveAccess, createCheckout, track, CLIENT_EVENTS, UNLOCK_PRICE, inPilot,
+  paywallEnabled, currentAccount, resolveAccess, createCheckout, track, CLIENT_EVENTS, UNLOCK_PRICE, inPilot, unlockSurface,
 } from '../server/billing.js';
 
 export const config = { maxDuration: 30 };
@@ -42,20 +42,28 @@ export function createBillingHandler(dependencies = {}) {
 
       if (req.method === 'GET') return res.json({ paywallEnabled: true, access: status.access, price: UNLOCK_PRICE });
 
-      await rate(db, req, 'billing', 30, env);
       const input = body(req, 4000);
+      // An optional label for the funnel. Never stored unless it is one of
+      // the known values, and never a reason to refuse a checkout.
+      const surface = unlockSurface(input?.surface);
 
       if (input?.action === 'track') {
+        // Funnel steps have their own budget. A page full of them (or a campus
+        // network where many students share one address) must never use up
+        // the requests the $1 button needs.
+        await rate(db, req, 'billing-track', 120, env);
         if (!CLIENT_EVENTS.includes(input.event)) throw new BetaError(400, 'Unknown event.');
+        if (input.surface !== undefined && !surface) throw new BetaError(400, 'Unknown surface.');
         // Only post-cutoff accounts are in this funnel: still locked, or paid
         // (whose first document check comes after the unlock).
-        if (locked || status.access === 'premium') await track(db, account, input.event, env, status.testAccount);
+        if (locked || status.access === 'premium') await track(db, account, input.event, env, status.testAccount, surface);
         return res.json({ ok: true });
       }
 
+      await rate(db, req, 'billing', 30, env);
       if (input?.action === 'checkout') {
         if (!locked) return res.json({ access: status.access, unlocked: true });
-        await track(db, account, 'unlock_clicked', env, status.testAccount);
+        await track(db, account, 'unlock_clicked', env, status.testAccount, surface);
         const checkout = await createCheckout(db, account, env, { fetchImpl: dependencies.fetchImpl || fetch });
         return res.json({ url: checkout.url });
       }
