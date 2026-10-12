@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
-import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
+import { CheckoutError, rememberUnlockSurface, startCheckout, trackFunnel } from '../billing/client';
 import { useRouter } from '../router/router';
 import styles from './AidPreview.module.css';
 
@@ -58,9 +58,11 @@ export function UnlockMyAid({ onUnlocked, notice = null, feature = null }: Unloc
     if (busy) return;
     setBusy(true);
     setError(null);
-    trackFunnel('unlock_button_clicked');
+    const surface = feature ?? 'my_aid';
+    trackFunnel('unlock_button_clicked', surface);
+    rememberUnlockSurface(surface);
     try {
-      const result = await startCheckout();
+      const result = await startCheckout(surface);
       if (result.url) {
         window.location.assign(result.url);
         return; // Leaving for Stripe; keep the button in its busy state.

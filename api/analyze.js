@@ -257,11 +257,45 @@ export function needsSecondPass(facts, scans) {
   return money && (facts.length === 0 || totals);
 }
 
+/**
+ * The facts that pass validateSummary together, re-numbered.
+ *
+ * Two reads (and the page scan) can each be right on their own and still
+ * disagree: a statement with two "Payment" rows in one term gives one to the
+ * first read and the other to the second. The whole set then fails the
+ * strict check. It used to be kept anyway, shown, and saved — and the reload
+ * after paying, which runs the strict check, found nothing and sent the
+ * student back to upload.
+ *
+ * So: a field/label/period group with more than one value is dropped whole
+ * (never choose the convenient figure), then each remaining fact is kept only
+ * if the set still passes with it. Whatever this returns always passes
+ * validateSummary; it may be empty. `dropped` is a count, never content.
+ */
+export function repairFacts(facts, fileCount = 3) {
+  const all = (Array.isArray(facts) ? facts : []).filter((f) => f && typeof f === 'object').map(({ id: _id, ...rest }) => rest);
+  const check = (set) => validateSummary({ supported: true, conflicts: [], facts: set }, fileCount);
+  if (!all.length) return { facts: [], dropped: 0 };
+  try { return { facts: check(all), dropped: 0 }; } catch { /* repaired below */ }
+
+  const norm = (text) => String(text ?? '').toLowerCase().replace(/[$,\s]/g, '');
+  const key = (f) => `${f.field}|${norm(f.label)}|${norm(f.period)}`;
+  const values = new Map();
+  for (const f of all) values.set(key(f), (values.get(key(f)) ?? new Set()).add(norm(f.value)));
+
+  const kept = [];
+  for (const f of all) {
+    if (values.get(key(f)).size > 1) continue;
+    try { check([...kept, f]); kept.push(f); } catch { /* this fact cannot be shown */ }
+  }
+  return { facts: kept.length ? check(kept) : [], dropped: all.length - kept.length };
+}
+
 /** Re-number the facts and run the strict checks once more over the whole set. */
-function finalise(facts, fileCount) {
-  const strip = ({ id: _id, ...rest }) => rest;
-  try { return validateSummary({ supported: true, conflicts: [], facts: facts.map(strip) }, fileCount); }
-  catch { return facts.map((f, i) => ({ ...f, id: `f${i + 1}` })); }
+function finalise(facts, fileCount, diagnostics = {}) {
+  const { facts: kept, dropped } = repairFacts(facts, fileCount);
+  if (dropped) diagnostics['finalise-dropped'] = dropped;
+  return kept;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -312,9 +346,17 @@ async function savedAnalysis(req, res, env, dependencies) {
   try { row = await rpc(gate.db, 'aid_analysis_get', { p_user: gate.account.id, p_id: id }); }
   catch { return bad(res, 503, 'Your analysis is not available right now. Please try again in a moment.'); }
   if (!row?.id) return res.status(404).json({ error: 'none' });
-  let facts;
-  try { facts = validateSummary({ supported: true, conflicts: [], facts: row.facts }); }
-  catch { return res.status(404).json({ error: 'none' }); }
+  // Rows saved before repairFacts existed can hold a set that fails the
+  // strict check. Show the part that passes rather than nothing; if nothing
+  // does, say so distinctly and record it, because a student who paid for
+  // this answer is about to be sent back to upload.
+  const { facts, dropped } = repairFacts(row.facts, Number.isInteger(row.file_count) ? row.file_count : 3);
+  if (!facts.length) {
+    console.error('Saved analysis unavailable:', JSON.stringify({ dropped, locked: gate.locked === true }));
+    await trackFunnel(gate.db, gate.account, 'saved_analysis_unavailable', env, gate.testAccount === true);
+    return res.status(404).json({ error: 'unavailable' });
+  }
+  if (dropped) console.warn('Saved analysis repaired:', JSON.stringify({ dropped }));
   const overview = computeAidOverview(facts);
   if (row.overview?.document && typeof row.overview.document === 'object') overview.document = row.overview.document;
   const base = { facts, overview, readAt: row.created_at, analysisId: row.id };
@@ -431,7 +473,7 @@ export function createAnalyzeHandler(dependencies = {}) {
   const before = facts.length;
   facts = mergeFacts(facts, fromScan);
   if (facts.length > before) diagnostics['from-scan'] = facts.length - before;
-  if (facts.length) facts = finalise(facts, documents.length);
+  if (facts.length) facts = finalise(facts, documents.length, diagnostics);
 
   // Counts and codes only: never any document text, figures or file names.
   console.log('Document reader:', JSON.stringify({ kept: facts.length, returned: extracted?.facts?.length ?? 0, secondPass, dropped: diagnostics }));
