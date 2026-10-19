@@ -10,6 +10,7 @@
 // limits, the API request log, and the read-only safety of the ops_* layer.
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createAuthHandler } from '../api/beta-auth.js';
 import { createActivityHandler } from '../api/activity.js';
@@ -34,8 +35,41 @@ function literal(value) {
   if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
   return `'${String(value).replace(/'/g, "''")}'`;
 }
-const { PGlite } = await import('@electric-sql/pglite');
-const pg = new PGlite();
+// OBSERVABILITY_TEST_PSQL_DB=name runs against a local Postgres through psql
+// instead of PGlite (for sandboxes without npm), like the billing suite.
+async function openDatabase() {
+  const name = process.env.OBSERVABILITY_TEST_PSQL_DB;
+  if (!name) {
+    const { PGlite } = await import('@electric-sql/pglite');
+    return new PGlite();
+  }
+  const run = (sql, database = name) => execFileSync('psql', ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-d', database, '-c', sql],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  run(`drop database if exists ${name}`, 'postgres');
+  run(`create database ${name}`, 'postgres');
+  const rowsOf = (sql) => ({ rows: JSON.parse(run(`select coalesce(json_agg(t), '[]')::text from (${sql}) t`) || '[]') });
+  return {
+    exec: async (sql) => {
+      if (/^(begin transaction read only|commit|rollback)$/.test(sql)) return; // each psql call is its own session
+      try { run(sql); } catch (e) {
+        if (/create role/.test(sql) && /already exists/.test(String(e.stderr))) return;
+        throw new Error(String(e.stderr || e.message));
+      }
+    },
+    close: async () => {},
+    query: async (sql) => { try { return rowsOf(sql); } catch (e) { throw new Error(String(e.stderr || e.message)); } },
+    // Same guarantee as PostgREST's GET: the statement runs read-only.
+    readOnly: async (sql) => {
+      try {
+        const out = execFileSync('psql', ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-d', name, '-c', 'begin transaction read only',
+          '-c', `select coalesce(json_agg(t), '[]')::text from (${sql}) t`, '-c', 'commit'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+        return { rows: JSON.parse(out.trim() || '[]') };
+      }
+      catch (e) { throw new Error(String(e.stderr || e.message)); }
+    },
+  };
+}
+const pg = await openDatabase();
 await pg.exec('create role anon; create role authenticated; create role service_role bypassrls;');
 for (const file of migrations) await pg.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
 await pg.exec('grant usage on schema public to anon, authenticated, service_role');
@@ -50,6 +84,7 @@ const db = {
     try {
       if (options.get) {
         readOnlyCalls++;
+        if (pg.readOnly) return { data: (await pg.readOnly(call)).rows[0]?.value ?? null, error: null };
         await pg.exec('begin transaction read only');
         try {
           const r = await pg.query(call);
@@ -489,7 +524,7 @@ try {
     assert.equal(firstGuestToday, 0);
   });
 
-  console.log(`RESULT ${passed} passed (pglite); synthetic data only; no network calls; ${readOnlyCalls} read-only calls.`);
+  console.log(`RESULT ${passed} passed (${process.env.OBSERVABILITY_TEST_PSQL_DB ? "psql" : "pglite"}); synthetic data only; no network calls; ${readOnlyCalls} read-only calls.`);
 } finally {
   await pg.close();
 }

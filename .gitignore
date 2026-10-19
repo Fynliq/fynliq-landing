@@ -10,6 +10,7 @@ dist
 docs/.tmp
 
 # Added by `vercel link`, which also drops a VERCEL_OIDC_TOKEN into .env.local.
+temp_auto_push.bat
 # The example file carries no secret and is the only documentation of which
 # variable connects the document reader, so it stays tracked.
 .env*
@@ -23,3 +24,5 @@ docs/.tmp
 
 # Python bytecode from scripts/ops
 __pycache__/
+.gitignore
+branch_structure.json

@@ -9,8 +9,8 @@
 --     metadata (counts, durations, reason codes).
 --     NEVER: names, emails, SSNs, student ids, document text, file names, aid
 --     figures, raw user agents, IP addresses or free text. UTM values are
-     copied only when they are plain tokens (letters, digits, space, . _ + -;
-     no @), so a crafted link can't put an email or a sentence in here.
+--     copied only when they are plain tokens (letters, digits, space, . _ + -;
+--     no @), so a crafted link can't put an email or a sentence in here.
 --   * api_requests: route, method, HTTP status, duration and error class.
 --     No URLs with query strings, no bodies, no IPs. Kept 30 days.
 --
