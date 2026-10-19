@@ -53,6 +53,13 @@ export function observe(route, handler, dependencies = {}) {
       return await storage.run(store, () => handler(req, res));
     } catch (error) {
       errorClass = typeof error?.name === 'string' && /^[A-Za-z]{1,40}$/.test(error.name) ? error.name : 'Error';
+      // Keep the crash visible in the Vercel runtime logs: the route, the error
+      // class and the stack frames (file:line only). Never the message, which
+      // can contain whatever the request carried.
+      const frames = String(error?.stack || '').split('\n').slice(1, 8)
+        .map((l) => (/\(?((?:file:\/\/)?\/[^\s()]+:\d+:\d+)\)?/.exec(l) || [])[1]).filter(Boolean)
+        .map((f) => f.replace(/^.*?\/(api|server|node_modules)\//, '$1/'));
+      console.error('Unhandled API error:', JSON.stringify({ route, error: errorClass, at: frames }));
       if (!res.headersSent) {
         try { res.status(500).send('Something went wrong. Please try again.'); } catch { /* already closed */ }
       }

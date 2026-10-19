@@ -61,6 +61,7 @@ def headline_numbers(metrics: dict | None) -> dict:
     f, rev, health = _funnel(metrics), (metrics or {}).get("revenue") or {}, (metrics or {}).get("health") or {}
     return {
         "visitors": f.get("visitors"),
+        "new_visitors": f.get("new_visitors", f.get("visitors")),
         "accounts": f.get("signups"),
         "uploaders": f.get("uploaders"),
         "analyses": f.get("analyses"),
@@ -69,7 +70,10 @@ def headline_numbers(metrics: dict | None) -> dict:
         "payments": rev.get("payments"),
         "revenue_cents": rev.get("revenue_cents"),
         "visitor_to_paid": rate(rev.get("payers"), f.get("visitors")),
-        "checkout_to_paid": rate(rev.get("payers"), rev.get("checkout_starters")),
+        # Payers are counted by payment time and starters by start time, so a
+        # payment for yesterday's checkout can push this over 100%: cap it.
+        "checkout_to_paid": min(rate(rev.get("payers"), rev.get("checkout_starters")), 1.0)
+            if rate(rev.get("payers"), rev.get("checkout_starters")) is not None else None,
         "errors": health.get("errors_5xx"),
         "ai_failures": (health.get("ai") or {}).get("failed"),
         "payment_failures": (rev.get("payment_failures") or 0) + (rev.get("webhook_problems") or 0) if rev else None,
@@ -171,7 +175,7 @@ def build_ceo_report(today: dict | None, yesterday: dict | None, week: dict | No
         f"# FYNQ — MORNING REPORT ({date})",
         "",
         "## Growth",
-        f"New visitors: {fmt_int(t['visitors'])}{delta(t['visitors'], y['visitors'])}",
+        f"New visitors: {fmt_int(t['new_visitors'])}{delta(t['new_visitors'], y['new_visitors'])}",
         f"New accounts: {fmt_int(t['accounts'])}{delta(t['accounts'], y['accounts'])}",
         f"Unique uploaders: {fmt_int(t['uploaders'])}{delta(t['uploaders'], y['uploaders'])}",
         f"Successful analyses: {fmt_int(t['analyses'])}{delta(t['analyses'], y['analyses'])}",
@@ -244,8 +248,19 @@ def pending_migrations(repo_files: list[str], applied: list[str] | None) -> list
     return out
 
 
+def segment_lines(funnel: dict | None, title: str) -> list[str]:
+    rows = (funnel or {}).get("funnel") or []
+    if not rows:
+        return []
+    out = ["", f"## Funnel by {title} (7 days)", "| Segment | Visitors | Accounts | Uploaders | Paid |", "| --- | --- | --- | --- | --- |"]
+    for r in rows[:8]:
+        out.append(f"| {str(r.get('segment'))[:40]} | {fmt_int(r.get('visitors'))} | {fmt_int(r.get('signups'))} | "
+                   f"{fmt_int(r.get('uploaders'))} | {fmt_int(r.get('payers'))} |")
+    return out
+
+
 def build_engineering_report(today: dict | None, yesterday: dict | None, github: dict, milestones: dict,
-                             fired: list[dict], pending: list[str], date: str) -> str:
+                             fired: list[dict], pending: list[str], date: str, segments: dict | None = None) -> str:
     health = (today or {}).get("health") or {}
     prev = (yesterday or {}).get("health") or {}
     rev = (today or {}).get("revenue") or {}
@@ -310,4 +325,6 @@ def build_engineering_report(today: dict | None, yesterday: dict | None, github:
     lines += [f"- {m['id']}: {'reached' if m['reached'] else 'not yet'} — {m['progress']}" for m in milestones.get("milestones", [])]
     if milestones.get("active_analyses"):
         lines.append(f"- Active analyses: {', '.join(milestones['active_analyses'])}")
+    for name, data in (segments or {}).items():
+        lines += segment_lines(data, name)
     return "\n".join(lines) + "\n"

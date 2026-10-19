@@ -99,7 +99,9 @@ def main(argv=None) -> int:
     if args.files:
         files = [l.strip() for l in open(args.files, encoding="utf-8") if l.strip()]
     elif args.repo and args.pr:
-        files = [f["filename"] for f in gh.paged(f"/repos/{args.repo}/pulls/{args.pr}/files")]
+        files = [f["filename"] for f in gh.paged(f"/repos/{args.repo}/pulls/{args.pr}/files", limit=3000)]
+        if len(files) >= 3000:  # GitHub's maximum: the list may be cut off, so fail closed
+            files.append("supabase/migrations/__truncated_file_list__.sql")
     else:
         ap.error("--files or --repo/--pr required")
     result = plan(files)

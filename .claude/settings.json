@@ -140,7 +140,13 @@
       "mcp__vercel__get_auth_token",
       "mcp__Vercel__get_auth_token",
       "mcp__vercel__get_project_token",
-      "mcp__Vercel__get_project_token"
+      "mcp__Vercel__get_project_token",
+      "Edit(.claude/hooks/**)",
+      "Write(.claude/hooks/**)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/settings.local.json)"
     ],
     "ask": [
       "Bash(git push:*)",
@@ -165,7 +171,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|mcp__.*",
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.*",
         "hooks": [
           {
             "type": "command",

@@ -32,8 +32,9 @@ milestones:
   - id: instrumentation_complete
     trigger:
       all:
+        # checkout_viewed is left out on purpose: it only fires while the paywall is on.
         - events_seen: [landing_view, signup_completed, login_completed, my_aid_viewed, upload_started,
-                        upload_completed, analysis_completed, results_viewed, checkout_viewed]
+                        upload_completed, analysis_completed, results_viewed]
           within_days: 7
         - seen_within_hours: api_requests_last_seen
           hours: 24

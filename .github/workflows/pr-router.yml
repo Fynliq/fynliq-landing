@@ -1,8 +1,9 @@
 # Labels each PR with its risk class and the agents that must review it, and
-# keeps one sticky comment listing them (scripts/ops/route_pr.py). The routing
-# code is checked out from the BASE branch, never from the PR, so a PR can't
-# change how it is classified. Fork PRs get a read-only token: they are routed
-# in the job summary only. Nothing here approves, merges or deploys.
+# keeps one sticky comment listing them (scripts/ops/route_pr.py). The Python
+# routing code is checked out from the BASE branch. Note that this workflow
+# file itself runs from the PR's head, so the labels are advisory: nothing may
+# be gated on them. Fork PRs get a read-only token and are routed in the job
+# summary only. Nothing here approves, merges or deploys.
 name: PR router
 
 on:

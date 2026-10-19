@@ -17,6 +17,8 @@ import { createBillingHandler } from '../api/billing.js';
 import { createStripeWebhookHandler } from '../api/stripe-webhook.js';
 import { createAdminHandler } from '../api/beta-admin.js';
 import { createAccountHandler } from '../server/account-login.js';
+import { createAnalyzeHandler, setUploadTracker } from '../api/analyze.js';
+import { recordUpload } from '../server/upload-tracking.js';
 import { buildEvent, recordEvents, track } from '../server/analytics.js';
 import { observe } from '../server/observability.js';
 import { signStripePayload } from '../server/stripe.js';
@@ -251,6 +253,9 @@ try {
     assert.equal((await deliver(event)).statusCode, 200, 'duplicate delivery is fine');
     assert.equal((await events('payment_completed')).length, 1);
     assert.equal((await events('unlock_verified')).length, 1);
+    const [paid] = await events('payment_completed');
+    assert.equal(paid.device_type, 'mobile', 'the webhook has no browser: the payer\'s own device is used for segments');
+    assert.equal(paid.browser, 'tiktok');
     const forged = response();
     await createStripeWebhookHandler(deps())({ method: 'POST', body: JSON.stringify(event), headers: { 'stripe-signature': signStripePayload(JSON.stringify(event), 'whsec_wrong') } }, forged);
     assert.equal(forged.statusCode, 400);
@@ -373,6 +378,95 @@ try {
     const all = (await one('select count(*)::int n from public.accounts')).n;
     assert.equal(m.registered_users, all - 1);
     assert.ok(m.events_last_seen.landing_view);
+  });
+
+
+  // -------------------------------------------- added after review of PR #18
+  const newLockedAccount = async (label) => {
+    const id = randomUUID();
+    await pg.exec(`insert into public.accounts(user_id, email, created_at) values ('${id}', '${label}@example.test', now())`);
+    const token = randomBytes(32).toString('hex');
+    await db.rpc('account_start_session', { p_user: id, p_email: `${label}@example.test`, p_hash: createHash('sha256').update(token).digest('hex'), p_guest: null });
+    return { id, cookie: `__Host-fynliq_account=${token}` };
+  };
+
+  await test('checkout expiry is recorded once from the webhook', async () => {
+    await clearRates();
+    const who = await newLockedAccount('expirer');
+    const start = await call(createBillingHandler(deps({ fetchImpl: stripeFetch })), { body: { action: 'checkout' }, cookie: who.cookie });
+    const id = start.body.url.split('/').pop();
+    const ev = stripeEvent('checkout.session.expired', { id, account: who.id, payment_status: 'unpaid', status: 'expired' });
+    await deliver(ev);
+    await deliver(ev);
+    assert.equal((await events('checkout_expired')).filter((e) => e.user_id === who.id).length, 1);
+  });
+
+  await test('analytics down: the webhook still answers 200 and still unlocks; checkout still works', async () => {
+    await clearRates();
+    const who = await newLockedAccount('outage');
+    const start = await call(createBillingHandler(deps({ fetchImpl: stripeFetch })), { body: { action: 'checkout' }, cookie: who.cookie });
+    const id = start.body.url.split('/').pop();
+    const broken = { ...db, rpc: async (name, args, opts) => (name === 'analytics_record' ? { data: null, error: { message: 'down' } } : db.rpc(name, args, opts)) };
+    const hanging = { ...db, rpc: (name, args, opts) => (name === 'analytics_record' ? new Promise(() => {}) : db.rpc(name, args, opts)) };
+    // checkout with analytics failing
+    const who2 = await newLockedAccount('outage2');
+    const checkout = await call(createBillingHandler({ env, clients: () => ({ db: broken, auth }), fetchImpl: stripeFetch }), { body: { action: 'checkout' }, cookie: who2.cookie });
+    assert.equal(checkout.statusCode, 200, JSON.stringify(checkout.body));
+    // webhook with analytics hanging
+    const payload = JSON.stringify(stripeEvent('checkout.session.completed', { id, account: who.id }));
+    const res = response();
+    const started = Date.now();
+    await createStripeWebhookHandler({ env, clients: () => ({ db: hanging, auth }) })({ method: 'POST', body: payload, headers: { 'stripe-signature': signStripePayload(payload, WEBHOOK_SECRET) } }, res);
+    assert.equal(res.statusCode, 200);
+    assert.ok(Date.now() - started < 4000, 'bounded wait');
+    const ent = await one(`select status from public.billing_entitlements where account_id = '${who.id}'`);
+    assert.equal(ent?.status, 'active', 'the payment still unlocks the account');
+  });
+
+  await test('a stray GET or an unsigned POST to the webhook is not a payment failure', async () => {
+    const before = (await db.rpc('ops_health', { p_since: '2000-01-01T00:00:00Z', p_until: '2100-01-01T00:00:00Z' }, { get: true })).data;
+    const hook = observe('/api/stripe-webhook', createStripeWebhookHandler(deps()), { env, clients: () => ({ db }) });
+    const get = response();
+    await hook({ method: 'GET', headers: { 'user-agent': 'Mozilla/5.0' } }, get);
+    const unsigned = response();
+    await hook({ method: 'POST', body: '{}', headers: { 'user-agent': 'scanner' } }, unsigned);
+    assert.equal(get.statusCode, 405);
+    assert.equal(unsigned.statusCode, 400);
+    const after = (await db.rpc('ops_health', { p_since: '2000-01-01T00:00:00Z', p_until: '2100-01-01T00:00:00Z' }, { get: true })).data;
+    assert.equal(after.webhook_failures, before.webhook_failures);
+    assert.equal(after.webhook_rejected, (before.webhook_rejected ?? 0) + 1);
+  });
+
+  await test('document reader: upload_completed, analysis_started and analysis_completed fire once each, with counts only', async () => {
+    const MARKER = 'OBSMARKER';
+    const facts = [{ field: 'grantOffer', label: 'Federal Pell Grant', value: '$3,698', page: 1, document: 1, kind: 'award-letter', period: 'Fall 2026', estimated: false, quote: 'Federal Pell Grant Fall 2026 $3,698' }];
+    const documents = [{ name: `Jordan_Testcase_award_${MARKER}.png`, pages: [`Aid Offer for Jordan Testcase\nSSN 123-45-6789\nFederal Pell Grant Fall 2026 $3,698\nScholarship ${MARKER} Fall 2026 $500.00`] }];
+    const openaiFetch = async () => ({ ok: true, json: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: JSON.stringify({ supported: true, conflicts: [], facts }) }] }] }) });
+    const reader = await newLockedAccount('reader');
+    const counts = async () => Object.fromEntries(await Promise.all(['upload_completed', 'analysis_started', 'analysis_completed']
+      .map(async (n) => [n, (await events(n)).filter((e) => e.user_id === reader.id).length])));
+    setUploadTracker((req, data) => recordUpload(req, data, { env, clients: () => ({ db }) }));
+    try {
+      const res = await call(createAnalyzeHandler({ env: { ...env, OPENAI_API_KEY: 'synthetic', OPENAI_MODEL: 'synthetic' }, clients: () => ({ db, auth }), fetchImpl: openaiFetch }),
+        { body: { consent: true, documents }, cookie: reader.cookie });
+      assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    } finally { setUploadTracker(recordUpload); }
+    assert.deepEqual(await counts(), { upload_completed: 1, analysis_started: 1, analysis_completed: 1 });
+    const [done] = (await events('analysis_completed')).filter((e) => e.user_id === reader.id);
+    assert.equal(done.metadata.files, 1);
+    assert.ok(Number.isInteger(done.metadata.ai_ms));
+    const all = JSON.stringify(await rows('select * from public.analytics_events'));
+    for (const needle of ['Jordan', MARKER, '3,698', '123-45']) assert.ok(!all.includes(needle), `${needle} reached analytics`);
+  });
+
+  await test('new visitors: only people whose first landing is inside the window', async () => {
+    const r = (await db.rpc('ops_funnel', { p_since: new Date(Date.now() - 3600_000).toISOString(), p_until: '2100-01-01T00:00:00Z', p_segment: 'none', p_test: TESTER }, { get: true })).data;
+    const row = r.rows[0] || {};
+    assert.ok(row.new_visitors <= row.visitors);
+    // The first browser landed 2 days ago (moved earlier in this file): it is a visitor today only if it landed again,
+    // and never a NEW visitor in this window.
+    const firstGuestToday = (await rows(`select 1 from public.analytics_events where event_name = 'landing_view' and anonymous_session_id = '${guestId}' and occurred_at > now() - interval '1 hour'`)).length;
+    assert.equal(firstGuestToday, 0);
   });
 
   console.log(`RESULT ${passed} passed (pglite); synthetic data only; no network calls; ${readOnlyCalls} read-only calls.`);

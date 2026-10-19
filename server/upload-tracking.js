@@ -7,6 +7,7 @@
 import { clients, rpc, hash, session as guestSession } from './beta.js';
 import { accountToken } from './account-login.js';
 import { buildEvent, recordEvents } from './analytics.js';
+import { afterResponse } from './observability.js';
 
 export const OUTCOMES = ['read', 'no_aid_lines', 'unreadable', 'privacy_blocked', 'reader_error'];
 
@@ -48,7 +49,9 @@ export async function recordUpload(req, { outcome, files, figures = 0, reason = 
         p_reason: typeof reason === 'string' && /^[a-z0-9+-]{1,200}$/.test(reason) ? reason : null,
       }).catch(() => {});
       // The same outcome as a canonical analytics event. Reason codes only.
-      await recordEvents(db, buildEvent(OUTCOME_EVENTS[outcome], {
+      // Written after the response where the platform allows it, so a slow
+      // database can't cut it off inside the bounded wait below.
+      await afterResponse(recordEvents(db, buildEvent(OUTCOME_EVENTS[outcome], {
         userId: account ? String(account).toLowerCase() : null,
         guestId: guest ? String(guest).toLowerCase() : null,
         userAgent: req?.headers?.['user-agent'],
@@ -57,7 +60,7 @@ export async function recordUpload(req, { outcome, files, figures = 0, reason = 
           outcome, files, figures, ai_ms, second_pass,
           reason: outcome === 'read' || outcome === 'reader_error' ? undefined : outcome,
         },
-      }));
+      })));
     })().catch(() => {});
     // Never hold a student's answer for more than a moment over bookkeeping.
     await Promise.race([work, new Promise((resolve) => setTimeout(resolve, 1500))]);

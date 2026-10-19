@@ -86,6 +86,11 @@ alter table public.analytics_events enable row level security;
 alter table public.api_requests enable row level security;
 revoke all on public.analytics_events, public.api_requests from public, anon, authenticated;
 grant all on public.analytics_events, public.api_requests to service_role;
+revoke all on sequence public.api_requests_id_seq from public, anon, authenticated;
+grant usage, select on sequence public.api_requests_id_seq to service_role;
+
+-- The funnel maps guest browsers to accounts on every query.
+create index if not exists account_guests_guest on public.account_guests(guest_id);
 
 -- ------------------------------------------------------------------ writes
 
@@ -101,6 +106,9 @@ declare
  v_inserted integer := 0;
  n integer;
  a record;
+ v_device text;
+ v_browser text;
+ d record;
 begin
  if jsonb_typeof(p_events) is distinct from 'array' or jsonb_array_length(p_events) > 25 then
   return 0;
@@ -129,6 +137,18 @@ begin
    order by (v_guest is not null and aa.guest_id = v_guest) desc, aa.first_seen_at
    limit 1;
 
+   -- Events without a browser of their own (the Stripe webhook) take the
+   -- person's most recent known device, so device segments stay meaningful.
+   v_device := coalesce(e->>'device_type', 'unknown');
+   v_browser := coalesce(e->>'browser', 'other');
+   if v_device = 'unknown' and (v_user is not null or v_guest is not null) then
+    select x.device_type, x.browser into d from public.analytics_events x
+    where x.device_type <> 'unknown'
+      and ((v_user is not null and x.user_id = v_user) or (v_guest is not null and x.anonymous_session_id = v_guest))
+    order by x.occurred_at desc limit 1;
+    if found then v_device := d.device_type; v_browser := d.browser; end if;
+   end if;
+
    insert into public.analytics_events(
     event_id, event_name, side, anonymous_session_id, user_id, dedupe_key,
     channel, source, medium, campaign, content, referrer, landing_page,
@@ -136,7 +156,7 @@ begin
    values (
     (e->>'event_id')::uuid, v_name, coalesce(e->>'side', 'server'), v_guest, v_user, nullif(e->>'dedupe_key', ''),
     a.channel, a.source, a.medium, a.campaign, a.content, a.referrer, a.landing_page,
-    coalesce(e->>'device_type', 'unknown'), coalesce(e->>'browser', 'other'), nullif(e->>'experiment_id', ''),
+    v_device, v_browser, nullif(e->>'experiment_id', ''),
     (e->>'livemode')::boolean, coalesce((e->>'is_test')::boolean, false), coalesce(e->'metadata', '{}'::jsonb))
    on conflict do nothing;
    get diagnostics n = row_count;
@@ -182,19 +202,25 @@ create function public.ops_funnel(p_since timestamptz, p_until timestamptz, p_se
 returns jsonb
 language sql stable security definer set search_path='' as $$
  with ids as (select public.ops_test_ids(p_test) t),
- ev as (
+ mapped as (
   select e.*,
    coalesce(e.user_id,
     (select ag.user_id from public.account_guests ag where ag.guest_id = e.anonymous_session_id order by ag.linked_at limit 1),
-    e.anonymous_session_id) as actor
-  from public.analytics_events e, ids
+    e.anonymous_session_id) as actor,
+   (e.event_name = 'landing_view' and not exists (
+     select 1 from public.analytics_events x
+     where x.event_name = 'landing_view' and x.occurred_at < p_since
+       and ((e.anonymous_session_id is not null and x.anonymous_session_id = e.anonymous_session_id)
+         or (e.user_id is not null and x.user_id = e.user_id)))) as first_visit
+  from public.analytics_events e
   where e.occurred_at >= p_since and e.occurred_at < p_until
     and not e.is_test
-    and (e.user_id is null or e.user_id <> all(ids.t))
     -- Money events count only in Stripe live mode.
     and (e.event_name not in ('checkout_started','payment_completed','payment_failed','checkout_expired','unlock_verified')
          or e.livemode is true)
  ),
+ -- Admin/test accounts are excluded as people, including their logged-out visits.
+ ev as (select m.* from mapped m, ids where m.actor is null or m.actor <> all(ids.t)),
  seg as (
   select ev.*, case p_segment
     when 'source' then coalesce(ev.channel, 'unknown')
@@ -215,6 +241,7 @@ language sql stable security definer set search_path='' as $$
  counts as (
   select segment,
    count(distinct actor) filter (where event_name = 'landing_view') visitors,
+   count(distinct actor) filter (where event_name = 'landing_view' and first_visit) new_visitors,
    count(distinct actor) filter (where event_name = 'signup_completed') signups,
    count(distinct actor) filter (where event_name = 'my_aid_viewed') qualified,
    count(distinct actor) filter (where event_name = 'upload_started') upload_starters,
@@ -234,7 +261,7 @@ language sql stable security definer set search_path='' as $$
  select jsonb_build_object(
   'since', p_since, 'until', p_until, 'segment', p_segment,
   'rows', coalesce(jsonb_agg(jsonb_build_object(
-   'segment', c.segment, 'visitors', c.visitors, 'signups', c.signups, 'qualified_sessions', c.qualified,
+   'segment', c.segment, 'visitors', c.visitors, 'new_visitors', c.new_visitors, 'signups', c.signups, 'qualified_sessions', c.qualified,
    'upload_starters', c.upload_starters, 'uploaders', c.uploaders, 'analysed', c.analysed, 'analyses', c.analyses,
    'analysis_failures', c.analysis_failures, 'upload_failures', c.upload_failures,
    'result_viewers', c.result_viewers, 'checkout_viewers', c.checkout_viewers, 'checkout_starters', c.checkout_starters,
@@ -327,7 +354,10 @@ language sql stable security definer set search_path='' as $$
     'p95_ms', (select percentile_cont(0.95) within group (order by ai_ms) from ai where ai_ms is not null)),
   'auth_failures', (select count(*) from public.analytics_events
      where event_name = 'login_failed' and occurred_at >= p_since and occurred_at < p_until),
-  'webhook_failures', (select count(*) from req where route = '/api/stripe-webhook' and status >= 400),
+  -- A GET from a browser or scanner (405) or an unsigned POST (400) is not a
+  -- payment problem: only a POST the server failed to process (5xx) is.
+  'webhook_failures', (select count(*) from req where route = '/api/stripe-webhook' and method = 'POST' and status >= 500),
+  'webhook_rejected', (select count(*) from req where route = '/api/stripe-webhook' and method = 'POST' and status >= 400 and status < 500),
   'frontend_errors', (select count(*) from public.analytics_events
      where event_name = 'client_error' and occurred_at >= p_since and occurred_at < p_until));
 $$;
@@ -338,32 +368,43 @@ create function public.ops_milestone_metrics(p_test text default '')
 returns jsonb
 language sql stable security definer set search_path='' as $$
  with ids as (select public.ops_test_ids(p_test) t),
+ days as (
+  select generate_series((now() at time zone 'UTC')::date - 7, (now() at time zone 'UTC')::date - 1, interval '1 day')::date d
+ ),
  visitors as (
-  select (occurred_at at time zone 'UTC')::date d, count(distinct anonymous_session_id) n
-  from public.analytics_events
-  where event_name = 'landing_view' and not is_test and occurred_at >= now() - interval '8 days'
-  group by 1
+  select days.d, (select count(distinct e.anonymous_session_id) from public.analytics_events e
+     where e.event_name = 'landing_view' and not e.is_test and (e.occurred_at at time zone 'UTC')::date = days.d) n
+  from days
+ ),
+ person as (
+  -- A guest browser that later signed up counts as that account.
+  select g.guest_id, (select ag.user_id from public.account_guests ag where ag.guest_id = g.guest_id order by ag.linked_at limit 1) user_id
+  from (select distinct anonymous_session_id guest_id from public.analytics_events where anonymous_session_id is not null
+        union select distinct guest_id from public.upload_events where guest_id is not null) g
  ),
  recent as (
   select * from public.api_requests where occurred_at >= now() - interval '24 hours' and not synthetic
  )
  select jsonb_build_object(
   'registered_users', (select count(*) from public.accounts a, ids where a.user_id <> all(ids.t)),
-  'unique_successful_uploaders', (select count(distinct coalesce(u.account_id::text, u.guest_id::text))
-     from public.upload_events u, ids
-     where u.outcome = 'read' and (u.account_id is null or u.account_id <> all(ids.t))),
+  'unique_successful_uploaders', (select count(distinct p) from (
+     select coalesce(u.account_id, (select pe.user_id from person pe where pe.guest_id = u.guest_id), u.guest_id) p
+     from public.upload_events u where u.outcome = 'read') q, ids
+     where p is not null and p <> all(ids.t)),
+  -- A qualified session: a person reached My Aid on a given day.
   'qualified_sessions', (select count(*) from (
-     select coalesce(e.user_id, e.anonymous_session_id)::text p from public.analytics_events e, ids
-       where e.event_name = 'my_aid_viewed' and not e.is_test and (e.user_id is null or e.user_id <> all(ids.t))
+     select coalesce(e.user_id, (select pe.user_id from person pe where pe.guest_id = e.anonymous_session_id), e.anonymous_session_id) p,
+            (e.occurred_at at time zone 'UTC')::date d
+       from public.analytics_events e where e.event_name = 'my_aid_viewed' and not e.is_test
      union
-     select m.account_id::text from public.monetization_events m, ids
-       where m.event_type = 'my_aid_page_view' and not m.is_test_account and m.account_id <> all(ids.t)) q
-     where p is not null),
+     select m.account_id, (m.created_at at time zone 'UTC')::date from public.monetization_events m
+       where m.event_type = 'my_aid_page_view' and not m.is_test_account) q, ids
+     where p is not null and p <> all(ids.t)),
   'successful_non_test_payments', (select count(*) from public.billing_entitlements b, ids
      where b.livemode and b.status = 'active' and not b.is_test_account and b.account_id <> all(ids.t)),
   'visitors_last_24h', (select count(distinct anonymous_session_id) from public.analytics_events
      where event_name = 'landing_view' and not is_test and occurred_at >= now() - interval '24 hours'),
-  'visitors_daily_avg_7d', (select coalesce(round(avg(n), 2), 0) from visitors where d < (now() at time zone 'UTC')::date),
+  'visitors_daily_avg_7d', (select coalesce(round(avg(n), 2), 0) from visitors),
   'api_requests_24h', (select count(*) from recent),
   'rate_limited_share_24h', (select case when count(*) = 0 then 0 else round(count(*) filter (where status = 429)::numeric / count(*), 4) end from recent),
   'events_last_seen', coalesce((select jsonb_object_agg(event_name, last_seen) from

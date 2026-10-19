@@ -20,7 +20,7 @@ disagree about branches, this file is current.
  │  beta-auth   guest + admin OTP     auth/*   accounts           │
  │  analyze     reader + paywall gate ask      Ask Fynliq         │
  │  billing     $1 checkout           stripe-webhook  entitlement │
- │  beta-admin  /admin metrics        account, activity → 410     │
+ │  beta-admin  /admin + ops metrics  activity  browser events     │
  └──────┬──────────────────┬─────────────────────┬───────────────┘
         │ service-role RPC │ HTTPS               │ HTTPS
  ┌──────▼─────────┐  ┌─────▼──────────────┐  ┌───▼──────────────────┐

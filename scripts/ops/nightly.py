@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -81,7 +82,14 @@ def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, au
     data: dict = {"protected_branches": autonomy.get("protected_branches", [])}
 
     prs = gh.paged(f"/repos/{repo}/pulls", state="open")
-    data["open_prs"] = [{"number": p["number"], "title": p["title"], "draft": p.get("draft", False),
+    # PR titles are untrusted input (anyone can open a fork PR on a public
+    # repo) and these reports are read by agent sessions: withhold fork titles,
+    # and strip anything that looks like markup or instructions from the rest.
+    def safe_title(p):
+        if ((p.get("head") or {}).get("repo") or {}).get("full_name", "").lower() != repo.lower():
+            return "(fork PR, title withheld)"
+        return re.sub(r"[^A-Za-z0-9 .,:;()/#&+'-]", "", str(p.get("title", "")))[:90]
+    data["open_prs"] = [{"number": p["number"], "title": safe_title(p), "draft": p.get("draft", False),
                          "labels": _labels(p), "ci": _ci_state(gh, repo, p["head"]["sha"]),
                          "created_at": p["created_at"]} for p in prs]
 
@@ -125,8 +133,8 @@ def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, au
         "investigations_completed": closed,
         "issues_created": created,
         "prs_created": sum(1 for p in data["open_prs"] if "agent-authored" in p["labels"] and p["created_at"] >= iso(since)),
-        "prs_awaiting_approval": sum(1 for p in data["open_prs"] if not p["draft"] and p["ci"] == "success"
-                                     and ("agents-reviewed" in p["labels"] or "risk:green" in p["labels"])),
+        # Ready for the human: not a draft and CI green. Merging is always human.
+        "prs_awaiting_approval": sum(1 for p in data["open_prs"] if not p["draft"] and p["ci"] == "success"),
     }
     return data
 
@@ -135,13 +143,14 @@ def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, au
 
 def run(metrics: dict, github: dict, previous_state: dict, now: datetime) -> dict:
     today = metrics.get("today")
-    milestone_result = ms.evaluate((today or {}).get("milestones") or {}, previous_state)
-    fired = triggers.fire(today, github)
+    milestone_result = ms.evaluate((today or {}).get("milestones") or {}, previous_state, now=now)
+    fired = triggers.fire(today, github, window_hours=24)
     pending = report.pending_migrations(github.get("migration_files", []), (today or {}).get("applied_migrations"))
     date = now.astimezone(timezone.utc).strftime("%Y-%m-%d")
     ceo = report.build_ceo_report(today, metrics.get("yesterday"), metrics.get("week"), github, milestone_result,
                                   fired, pending, date)
-    eng = report.build_engineering_report(today, metrics.get("yesterday"), github, milestone_result, fired, pending, date)
+    eng = report.build_engineering_report(today, metrics.get("yesterday"), github, milestone_result, fired, pending, date,
+                                          segments={"source": metrics.get("week_by_source"), "device": metrics.get("week_by_device")})
     if metrics.get("errors"):
         eng += "\n## Data gaps\n" + "\n".join(f"- metrics {e}" for e in metrics["errors"]) + "\n"
     snapshot = {  # aggregates only, for the private ops repo's history

@@ -12,7 +12,10 @@ def _n(value):
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
-def fire(metrics: dict | None, github: dict, config: dict | None = None) -> list[dict]:
+def fire(metrics: dict | None, github: dict, config: dict | None = None, window_hours: int = 1) -> list[dict]:
+    """Count thresholds in ops/agent-triggers.yaml are per hour; a longer
+    window (the nightly run uses 24) scales them so normal daily volume
+    doesn't look like a spike. Rate-based and any-occurrence triggers don't scale."""
     config = config if config is not None else load_yaml("ops/agent-triggers.yaml")
     events = config.get("events", {})
     health = (metrics or {}).get("health") or {}
@@ -40,7 +43,7 @@ def fire(metrics: dict | None, github: dict, config: dict | None = None) -> list
 
     when = events.get("frontend_error_spike", {}).get("when", {})
     fe = _n(health.get("frontend_errors"))
-    if fe is not None and fe >= when.get("frontend_errors_at_least", 20):
+    if fe is not None and fe >= when.get("frontend_errors_at_least", 20) * window_hours:
         add("frontend_error_spike", f"{int(fe)} uncaught browser errors.")
 
     when = events.get("webhook_failure", {}).get("when", {})
@@ -57,6 +60,6 @@ def fire(metrics: dict | None, github: dict, config: dict | None = None) -> list
 
     when = events.get("auth_failure_spike", {}).get("when", {})
     af = _n(health.get("auth_failures"))
-    if af is not None and af >= when.get("auth_failures_at_least", 50):
+    if af is not None and af >= when.get("auth_failures_at_least", 50) * window_hours:
         add("auth_failure_spike", f"{int(af)} failed log-ins (possible credential stuffing).")
     return fired

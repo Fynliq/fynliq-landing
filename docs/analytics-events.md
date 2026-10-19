@@ -20,7 +20,7 @@ one. Dashboards, milestones and reports depend on these names.
 | `user_id` | The account id from the httpOnly `__Host-fynliq_account` cookie. | server, from cookie |
 | `dedupe_key` | Makes once-only events unique (see "De-duplication"). | server |
 | `channel`, `source`, `medium`, `campaign`, `content`, `referrer`, `landing_page` | First-touch attribution snapshot, copied by the database from `acquisition_attribution`. Callers can't set or forge these. | database |
-| `device_type` | `mobile`, `tablet`, `desktop` or `unknown`, bucketed from the User-Agent. The raw UA is never stored. | server |
+| `device_type` | `mobile`, `tablet`, `desktop` or `unknown`, bucketed from the User-Agent. The raw UA is never stored. Server-to-server events (the Stripe webhook) have no student UA, so they take the device of the same person's latest event. | server |
 | `browser` | `safari`, `chrome`, `firefox`, `edge`, `samsung`, `tiktok`, `instagram`, `facebook` or `other`. | server |
 | `school` | Reserved. Not collected yet; FYNQ doesn't ask for it. | — |
 | `experiment_id` | Optional `[a-z0-9_-]{1,40}`. No experiments run yet. | browser or server |
@@ -56,17 +56,17 @@ emails and dollar amounts through every path and check none of them arrive.
 | `login_failed` | Wrong credentials | server | guest only, `reason: credentials`. No email, no account id. | none | integration: no email stored |
 | `my_aid_viewed` | My Aid upload screen shown (`src/billing/client.ts` ← `BetaUpload`). **This is a "qualified session".** | client | — | once per person per day | unit + integration |
 | `upload_started` | Student picked files and pressed analyse (`BetaUpload`) | client | — | event id | unit |
-| `upload_completed` | Redacted text reached the server (`api/analyze.js`) | server | `files` | none | CI integration (billing suite exercises the path) |
-| `upload_failed` | Server: unreadable, no aid lines or privacy block (`server/upload-tracking.js`). Browser: network or format failures the server never saw (`BetaUpload`). | both | `reason` code, `files` | event id | unit + integration |
-| `analysis_started` | Reader begins (`api/analyze.js`) | server | — | none | — |
-| `analysis_completed` | Reader read figures (`server/upload-tracking.js`, outcome `read`) | server | `files`, `figures`, `ai_ms`, `second_pass` | none | billing suite |
+| `upload_completed` | Redacted text reached the server (`api/analyze.js`) | server | `files` | none | observability integration (one per read) |
+| `upload_failed` | Server: unreadable, no aid lines or privacy block (`server/upload-tracking.js`). Browser: only failures the server never saw, i.e. the file couldn't be read on the device (`device_unreadable`), the request never got an answer (`offline`), or an unexpected client error (`client`) (`BetaUpload`, `unseenUploadFailure`). | both | `reason` code, `files` | event id | unit (`unseen-failure.test.ts`) + integration |
+| `analysis_started` | Reader begins (`api/analyze.js`) | server | — | none | observability integration |
+| `analysis_completed` | Reader read figures (`server/upload-tracking.js`, outcome `read`) | server | `files`, `figures`, `ai_ms`, `second_pass` | none | observability integration (no PII in the row) |
 | `analysis_failed` | Model or provider error (outcome `reader_error`) | server | `ai_ms` | none | — |
 | `results_viewed` | Preview or full result shown | client | `view` | event id | unit + integration (metadata scrubbing) |
 | `checkout_viewed` | $1 unlock card shown | client | — | once per person per day | — |
 | `checkout_started` | Stripe Checkout Session created (`api/billing.js`) | server | `livemode`, `reused` | once per Checkout Session; a reused session doesn't count again | integration |
 | `payment_completed` | **Verified Stripe webhook only** (`api/stripe-webhook.js`), outcome `entitlement_activated` or `already_entitled` (the latter with `duplicate: true`) | server | `livemode`, `stripe_outcome` | once per Checkout Session; duplicate deliveries record nothing | integration: duplicate delivery, forged signature |
 | `payment_failed` | Webhook `async_payment_failed` | server | `livemode` | once per Checkout Session | integration: account stays locked |
-| `checkout_expired` | Webhook `checkout.session.expired` | server | `livemode` | once per Checkout Session | — |
+| `checkout_expired` | Webhook `checkout.session.expired` | server | `livemode` | once per Checkout Session | observability integration |
 | `unlock_verified` | Webhook activated the entitlement | server | `livemode` | once per Checkout Session | integration |
 | `client_error` | Uncaught browser error or rejection (`src/main.tsx`) | client | `error_name`, `source_file`, `path` | max 5 per page load | unit: message never sent |
 
@@ -113,7 +113,7 @@ Only through the read-only aggregate functions, never raw rows:
 | --- | --- |
 | `ops_funnel(since, until, segment, test_ids)` | Unique people per step, by `none`, `source`, `campaign`, `content`, `device`, `browser`, `school`, `date` or `experiment` |
 | `ops_revenue(since, until, test_ids)` | Live-mode checkout starts, payments, revenue (cents), failures, webhook outcomes |
-| `ops_health(since, until)` | Requests, 4xx/5xx, error rate, p50/p95 latency per route, AI success rate and latency, auth failures, webhook failures, frontend errors |
+| `ops_health(since, until)` | Requests, 4xx/5xx, error rate, p50/p95 latency per route, AI success rate and latency, auth failures, webhook failures (POST answered 5xx, so Stripe will retry), webhook rejections (POST answered 4xx, such as a bad signature), frontend errors |
 | `ops_milestone_metrics(test_ids)` | The inputs to `ops/milestones.yaml` |
 | `ops_applied_migrations()` | Migration names applied in production (drift check) |
 

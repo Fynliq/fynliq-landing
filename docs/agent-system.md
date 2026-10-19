@@ -130,20 +130,30 @@ The definitions are instructions. Hard enforcement is layered on top:
     HTTP calls to their APIs;
   - reads of `.env` files;
   - production MCP write tools;
-  - any production SQL that isn't one read-only SELECT of `ops_*` or
-    `*_metrics` functions.
+  - any production SQL that isn't one call to an `ops_*` or `*_metrics`
+    function with literal arguments.
 
-  Tested in `test/guard.test.mjs`.
-- **This matters because agents act as the owner's GitHub account** (push
-  rights, no required approvals). Without the hook, an auto-approved session
-  could merge a green PR through the API.
+  It also blocks edits to itself and to `.claude/settings*.json`. Tested in
+  `test/guard.test.mjs`.
+- **The guard is defense in depth, not a proof.** It matches command text,
+  and an agent with a shell can always find a spelling it doesn't parse (for
+  example, writing a script to a file and then running it). Agents act as the
+  owner's GitHub account (push rights, no required approvals), so the hard
+  stops must live outside the agent:
+  - 👤 a GitHub rule requiring an approving review from a **different
+    account** before anything merges into `main` or `feat/connect-ask-backend`;
+  - 👤 the Supabase connector reconnected in **read-only** mode.
+
+  **No unattended agent session (scheduled, or auto-approve) is enabled until
+  both are in place.** The nightly reports in `fynq-ops` are plain scripts
+  with a read-only token. They are not agent sessions, and they are not
+  affected by this rule.
 - `.claude/settings.json` deny and ask rules are a second layer for
   interactive sessions. Prefix rules can be bypassed by unusual spellings,
   which is why the hook exists.
 - 👤 GitHub branch protection on `main` and `feat/connect-ask-backend` (PR
   plus `Build and tests` and `Ops config` checks, no force push, no bypass) is
-  on. It blocks direct pushes, but not API merges of a green PR. The hook
-  covers that.
+  on. It blocks direct pushes, but not API merges of a green PR.
 - Production numbers are read through a bearer-token, aggregate-only view
   whose database calls run in read-only transactions.
 - Reviewer "read-only" is enforced by tool lists (no Edit, Write or Agent)

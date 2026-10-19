@@ -88,7 +88,7 @@ to wake (`ops/agent-triggers.yaml`). GitHub notifies the owner.
 
 | Trigger | Threshold | First check |
 | --- | --- | --- |
-| `webhook_failure` | any problem outcome | `ops/runbooks/payments.md` → reconciliation; Stripe webhook delivery log |
+| `webhook_failure` | a webhook POST answered 5xx (Stripe retries), or a problem outcome in `ops_revenue` | `ops/runbooks/payments.md` → reconciliation; Stripe webhook delivery log |
 | `error_spike` | >5% 5xx with ≥50 requests | `ops_health` routes table → Vercel runtime logs for that route → recent deploy |
 | `ai_failure_spike` | reader success <80% with ≥10 analyses | OpenAI status, `OPENAI_*` env, `upload_events` reason codes |
 | `auth_failure_spike` | ≥50 failed log-ins | possible credential stuffing → rate limits, Vercel firewall (human) |

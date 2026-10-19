@@ -156,13 +156,24 @@ should verify manually · The release-gate table from `release-agent`.
 - Read numbers only through the `ops_*` aggregate functions, never raw rows.
 
 **Enforcement.** `.claude/hooks/guard.mjs` is a `PreToolUse` hook that runs
-in every permission mode, auto-approve included. It hard-blocks merges,
-protected-branch pushes, production CLI and API writes, production MCP write
-tools, `.env` reads, and any agent SQL that isn't a read-only SELECT of
-`ops_*` or `*_metrics` functions. Agents act as the owner's GitHub account,
-so this hook, not the account's permissions, is what holds them at level 3.
-Never edit or disable it to get something done. That's a RED change for the
-human.
+in every permission mode, auto-approve included. It blocks:
+- merges and protected-branch pushes;
+- production CLI and API writes, and production MCP tools other than known
+  reads;
+- `.env` reads;
+- any agent SQL other than one call to an `ops_*` or `*_metrics` function;
+- edits to itself and to `.claude/settings*.json`.
+
+It is **defense in depth, not a proof.** Text checks can always be got around,
+for example by writing a script file and then running it. Agents act as the
+owner's GitHub account, so the hard stops have to live outside the agent:
+- GitHub requires an approving review from a different account before merging
+  into a protected branch.
+- The Supabase connector runs in read-only mode.
+
+**No unattended (scheduled or auto-approve) agent session may be enabled until
+both are in place.** Never edit, disable or work around the guard. Changing it
+is a RED change for the human, who must turn the hook off locally to edit it.
 
 **Stop the release** and explain why whenever something dangerous is found:
 leaked secrets, an auth bypass, a payment-integrity gap, PII exposure, an

@@ -8,6 +8,7 @@ import {
   createAnalyzer,
   type AnalyzeResult,
   type AnalyzeStage,
+  unseenUploadFailure,
 } from '../beta/analyzer';
 import { triageFiles, type Rejection } from '../beta/files';
 import styles from './BetaUpload.module.css';
@@ -130,10 +131,9 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
       }
 
       setStage(null);
-      // Failures the server never saw (it records its own): network or format trouble.
-      if (!(thrown instanceof AnalysisError) || thrown.kind === 'network' || thrown.kind === 'format') {
-        trackEvent('upload_failed', { reason: thrown instanceof AnalysisError ? thrown.kind : 'client', files: files.length });
-      }
+      // Only failures the server never saw: it records its own outcomes.
+      const unseen = unseenUploadFailure(thrown);
+      if (unseen) trackEvent('upload_failed', { reason: unseen, files: files.length });
       setError(
         thrown instanceof AnalysisError
           ? thrown.message
