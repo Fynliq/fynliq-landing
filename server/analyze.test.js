@@ -259,7 +259,9 @@ describe('upload tracking', () => {
       await analyze(request({ consent: true, documents: [{ name: 'x.png', pages: ['Hello world'] }] }), response());
     } finally { setUploadTracker(async () => {}); }
     expect(seen.map((e) => e.outcome)).toEqual(['read', 'unreadable', 'no_aid_lines']);
-    expect(seen[0]).toEqual({ outcome: 'read', files: 3, figures: 4 });
+    // Counts plus reader latency and whether a second read was needed; never content.
+    expect(seen[0]).toEqual({ outcome: 'read', files: 3, figures: 4, ai_ms: expect.any(Number), second_pass: expect.any(Boolean) });
+    expect(seen[0].ai_ms).toBeGreaterThanOrEqual(0);
     expect(seen[1].reason).toMatch(/^[a-z0-9+-]+$/);
     const stored = JSON.stringify(seen);
     for (const v of ['Pell', '3,698', 'IMG_1', 'Jordan', 'fafsa']) expect(stored).not.toContain(v);

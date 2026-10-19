@@ -42,4 +42,12 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: python3 scripts/ops/route_pr.py --repo "$REPO" --pr "$PR_NUMBER" --apply
+        run: |
+          # The router runs from the BASE branch so a PR can't change its own
+          # classification. Until the base contains it (the PR that adds it),
+          # there is nothing trusted to run.
+          if [ ! -f scripts/ops/route_pr.py ]; then
+            echo "PR router is not on the base branch yet; skipping." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python3 scripts/ops/route_pr.py --repo "$REPO" --pr "$PR_NUMBER" --apply
