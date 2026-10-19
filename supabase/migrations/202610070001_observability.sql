@@ -8,7 +8,9 @@
 --     and browser family, an optional experiment id, and small allow-listed
 --     metadata (counts, durations, reason codes).
 --     NEVER: names, emails, SSNs, student ids, document text, file names, aid
---     figures, raw user agents, IP addresses or free text.
+--     figures, raw user agents, IP addresses or free text. UTM values are
+     copied only when they are plain tokens (letters, digits, space, . _ + -;
+     no @), so a crafted link can't put an email or a sentence in here.
 --   * api_requests: route, method, HTTP status, duration and error class.
 --     No URLs with query strings, no bodies, no IPs. Kept 30 days.
 --
@@ -155,7 +157,12 @@ begin
     device_type, browser, experiment_id, livemode, is_test, metadata)
    values (
     (e->>'event_id')::uuid, v_name, coalesce(e->>'side', 'server'), v_guest, v_user, nullif(e->>'dedupe_key', ''),
-    a.channel, a.source, a.medium, a.campaign, a.content, a.referrer, a.landing_page,
+    a.channel,
+    case when a.source ~ '^[a-z0-9 _.+-]{1,60}$' then a.source end,
+    case when a.medium ~ '^[a-z0-9 _.+-]{1,60}$' then a.medium end,
+    case when a.campaign ~ '^[a-z0-9 _.+-]{1,60}$' then a.campaign end,
+    case when a.content ~ '^[a-z0-9 _.+-]{1,60}$' then a.content end,
+    a.referrer, a.landing_page,
     v_device, v_browser, nullif(e->>'experiment_id', ''),
     (e->>'livemode')::boolean, coalesce((e->>'is_test')::boolean, false), coalesce(e->'metadata', '{}'::jsonb))
    on conflict do nothing;
@@ -353,13 +360,15 @@ language sql stable security definer set search_path='' as $$
     'p50_ms', (select percentile_cont(0.5) within group (order by ai_ms) from ai where ai_ms is not null),
     'p95_ms', (select percentile_cont(0.95) within group (order by ai_ms) from ai where ai_ms is not null)),
   'auth_failures', (select count(*) from public.analytics_events
-     where event_name = 'login_failed' and occurred_at >= p_since and occurred_at < p_until),
+     where event_name = 'login_failed' and not is_test and occurred_at >= p_since and occurred_at < p_until),
   -- A GET from a browser or scanner (405) or an unsigned POST (400) is not a
   -- payment problem: only a POST the server failed to process (5xx) is.
   'webhook_failures', (select count(*) from req where route = '/api/stripe-webhook' and method = 'POST' and status >= 500),
   'webhook_rejected', (select count(*) from req where route = '/api/stripe-webhook' and method = 'POST' and status >= 400 and status < 500),
-  'frontend_errors', (select count(*) from public.analytics_events
-     where event_name = 'client_error' and occurred_at >= p_since and occurred_at < p_until));
+  -- Browsers with at least one error, not raw error count, so one page in
+  -- a loop (or one script) can't fake a spike on its own.
+  'frontend_errors', (select count(distinct coalesce(user_id, anonymous_session_id)) from public.analytics_events
+     where event_name = 'client_error' and not is_test and occurred_at >= p_since and occurred_at < p_until));
 $$;
 
 -- The numbers ops/milestones.yaml is evaluated against. All-time, from the
@@ -371,16 +380,25 @@ language sql stable security definer set search_path='' as $$
  days as (
   select generate_series((now() at time zone 'UTC')::date - 7, (now() at time zone 'UTC')::date - 1, interval '1 day')::date d
  ),
- visitors as (
-  select days.d, (select count(distinct e.anonymous_session_id) from public.analytics_events e
-     where e.event_name = 'landing_view' and not e.is_test and (e.occurred_at at time zone 'UTC')::date = days.d) n
-  from days
- ),
  person as (
   -- A guest browser that later signed up counts as that account.
   select g.guest_id, (select ag.user_id from public.account_guests ag where ag.guest_id = g.guest_id order by ag.linked_at limit 1) user_id
   from (select distinct anonymous_session_id guest_id from public.analytics_events where anonymous_session_id is not null
         union select distinct guest_id from public.upload_events where guest_id is not null) g
+ ),
+ landed as (
+  -- Visitors as people (guest → account), without test or admin accounts.
+  select q.p, q.occurred_at from (
+    select coalesce(e.user_id, (select pe.user_id from person pe where pe.guest_id = e.anonymous_session_id), e.anonymous_session_id) p,
+           e.occurred_at
+      from public.analytics_events e
+     where e.event_name = 'landing_view' and not e.is_test
+       and e.occurred_at >= now() - interval '8 days') q, ids
+  where q.p is not null and q.p <> all(ids.t)
+ ),
+ visitors as (
+  select days.d, (select count(distinct l.p) from landed l where (l.occurred_at at time zone 'UTC')::date = days.d) n
+  from days
  ),
  recent as (
   select * from public.api_requests where occurred_at >= now() - interval '24 hours' and not synthetic
@@ -402,11 +420,13 @@ language sql stable security definer set search_path='' as $$
      where p is not null and p <> all(ids.t)),
   'successful_non_test_payments', (select count(*) from public.billing_entitlements b, ids
      where b.livemode and b.status = 'active' and not b.is_test_account and b.account_id <> all(ids.t)),
-  'visitors_last_24h', (select count(distinct anonymous_session_id) from public.analytics_events
-     where event_name = 'landing_view' and not is_test and occurred_at >= now() - interval '24 hours'),
+  'visitors_last_24h', (select count(distinct p) from landed where occurred_at >= now() - interval '24 hours'),
   'visitors_daily_avg_7d', (select coalesce(round(avg(n), 2), 0) from visitors),
   'api_requests_24h', (select count(*) from recent),
-  'rate_limited_share_24h', (select case when count(*) = 0 then 0 else round(count(*) filter (where status = 429)::numeric / count(*), 4) end from recent),
+  -- Browser event beacons (/api/activity) are excluded, and fewer than 200
+  -- requests is too few to call a share, so a quiet day can't trip it.
+  'rate_limited_share_24h', (select case when count(*) < 200 then 0 else round(count(*) filter (where status = 429)::numeric / count(*), 4) end
+     from recent where route <> '/api/activity'),
   'events_last_seen', coalesce((select jsonb_object_agg(event_name, last_seen) from
      (select event_name, max(occurred_at) last_seen from public.analytics_events group by event_name) s), '{}'::jsonb),
   'api_requests_last_seen', (select max(occurred_at) from public.api_requests));

@@ -122,8 +122,8 @@ The definitions are instructions. Hard enforcement is layered on top:
   permission mode, including auto-approve and bypass, and fails closed. It
   blocks:
   - pushes, force pushes and deletes on protected branches;
-  - PR merges by any route (`gh pr merge`, `gh api …/merge`, `…/merges`,
-    auto-merge);
+  - PR merges (`gh pr merge`, `gh api …/merge`, `…/merges`, auto-merge,
+    inline GraphQL mutations);
   - GitHub writes other than issues, comments, labels, reviews and opening or
     editing PRs;
   - Vercel and Supabase CLI production commands, the Stripe CLI, and direct
@@ -141,13 +141,34 @@ The definitions are instructions. Hard enforcement is layered on top:
   owner's GitHub account (push rights, no required approvals), so the hard
   stops must live outside the agent:
   - 👤 a GitHub rule requiring an approving review from a **different
-    account** before anything merges into `main` or `feat/connect-ask-backend`;
+    person's account** before anything merges into `main` or
+    `feat/connect-ask-backend`, with no admin bypass. Agents never approve
+    PRs, because the owner's approval would satisfy it for anyone else's PR;
   - 👤 the Supabase connector reconnected in **read-only** mode.
 
   **No unattended agent session (scheduled, or auto-approve) is enabled until
   both are in place.** The nightly reports in `fynq-ops` are plain scripts
   with a read-only token. They are not agent sessions, and they are not
   affected by this rule.
+- **Known guard gaps** (from the PR #18 reviews; fixing them is a guard
+  change for 👤 the human). The guard currently lets these through:
+  - GraphQL read from a file or substitution (`gh api graphql -F query=@f`,
+    `--input`), which can carry a merge mutation;
+  - `gh pr review --approve` and approving review POSTs;
+  - pushes whose target is a variable (`git push origin "$B"`), a glob refspec
+    (`'*:*'`), or set with `git -c alias.…`/`-c remote.…`;
+  - edits to the guard after `cd .claude`, and `.env` reads through globs,
+    `--env-file`, `printenv`/`env`, or the Read and Grep tools (the hook
+    matcher doesn't cover them);
+  - `psql`/`curl` to a host taken from an env var, `supabase db dump --linked`,
+    `pnpm vercel`, and bare `vercel` (a preview deploy);
+  - writes to the user-level `~/.claude/settings.json`;
+  - the SQL allow-list still admits `account_metrics()`, `upload_metrics()`
+    and `beta_metrics()`, which return emails.
+
+  Until these are fixed, the guard stops honest mistakes, not a determined or
+  prompt-injected agent. That is why the hard stops below are preconditions
+  for any unattended session.
 - `.claude/settings.json` deny and ask rules are a second layer for
   interactive sessions. Prefix rules can be bypassed by unusual spellings,
   which is why the hook exists.

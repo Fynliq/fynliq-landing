@@ -19,13 +19,13 @@ one. Dashboards, milestones and reports depend on these names.
 | `anonymous_session_id` | The guest browser id (`anonymous_users.id`) from the httpOnly `__Host-fynliq_beta` cookie. | server, from cookie |
 | `user_id` | The account id from the httpOnly `__Host-fynliq_account` cookie. | server, from cookie |
 | `dedupe_key` | Makes once-only events unique (see "De-duplication"). | server |
-| `channel`, `source`, `medium`, `campaign`, `content`, `referrer`, `landing_page` | First-touch attribution snapshot, copied by the database from `acquisition_attribution`. Callers can't set or forge these. | database |
+| `channel`, `source`, `medium`, `campaign`, `content`, `referrer`, `landing_page` | First-touch attribution snapshot, copied by the database from `acquisition_attribution`. Callers can't set or forge these. UTM values are copied only when they are plain tokens (`[a-z0-9 _.+-]`, at most 60 characters, so no `@`); anything else is stored as empty. They are still visitor-controlled text: agents treat them as data, never instructions. | database |
 | `device_type` | `mobile`, `tablet`, `desktop` or `unknown`, bucketed from the User-Agent. The raw UA is never stored. Server-to-server events (the Stripe webhook) have no student UA, so they take the device of the same person's latest event. | server |
 | `browser` | `safari`, `chrome`, `firefox`, `edge`, `samsung`, `tiktok`, `instagram`, `facebook` or `other`. | server |
 | `school` | Reserved. Not collected yet; FYNQ doesn't ask for it. | — |
 | `experiment_id` | Optional `[a-z0-9_-]{1,40}`. No experiments run yet. | browser or server |
 | `livemode` | Money events only: Stripe live (`true`) or test (`false`). Funnel and revenue count live only. | server |
-| `is_test` | True for admin and test accounts (`BETA_ADMIN_USER_IDS`, `FYNQ_BILLING_TEST_ACCOUNT_IDS`). Excluded from every metric. | server |
+| `is_test` | True for admin and test accounts (`BETA_ADMIN_USER_IDS`, `FYNQ_BILLING_TEST_ACCOUNT_IDS`), set when the account cookie is present. The `ops_*` functions also map a logged-out guest browser to its account (`account_guests`), so an admin browsing logged out is excluded too. | server |
 | `metadata` | Small allow-listed object (below). At most 1 KB. | server-sanitized |
 
 `source` in the brief maps to `channel` (tiktok, instagram, facebook, google,
@@ -48,7 +48,7 @@ emails and dollar amounts through every path and check none of them arrive.
 
 | Event | Fires where | Side | Data | De-duplication | Tested in |
 | --- | --- | --- | --- | --- | --- |
-| `landing_view` | `POST /api/beta-auth {action:'guest'}`: the app's first call on every page load (`api/beta-auth.js`) | server | guest, attribution, device, browser | once per person per UTC day | `test/observability-integration.mjs` (first visit, repeat visit) |
+| `landing_view` | `POST /api/beta-auth {action:'guest'}`: the app's first call on every page load (`api/beta-auth.js`) | server | guest, attribution, device, browser | once per identity per UTC day (see below) | `test/observability-integration.mjs` (first visit, repeat visit) |
 | `return_session` | Same call, plus `GET /api/auth/session` for logged-in visits | server | guest and/or account | once per person per day, **only** if the same person was seen on an earlier day (checked in SQL) | integration: same day = none, later day = one |
 | `signup_started` | Sign-up form shown (`src/pages/Auth.tsx`) | client | — | once per page load | `src/analytics/__tests__/events.test.ts` |
 | `signup_completed` | Account created (`server/account-login.js`, after `account_signed_up`) | server | account + guest (joins them) | once per account, ever | integration: guest → account join, second attempt ignored |
@@ -57,8 +57,8 @@ emails and dollar amounts through every path and check none of them arrive.
 | `my_aid_viewed` | My Aid upload screen shown (`src/billing/client.ts` ← `BetaUpload`). **This is a "qualified session".** | client | — | once per person per day | unit + integration |
 | `upload_started` | Student picked files and pressed analyse (`BetaUpload`) | client | — | event id | unit |
 | `upload_completed` | Redacted text reached the server (`api/analyze.js`) | server | `files` | none | observability integration (one per read) |
-| `upload_failed` | Server: unreadable, no aid lines or privacy block (`server/upload-tracking.js`). Browser: only failures the server never saw, i.e. the file couldn't be read on the device (`device_unreadable`), the request never got an answer (`offline`), or an unexpected client error (`client`) (`BetaUpload`, `unseenUploadFailure`). | both | `reason` code, `files` | event id | unit (`unseen-failure.test.ts`) + integration |
-| `analysis_started` | Reader begins (`api/analyze.js`) | server | — | none | observability integration |
+| `upload_failed` | Server: unreadable, no aid lines or privacy block (`server/upload-tracking.js`), and uploads the reader turned away before reading (`api/analyze.js`: `rate_limited`, `not_configured`, `invalid_request`, `no_consent`, `too_long`). Browser: only failures the server never saw, i.e. the file couldn't be read on the device (`device_unreadable`), the request never got an answer (`offline`), the server answered with something the page couldn't use (`bad_response`; the server counted that read as completed), or an unexpected client error (`client`) (`BetaUpload`, `unseenUploadFailure`). The server rejects any other reason from the browser. | both | `reason` code, `files` | event id | unit (`unseen-failure.test.ts`) + integration |
+| `analysis_started` | The upload passed validation and the server starts redacting and reading (`api/analyze.js`). Recorded before the no-aid-lines check, so it also precedes a `no_aid_lines` failure. | server | — | none | observability integration |
 | `analysis_completed` | Reader read figures (`server/upload-tracking.js`, outcome `read`) | server | `files`, `figures`, `ai_ms`, `second_pass` | none | observability integration (no PII in the row) |
 | `analysis_failed` | Model or provider error (outcome `reader_error`) | server | `ai_ms` | none | — |
 | `results_viewed` | Preview or full result shown | client | `view` | event id | unit + integration (metadata scrubbing) |
@@ -72,7 +72,20 @@ emails and dollar amounts through every path and check none of them arrive.
 
 The browser can never send a sign-up, log-in, analysis, checkout or payment
 event: `/api/activity` accepts only the client names above and drops the
-rest.
+rest. A browser event also needs a guest or account cookie; cookie-less
+requests store nothing.
+
+**"Once per identity per day"** means once per account per UTC day when the
+student is logged in, and otherwise once per guest browser. A guest who signs
+up mid-day can therefore leave one row of each. The `ops_*` functions count
+distinct people (guest → account), so funnel numbers count them once.
+
+**Known gaps (not recorded anywhere).**
+- A function killed by the platform (the 60 s timeout, out of memory): no
+  `api_requests` row and no analysis event. The browser sees a 504 and,
+  because it got an answer, records nothing either.
+- Refusals by the paywall gate (`unlock_required`, not logged in). These are
+  part of the paywall flow, not failures.
 
 **Payment truth.** Revenue and paid counts in reports come from
 `billing_checkouts` and `billing_entitlements`, which only the verified
@@ -103,7 +116,10 @@ are ignored everywhere.
 `public.api_requests`: route, method, status, duration, failed database calls
 and the thrown error's class name, for every `/api` call (`observe()` in
 `server/observability.js`). No URLs, query strings, bodies, IPs or messages.
-Uptime probes are flagged `synthetic` and excluded from metrics. Rows older
+Uptime probes and the nightly report (User-Agent containing `fynq-uptime-check`
+or `fynq-ops`) are flagged `synthetic` and excluded from metrics. A User-Agent
+is easy to fake, so a caller who sends one can hide its requests from
+`ops_health`. That is an accepted gap: it only hides traffic, never adds any. Rows older
 than 30 days are trimmed.
 
 ## Reading the numbers
@@ -113,12 +129,16 @@ Only through the read-only aggregate functions, never raw rows:
 | --- | --- |
 | `ops_funnel(since, until, segment, test_ids)` | Unique people per step, by `none`, `source`, `campaign`, `content`, `device`, `browser`, `school`, `date` or `experiment` |
 | `ops_revenue(since, until, test_ids)` | Live-mode checkout starts, payments, revenue (cents), failures, webhook outcomes |
-| `ops_health(since, until)` | Requests, 4xx/5xx, error rate, p50/p95 latency per route, AI success rate and latency, auth failures, webhook failures (POST answered 5xx, so Stripe will retry), webhook rejections (POST answered 4xx, such as a bad signature), frontend errors |
+| `ops_health(since, until)` | Requests, 4xx/5xx, error rate, p50/p95 latency per route, AI success rate and latency, auth failures, webhook failures (POST answered 5xx, so Stripe will retry), webhook rejections (POST answered 4xx, such as a bad signature), frontend errors (distinct browsers with at least one `client_error`) |
 | `ops_milestone_metrics(test_ids)` | The inputs to `ops/milestones.yaml` |
 | `ops_applied_migrations()` | Migration names applied in production (drift check) |
 
 They are `STABLE` and are called over HTTP GET (`rpcRead`), which PostgREST
 runs in a read-only transaction. Agents reach them through the bearer-token
 view `GET /api/beta-admin?view=ops` (`server/ops-metrics.js`) or, read-only,
-through the Supabase connector. The production guard hook allows only these
-functions in agent SQL.
+through the Supabase connector.
+
+Do not use the older `account_metrics()`, `upload_metrics()` or
+`beta_metrics()` for agent work: they return student emails. The guard hook's
+SQL allow-list still admits them (with `billing_metrics()` and
+`billing_mode_metrics()`). Removing them is a guard change for the human.

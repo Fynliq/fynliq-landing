@@ -60,7 +60,7 @@ events:
   frontend_error_spike:
     agents: [engineering-orchestrator, frontend-agent]
     when: {frontend_errors_at_least: 20}
-    description: Many uncaught errors in browsers.
+    description: At least 20 browsers per hour hit an uncaught error (counted per browser, not per error).
   webhook_failure:
     agents: [payments-agent, security-agent]
     when: {webhook_problems_at_least: 1}

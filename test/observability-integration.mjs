@@ -380,6 +380,26 @@ try {
     assert.ok(m.events_last_seen.landing_view);
   });
 
+  await test('milestone visitors count people: guests map to accounts, admin browsing logged out is excluded', async () => {
+    const before = (await db.rpc('ops_milestone_metrics', { p_test: TESTER }, { get: true })).data.visitors_last_24h;
+    const student = randomUUID();
+    await pg.exec(`insert into public.accounts(user_id, email, created_at) values ('${student}', 'two-devices@example.test', now())`);
+    const [phone, laptop, adminBrowser] = [randomUUID(), randomUUID(), randomUUID()];
+    for (const g of [phone, laptop, adminBrowser]) await pg.exec(`insert into public.anonymous_users(id) values ('${g}')`);
+    await pg.exec(`insert into public.account_guests(user_id, guest_id) values ('${student}', '${phone}'), ('${student}', '${laptop}'), ('${TESTER}', '${adminBrowser}')`);
+    // Logged out on every device: only the guest id is on the event.
+    await db.rpc('analytics_record', { p_events: [phone, laptop, adminBrowser].map((guestId) => buildEvent('landing_view', { guestId })) });
+    const after = (await db.rpc('ops_milestone_metrics', { p_test: TESTER }, { get: true })).data.visitors_last_24h;
+    assert.equal(after - before, 1, 'one student on two devices is one visitor; the admin is not a visitor');
+  });
+
+  await test('browser events need a cookie, and the browser cannot claim server-only failures', async () => {
+    assert.equal(buildEvent('client_error', { side: 'client' }), null);
+    assert.equal(buildEvent('upload_failed', { guestId: randomUUID(), side: 'client', metadata: { reason: 'privacy_blocked' } }), null);
+    assert.ok(buildEvent('upload_failed', { guestId: randomUUID(), side: 'client', metadata: { reason: 'offline' } }));
+    assert.ok(buildEvent('upload_failed', { metadata: { reason: 'privacy_blocked' } }), 'the server may record it');
+  });
+
 
   // -------------------------------------------- added after review of PR #18
   const newLockedAccount = async (label) => {

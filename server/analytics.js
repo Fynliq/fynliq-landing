@@ -49,6 +49,9 @@ export const EVENTS = Object.freeze({
 export const CLIENT_EVENT_NAMES = Object.freeze(Object.entries(EVENTS)
   .filter(([, spec]) => spec.side === 'client' || spec.side === 'both').map(([name]) => name));
 
+/** The only upload_failed reasons a browser may send (src/beta/analyzer.ts). */
+export const CLIENT_UPLOAD_FAILURES = Object.freeze(['device_unreadable', 'offline', 'bad_response', 'client']);
+
 /** Allowed metadata keys and their shape. Anything else is dropped silently. */
 export const METADATA = Object.freeze({
   reason: /^[a-z0-9_+-]{1,60}$/,
@@ -131,7 +134,14 @@ export function buildEvent(name, { userId = null, guestId = null, userAgent = ''
   side = 'server', livemode, env = process.env, now = Date.now() } = {}) {
   const spec = EVENTS[name];
   if (!spec) return null;
-  if (side === 'client' && !CLIENT_EVENT_NAMES.includes(name)) return null;
+  if (side === 'client') {
+    if (!CLIENT_EVENT_NAMES.includes(name)) return null;
+    // A browser event needs a browser: no guest or account cookie, no event.
+    // (Stops cookie-less scripts filling the table or faking error spikes.)
+    if (!userId && !guestId) return null;
+    // The browser may only report failures the server never saw.
+    if (name === 'upload_failed' && !CLIENT_UPLOAD_FAILURES.includes(metadata?.reason)) return null;
+  }
   const person = userId || guestId;
   let dedupe = null;
   if (spec.once === 'per_user') dedupe = userId ? `u:${userId}` : null;

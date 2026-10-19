@@ -103,6 +103,7 @@ milestones:
     trigger:
       any:
         - {metric: visitors_last_24h, ratio_to: visitors_daily_avg_7d, at_least: 5, min: 100}
+        # Share of 429s among non-beacon API requests; 0 below 200 requests.
         - {metric: rate_limited_share_24h, at_least: 0.02}
     metrics_required: [visitors_last_24h, visitors_daily_avg_7d, rate_limited_share_24h]
     agents_activated: [performance-agent, release-agent]

@@ -77,6 +77,11 @@ def _ci_state(gh: GitHub, repo: str, sha: str) -> str:
     return "pending"
 
 
+def clean(text, limit: int = 90) -> str:
+    """Untrusted text (titles, branch and workflow names) as plain words only."""
+    return re.sub(r"[^A-Za-z0-9 .,:;()/#&+'_-]", "", str(text or ""))[:limit]
+
+
 def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, autonomy: dict) -> dict:
     since = now - timedelta(days=1)
     data: dict = {"protected_branches": autonomy.get("protected_branches", [])}
@@ -88,15 +93,19 @@ def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, au
     def safe_title(p):
         if ((p.get("head") or {}).get("repo") or {}).get("full_name", "").lower() != repo.lower():
             return "(fork PR, title withheld)"
-        return re.sub(r"[^A-Za-z0-9 .,:;()/#&+'-]", "", str(p.get("title", "")))[:90]
+        return clean(p.get("title", ""))
     data["open_prs"] = [{"number": p["number"], "title": safe_title(p), "draft": p.get("draft", False),
                          "labels": _labels(p), "ci": _ci_state(gh, repo, p["head"]["sha"]),
                          "created_at": p["created_at"]} for p in prs]
 
     runs = gh.paged(f"/repos/{repo}/actions/runs", limit=200, created=f">={iso(since)}")
-    data["ci_failures"] = [{"name": r["name"], "branch": r["head_branch"], "conclusion": r["conclusion"], "url": r["html_url"]}
-                           for r in runs if r.get("conclusion") in ("failure", "timed_out") and r.get("name") != "Uptime"]
-    uptime = [r for r in runs if r.get("name") == "Uptime" and r.get("event") == "schedule"]
+    # Fork PR runs carry fork-controlled workflow names and branch names: keep
+    # only runs of this repository's own code, and clean what is kept.
+    own = [r for r in runs if ((r.get("head_repository") or {}).get("full_name") or "").lower() == repo.lower()]
+    data["ci_failures"] = [{"name": clean(r.get("name"), 60), "branch": clean(r.get("head_branch"), 80),
+                            "conclusion": r["conclusion"], "url": r["html_url"]}
+                           for r in own if r.get("conclusion") in ("failure", "timed_out") and r.get("name") != "Uptime"]
+    uptime = [r for r in own if r.get("name") == "Uptime" and r.get("event") == "schedule"]
     data["uptime"] = {"runs": len(uptime), "failures": sum(1 for r in uptime if r.get("conclusion") == "failure")}
 
     try:
@@ -127,7 +136,7 @@ def gather_github(gh: GitHub, repo: str, ops_repo: str | None, now: datetime, au
             if it.get("state") == "closed" and (it.get("closed_at") or "") >= iso(since):
                 closed += 1
             if it.get("state") == "open":
-                agent_issues.append({"repo": r, "number": it["number"], "title": it["title"], "labels": labels})
+                agent_issues.append({"repo": r, "number": it["number"], "title": clean(it.get("title")), "labels": labels})
     data["agent_issues_open"] = agent_issues
     data["agents"] = {
         "investigations_completed": closed,

@@ -9,10 +9,13 @@ The guard hook (`.claude/hooks/guard.mjs`) blocks merges, protected-branch
 pushes and production writes in every permission mode. It is defense in
 depth, though, not a hard stop. Do not schedule this session until all of
 these are true:
-1. A GitHub rule requires an approving review from a **different account**
-   before anything merges into `main` or `feat/connect-ask-backend`.
+1. A GitHub rule requires an approving review from a **different person's
+   account** before anything merges into `main` or `feat/connect-ask-backend`,
+   with no bypass for admins (the session runs as the admin owner).
 2. The Supabase connector is reconnected in read-only mode.
-3. The owner has approved turning the schedule on.
+3. The guard gaps in `docs/agent-system.md` ("Known guard gaps") are fixed
+   by the human.
+4. The owner has approved turning the schedule on.
 
 ## Inputs (read-only)
 1. The latest `report:ceo` and `report:engineering` issues in the private
@@ -47,8 +50,10 @@ the summary.
 Merge or approve PRs, push to `main` or `feat/connect-ask-backend`, apply
 migrations, write production data, change RLS, auth, Stripe or pricing,
 issue refunds, rotate secrets, change Vercel configuration or env vars,
-promote, roll back, or change repository settings. The guard blocks these.
-If a task needs one, stop and say so in the summary.
+promote, roll back, or change repository settings. Never approve a PR: the
+owner's approval satisfies the required-review rule for anyone else's PR. The
+guard tries to block these but has known gaps, so the rule is yours to keep,
+not the guard's. If a task needs one, stop and say so in the summary.
 
 ## Order of work
 1. **Payments first.** Any `webhook_failure` trigger → payments-agent and

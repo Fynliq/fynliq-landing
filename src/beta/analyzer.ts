@@ -116,13 +116,16 @@ export function createAnalyzer(endpoint = import.meta.env.VITE_FYNLIQ_ANALYZE_UR
 
 /**
  * The analytics reason for a failed upload the server never saw, or null when
- * the server already recorded it (any answer from the reader) or nothing
- * failed in a way worth counting (cancelled, unlock required).
+ * the server already recorded it (any HTTP answer: the reader records its
+ * outcome and refusals as upload_failed) or nothing failed in a way worth
+ * counting (cancelled, unlock required). A reply the browser couldn't use
+ * (`format`) is reported too: the server counted that read as a success.
  */
 export function unseenUploadFailure(error: unknown): string | null {
   if (!(error instanceof AnalysisError)) return 'client';
   if (error.kind === 'cancelled' || error.kind === 'unlock_required') return null;
   if (error.origin === 'device') return 'device_unreadable';
   if (error.origin === 'transit') return 'offline';
+  if (error.kind === 'format') return 'bad_response';
   return null;
 }
