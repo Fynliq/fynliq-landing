@@ -159,6 +159,43 @@
   color: var(--low);
 }
 
+/* ---- Consent ---------------------------------------------------------- */
+
+/* A full row above the button, and the whole row is the hit area: the label
+   wraps the checkbox, so tapping anywhere on the sentence ticks it. */
+.consent {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-12);
+  min-height: 44px;
+  padding: var(--s-12) var(--s-16);
+  border: 1px solid var(--line2);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+  font-size: var(--t-14);
+  line-height: 1.45;
+  color: var(--mid);
+  cursor: pointer;
+}
+
+/* 20px, so the box lines up with the first line of 14px text at 1.45. */
+.consentBox {
+  flex: none;
+  width: var(--s-20);
+  height: var(--s-20);
+  margin: 0;
+  accent-color: var(--tx);
+  cursor: pointer;
+}
+
+.consentLink {
+  color: var(--tx);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---- Aside ------------------------------------------------------------ */
 
 .asideTitle {
