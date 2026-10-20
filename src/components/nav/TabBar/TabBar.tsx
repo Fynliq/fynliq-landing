@@ -8,7 +8,7 @@ import styles from './TabBar.module.css';
  * then what everybody else is asking, then their own question. Each tab leads
  * into the next, and no tab is a dead end.
  */
-export type TabId = 'aid' | 'search' | 'ask';
+export type TabId = 'aid' | 'search' | 'ask' | 'budget';
 
 interface Tab {
   id: TabId;
@@ -69,6 +69,19 @@ export const TABS: Tab[] = [
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...stroke}>
         <path d="M4.5 16.5V7.2A2.7 2.7 0 0 1 7.2 4.5h9.6A2.7 2.7 0 0 1 19.5 7.2v6.1a2.7 2.7 0 0 1-2.7 2.7H9.2L4.5 19.8z" />
         <path d="M9.6 9.1a2.4 2.4 0 1 1 2.9 2.35v1.05" />
+      </svg>
+    ),
+  },
+  {
+    id: 'budget',
+    label: 'Budget',
+    href: '/budget',
+    owns: ['/budget'],
+    icon: (
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" {...stroke}>
+        <path d="M4.5 8.5A2 2 0 0 1 6.5 6.5h11a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2z" />
+        <path d="M4.5 9.5V6.8a2 2 0 0 1 1.6-2l8.4-1.6a1.5 1.5 0 0 1 1.8 1.5v1.8" />
+        <path d="M15.5 13h4v2.5h-4a1.25 1.25 0 0 1 0-2.5z" />
       </svg>
     ),
   },

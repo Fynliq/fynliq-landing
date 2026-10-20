@@ -220,7 +220,19 @@ and floats as a centred pill on desktop rather than stretching edge to edge.
 /search                Search        What every student is asking, ranked
 /search/<question>                   One question, answered in full
 /ask                   Ask Fynliq    The same question, about your own money
+/budget                Budget        Plan the term's money by hand
 ```
+
+**Budget** is a planner the student fills in themselves: term dates, the money
+they have now, what comes in and what goes out (once, monthly or weekly, with a
+category for each expense). It shows what is left at the end of the term, a
+verdict in the usual green / gold / rust, weekly spending and spare money, and
+a breakdown by category. Nothing is read from uploaded documents. The plan is
+saved in the browser's localStorage under the student's account
+(`fynliq:budget:v1:<email>`), never sent to Fynliq, and removed by "Delete my
+budget". Without term dates there are no weekly figures and repeating amounts
+are held back, the same rule as the runway. The arithmetic lives in
+`src/budget/budget.ts`, storage in `src/budget/storage.ts`.
 
 ![Search financial aid](docs/screenshots/search-01-hero.png)
 
@@ -635,6 +647,8 @@ and every boundary figures cross to reach it.
 | `ask/__tests__/contract.test.ts` | The answer contract — including the rejection of a `personal` answer that names no fields |
 | `auth/__tests__/validate.test.ts` | What makes an email address and a password acceptable, and the words each refusal uses |
 | `auth/__tests__/contract.test.ts` | The session contract, including expiry on the boundary and the refusal of an un-normalised address |
+| `budget/__tests__/budget.test.ts` | Budget arithmetic: amount parsing, term length, repeating amounts, verdicts, categories, cents |
+| `budget/__tests__/storage.test.ts` | Budget saved per account, deleted per account, malformed data dropped, blocked storage tolerated |
 
 <br />
 
