@@ -6,6 +6,7 @@ import { BetaResults } from './pages/BetaResults';
 import { BetaUpload } from './pages/BetaUpload';
 import { CheckoutReturn } from './pages/CheckoutReturn';
 import { BillingProvider } from './billing/BillingProvider';
+import { Budget } from './pages/Budget';
 import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
@@ -28,6 +29,7 @@ export const ROUTES = {
   checkout: '/beta/checkout',
   search: '/search',
   ask: '/ask',
+  budget: '/budget',
   gradi: '/gradi',
   gradiStart: '/gradi/start',
 } as const;
@@ -44,6 +46,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.checkout]: 'Unlock My Aid — Fynliq',
   [ROUTES.search]: 'Search financial aid — Fynliq',
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
+  [ROUTES.budget]: 'Budget — Fynliq',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
   [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
 };
@@ -66,6 +69,7 @@ const BEHIND_THE_ACCOUNT: readonly { root: string; label: string }[] = [
   { root: ROUTES.upload, label: 'uploading your aid summary' },
   { root: ROUTES.search, label: 'search' },
   { root: ROUTES.ask, label: 'Ask Fynliq' },
+  { root: ROUTES.budget, label: 'your budget' },
 ];
 
 /**
@@ -265,6 +269,10 @@ function Routes() {
         <AskFynliq analysis={analysis} />
       </SearchProvider>
     );
+  }
+
+  if (path === ROUTES.budget) {
+    return <Budget />;
   }
 
   /*

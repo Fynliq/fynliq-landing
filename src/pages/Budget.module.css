@@ -1,0 +1,583 @@
+/*
+ * Budget. Same vocabulary as the rest of the app: green, gold and rust only
+ * ever mean money kept, money tight and money short. The category bars are
+ * neutral ink, because a category says nothing good or bad about money.
+ */
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  margin-bottom: var(--s-28);
+}
+
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--t-13);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--low);
+}
+
+.title {
+  font-size: var(--t-32);
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--t-40);
+  }
+}
+
+.lede {
+  font-size: var(--t-16);
+  color: var(--mid);
+  max-width: 64ch;
+}
+
+/* ---- Layout -------------------------------------------------------------- *
+ *
+ * Phone: the summary comes first, so the result of what is typed below is
+ * the first thing seen. Wide screens: inputs on the left, summary pinned on
+ * the right, both visible while typing.
+ */
+.layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+}
+
+.inputs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-20);
+  min-width: 0;
+  order: 2;
+}
+
+.summaryColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-16);
+  min-width: 0;
+  order: 1;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+    gap: var(--s-28);
+  }
+
+  .inputs,
+  .summaryColumn {
+    order: 0;
+  }
+
+  .summaryColumn {
+    position: sticky;
+    top: var(--s-24);
+  }
+}
+
+/* ---- Cards --------------------------------------------------------------- */
+
+.card,
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  padding: var(--s-20);
+  border-radius: var(--r-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 768px) {
+  .card,
+  .summary {
+    padding: var(--s-24);
+  }
+}
+
+.cardTitle {
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.note {
+  font-size: var(--t-14);
+  color: var(--mid);
+}
+
+.fine {
+  font-size: var(--t-13);
+  color: var(--low);
+}
+
+/* ---- Fields -------------------------------------------------------------- */
+
+.dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-12);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  min-width: 0;
+}
+
+.label {
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--tx);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: var(--s-12) var(--s-12);
+  border-radius: var(--r-input);
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--tx);
+  font-family: var(--body);
+  /* 16px or more, or iOS zooms the page the moment the field takes focus. */
+  font-size: var(--t-16);
+  line-height: 1.4;
+  transition:
+    border-color var(--content) var(--ease),
+    background-color var(--content) var(--ease);
+}
+
+.input::placeholder {
+  color: var(--low);
+}
+
+.input:hover {
+  border-color: rgba(28, 29, 27, 0.2);
+}
+
+.input:focus {
+  border-color: var(--mid);
+}
+
+.wrong,
+.wrong:focus {
+  border-color: var(--rust);
+}
+
+.select {
+  appearance: none;
+  padding-right: var(--s-36);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--mid) 50%),
+    linear-gradient(135deg, var(--mid) 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 15px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* A dollar sign inside the field, so the amount reads as money. */
+.money {
+  position: relative;
+  display: block;
+}
+
+.currency {
+  position: absolute;
+  left: var(--s-12);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--low);
+  font-size: var(--t-16);
+  pointer-events: none;
+}
+
+.amount {
+  padding-left: var(--s-28);
+  font-variant-numeric: tabular-nums;
+}
+
+.fieldError {
+  font-size: var(--t-13);
+  color: var(--rust);
+}
+
+/* ---- Item rows ----------------------------------------------------------- *
+ *
+ * Phone: name and remove on one line, amount and how-often below, category
+ * last. Wide: one row per item.
+ */
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-areas:
+    'label label remove'
+    'amount frequency frequency'
+    'category category category'
+    'message message message';
+  gap: var(--s-8);
+  padding: var(--s-12);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+}
+
+.itemLabel { grid-area: label; }
+.itemAmount { grid-area: amount; }
+.itemFrequency { grid-area: frequency; }
+.itemCategory { grid-area: category; }
+.itemMessage { grid-area: message; }
+
+@media (min-width: 640px) {
+  .item {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 44px;
+    grid-template-areas:
+      'label amount frequency category remove'
+      'message message message message message';
+    align-items: center;
+  }
+
+  /* Income rows have no category; the how-often field takes its place. */
+  .item:not(:has(.itemCategory)) {
+    grid-template-areas:
+      'label amount frequency frequency remove'
+      'message message message message message';
+  }
+}
+
+.remove {
+  grid-area: remove;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-pill);
+  color: var(--mid);
+  font-size: var(--t-21);
+  line-height: 1;
+  transition:
+    background-color var(--press) var(--ease),
+    transform var(--press) var(--ease);
+}
+
+.remove:hover {
+  background: rgba(28, 29, 27, 0.06);
+  color: var(--tx);
+}
+
+.remove:active,
+.add:active,
+.chip:active,
+.danger:active {
+  transform: scale(0.97);
+}
+
+/* ---- Adding -------------------------------------------------------------- */
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-8);
+}
+
+.add,
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 44px;
+  padding: var(--s-8) var(--s-16);
+  border-radius: var(--r-pill);
+  font-size: var(--t-14);
+  font-weight: 600;
+  transition:
+    background-color var(--press) var(--ease),
+    transform var(--press) var(--ease);
+}
+
+.add {
+  background: var(--tx);
+  color: var(--on-dark);
+}
+
+.add:hover {
+  background: var(--tx-hi);
+}
+
+.chip {
+  background: var(--sunk);
+  color: var(--tx);
+  border: 1px solid var(--line2);
+}
+
+.chip:hover {
+  background: var(--card);
+}
+
+/* ---- Summary ------------------------------------------------------------- */
+
+.summaryEmpty {
+  background: var(--sunk);
+  box-shadow: none;
+}
+
+.verdict {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-12);
+  align-items: start;
+  padding: var(--s-16);
+  border-radius: var(--r-input);
+}
+
+/* Colour never carries the verdict alone: the glyph and the words say it too. */
+.on-track {
+  background: var(--green-soft);
+  --verdict: var(--green);
+}
+
+.check {
+  background: var(--gold-soft);
+  --verdict: var(--gold);
+}
+
+.short {
+  background: var(--rust-soft);
+  --verdict: var(--rust);
+}
+
+.verdictGlyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-pill);
+  background: var(--verdict);
+  color: var(--card);
+  font-weight: 700;
+  font-size: var(--t-15);
+  line-height: 1;
+}
+
+.verdictLabel {
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--mid);
+}
+
+.verdictFigure {
+  font-family: var(--disp);
+  font-size: var(--t-40);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--verdict);
+  font-variant-numeric: tabular-nums;
+}
+
+.verdictText {
+  font-size: var(--t-14);
+  font-weight: 600;
+  color: var(--verdict);
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-12);
+  padding: var(--s-8) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--t-15);
+}
+
+.totals dt {
+  color: var(--mid);
+}
+
+.totals dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.totals > .totalLine {
+  border-bottom: 0;
+  padding-top: var(--s-12);
+  font-weight: 700;
+}
+
+.totalLine dt {
+  color: var(--tx);
+  font-weight: 700;
+}
+
+.weekly {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-8);
+}
+
+.weekly > div {
+  padding: var(--s-12);
+  border-radius: var(--r-input);
+  background: var(--sunk);
+}
+
+.weeklyFigure {
+  font-family: var(--disp);
+  font-size: var(--t-21);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.weeklyLabel {
+  font-size: var(--t-13);
+  color: var(--mid);
+}
+
+/* ---- Category breakdown -------------------------------------------------- */
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+}
+
+.breakdownTitle {
+  font-size: var(--t-14);
+  font-weight: 700;
+}
+
+.categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-12);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.category {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.categoryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-12);
+  font-size: var(--t-14);
+}
+
+.categoryFigure {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.categoryShare {
+  margin-left: var(--s-4);
+  color: var(--low);
+  font-weight: 500;
+}
+
+.track {
+  display: block;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--sunk);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-pill);
+  background: var(--mid);
+  transition: width var(--content) var(--ease);
+}
+
+/* ---- Privacy and delete -------------------------------------------------- */
+
+.privacy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-8);
+  padding: 0 var(--s-4);
+  font-size: var(--t-13);
+  color: var(--mid);
+}
+
+.textButton {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: var(--s-8) 0;
+  font-size: var(--t-13);
+  font-weight: 600;
+  color: var(--tx);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-12);
+  color: var(--tx);
+}
+
+.danger {
+  min-height: 44px;
+  padding: var(--s-8) var(--s-16);
+  border-radius: var(--r-pill);
+  background: var(--rust);
+  color: var(--card);
+  font-size: var(--t-13);
+  font-weight: 600;
+  transition: transform var(--press) var(--ease);
+}
+
+@media print {
+  .addRow,
+  .remove,
+  .privacy {
+    display: none;
+  }
+}
