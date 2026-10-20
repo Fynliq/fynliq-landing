@@ -18,6 +18,13 @@ interface ImportMetaEnv {
    * no secret: Stripe keys are server-only and never prefixed with VITE_.
    */
   readonly VITE_FYNLIQ_BILLING_URL?: string;
+
+  /**
+   * Which provider answers Ask questions: `openai` (default) or `ollama`.
+   * Shared with the server (`server/ask-provider.js`) so the privacy notice
+   * names the right company. A provider name only; never a secret.
+   */
+  readonly ASK_PROVIDER?: string;
 }
 
 interface ImportMeta {
