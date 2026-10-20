@@ -11,6 +11,7 @@
 // the model; otherwise this answers 402 { code: 'beta_unlock_required' }.
 // With the paywall off (the default) the gate touches nothing.
 import { structuredResponse } from '../server/provider.js';
+import { summarySigningSecret } from '../server/ask-provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
@@ -289,7 +290,7 @@ export function createAnalyzeHandler(dependencies = {}) {
     semester: null,
     unread: [{ field: 'Any figures not shown in the reviewed fields', where: 'Your original documents or school financial aid office.' }],
     summaryFacts: facts,
-    summaryToken: signSummary(facts, env.OPENAI_API_KEY, Date.now()),
+    summaryToken: signSummary(facts, summarySigningSecret(env), Date.now()),
   });
   };
 }

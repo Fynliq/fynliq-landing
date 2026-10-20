@@ -3,6 +3,7 @@ import { AppShell } from '../components/nav/AppShell/AppShell';
 import { Skeleton } from '../components/ui';
 import { Aurora } from '../components/fx';
 import { AskError, createAsker, type AskAnswer } from '../ask/asker';
+import { ASK_PROVIDER } from '../ask/provider';
 import { questionById, QUESTIONS, type Question } from '../search/library';
 import { useSearchDemand } from '../search/SearchProvider';
 import { type AidAnalysis } from '../core';
@@ -147,7 +148,7 @@ export function AskFynliq({ analysis }: AskFynliqProps) {
           <label><input type="checkbox" disabled={thinking} onChange={e => { setReviewedToken(e.target.checked ? analysis.summaryToken! : null); if (e.target.checked) setMode('personal'); }} /> I checked these fields against my originals and they match.</label>
         </details>}
 
-        <p className={styles.sourceNote}>Your question is sent to OpenAI to generate an answer. Fynliq does not intentionally store your question or AI response. Do not include Social Security numbers, FSA login information, tax IDs, bank account numbers, passwords, or other highly sensitive information.</p>
+        <p className={styles.sourceNote}>Your question is sent to <a href={ASK_PROVIDER.privacyUrl} target="_blank" rel="noreferrer">{ASK_PROVIDER.name}</a> to generate an answer. Fynliq does not intentionally store your question or AI response. Do not include Social Security numbers, FSA login information, tax IDs, bank account numbers, passwords, or other highly sensitive information.</p>
 
 
         {/* ---- The composer ------------------------------------------ */}
