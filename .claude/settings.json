@@ -140,7 +140,13 @@
       "mcp__vercel__get_auth_token",
       "mcp__Vercel__get_auth_token",
       "mcp__vercel__get_project_token",
-      "mcp__Vercel__get_project_token"
+      "mcp__Vercel__get_project_token",
+      "Edit(.claude/hooks/**)",
+      "Write(.claude/hooks/**)",
+      "Edit(.claude/settings.json)",
+      "Write(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/settings.local.json)"
     ],
     "ask": [
       "Bash(git push:*)",
@@ -160,6 +166,20 @@
       "mcp__Supabase__delete_branch",
       "mcp__supabase__reset_branch",
       "mcp__Supabase__reset_branch"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

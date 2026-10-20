@@ -8,6 +8,8 @@
  * in this browser is never treated as proof of payment.
  */
 
+import { trackEvent } from '../analytics/events';
+
 export type Access = 'open' | 'grandfathered' | 'premium' | 'test_account' | 'locked';
 
 export interface BillingStatus {
@@ -100,8 +102,22 @@ export async function startCheckout(): Promise<{ url?: string; unlocked?: boolea
   throw new CheckoutError('Payments are not available right now. Please try again in a moment.');
 }
 
-/** Content-free funnel step. Never waits, never fails the flow. */
+/** The canonical analytics event for each billing funnel step that has one. */
+const CANONICAL: Partial<Record<FunnelEvent, () => void>> = {
+  my_aid_page_view: () => trackEvent('my_aid_viewed', undefined, { once: 'page' }),
+  aid_upload_started: () => trackEvent('upload_started'),
+  aid_preview_viewed: () => trackEvent('results_viewed', { view: 'preview' }),
+  full_analysis_viewed: () => trackEvent('results_viewed', { view: 'full' }),
+  paywall_viewed: () => trackEvent('checkout_viewed', undefined, { once: 'page' }),
+};
+
+/**
+ * Content-free funnel step. Never waits, never fails the flow.
+ * The billing funnel (paywall accounts only) keeps its own record; the
+ * canonical event is recorded for everyone (docs/analytics-events.md).
+ */
 export function trackFunnel(event: FunnelEvent): void {
+  CANONICAL[event]?.();
   if (!BILLING_ENDPOINT) return;
   void post({ action: 'track', event }).catch(() => {});
 }

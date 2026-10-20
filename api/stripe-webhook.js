@@ -13,9 +13,11 @@
 // Subscribe the endpoint to: checkout.session.completed,
 // checkout.session.async_payment_succeeded, checkout.session.async_payment_failed,
 // checkout.session.expired.
+import { observe } from '../server/observability.js';
 import { clients, rpc, BetaError } from '../server/beta.js';
 import { verifyStripeEvent, StripeSignatureError } from '../server/stripe.js';
 import { testAccountIds, UNLOCK_PRICE, PURPOSE } from '../server/billing.js';
+import { track as trackEvents } from '../server/analytics.js';
 
 // Signature verification needs the exact bytes Stripe sent.
 export const config = { api: { bodyParser: false }, maxDuration: 30 };
@@ -84,6 +86,20 @@ export function createStripeWebhookHandler(dependencies = {}) {
       });
       // Ids and outcome codes only.
       console.log('Stripe webhook:', JSON.stringify({ type: event.type, outcome: result?.outcome ?? null }));
+      // Canonical analytics, derived ONLY from the outcome of the verified,
+      // transactional billing_stripe_event call above. One event per Checkout
+      // Session (dedupe key); a duplicate delivery records nothing new.
+      const names = !ours || !account || result?.duplicate ? [] : ({
+        entitlement_activated: ['payment_completed', 'unlock_verified'],
+        already_entitled: [{ name: 'payment_completed', metadata: { duplicate: true } }],
+        payment_failed: ['payment_failed'],
+        expired: ['checkout_expired'],
+      })[result?.outcome] ?? [];
+      if (names.length) {
+        await trackEvents(req, names.map((n) => ({ ...(typeof n === 'string' ? { name: n } : n), key: session.id })),
+          { identity: { userId: account, guestId: null }, livemode: event.livemode === true,
+            metadata: { stripe_outcome: result.outcome } }, { env, db });
+      }
       return res.status(200).json({ received: true, duplicate: result?.duplicate === true });
     } catch (error) {
       // 5xx makes Stripe retry; the transaction rolled back, including the
@@ -94,4 +110,4 @@ export function createStripeWebhookHandler(dependencies = {}) {
   };
 }
 
-export default createStripeWebhookHandler();
+export default observe('/api/stripe-webhook', createStripeWebhookHandler());

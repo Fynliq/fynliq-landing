@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { trackEvent } from '../analytics/events';
 import { AuthShell } from '../components/auth/AuthShell/AuthShell';
 import { TABS } from '../components/nav/TabBar/TabBar';
 import { Card } from '../components/ui';
@@ -64,6 +65,11 @@ export function Auth({ mode, destination, onAuthenticated }: AuthProps) {
   const { signUp, logIn, connected } = useAuth();
   const copy = COPY[mode];
   const isSignup = mode === 'signup';
+
+  // Someone opened the sign-up form (once per page load; completion is recorded by the server).
+  useEffect(() => {
+    if (isSignup) trackEvent('signup_started', undefined, { once: 'page' });
+  }, [isSignup]);
 
   const ids = useId();
   const emailId = `${ids}-email`;

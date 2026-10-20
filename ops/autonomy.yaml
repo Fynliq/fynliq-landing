@@ -77,6 +77,13 @@ path_risk:
     - server/attribution.js
     - server/upload-tracking.js
     - src/analytics/**
+    - server/analytics.js
+    - server/observability.js
+    - server/ops-metrics.js
+    - api/activity.js
+    - scripts/ops/**
+    - test/observability-integration.mjs
+    - test/guard.test.mjs
     # Tests that guard security or payment properties: weakening them is RED.
     - test/billing-integration.mjs
     - test/beta-integration.mjs

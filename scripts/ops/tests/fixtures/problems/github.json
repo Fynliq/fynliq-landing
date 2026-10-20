@@ -1,0 +1,66 @@
+{
+ "protected_branches": [
+  "main",
+  "feat/connect-ask-backend"
+ ],
+ "open_prs": [
+  {
+   "number": 21,
+   "title": "Fix typo on landing",
+   "draft": false,
+   "labels": [
+    "risk:green",
+    "agent:code-review",
+    "agent:release"
+   ],
+   "ci": "success",
+   "created_at": "2026-10-08T01:00:00Z"
+  },
+  {
+   "number": 22,
+   "title": "Payments: retry webhook",
+   "draft": false,
+   "labels": [
+    "risk:red",
+    "agent:payments",
+    "agent:security"
+   ],
+   "ci": "success",
+   "created_at": "2026-10-08T02:00:00Z"
+  }
+ ],
+ "ci_failures": [
+  {
+   "name": "CI",
+   "branch": "feat/connect-ask-backend",
+   "conclusion": "failure",
+   "url": "https://github.com/x/y/actions/runs/1"
+  }
+ ],
+ "uptime": {
+  "runs": 96,
+  "failures": 3
+ },
+ "deploy": {
+  "sha": "0123456789abc",
+  "state": "failure",
+  "summary": "\u274c latest deploy FAILED"
+ },
+ "agent_issues_open": [
+  {
+   "repo": "me/fynq-ops",
+   "number": 3,
+   "title": "[trigger] auth_failure_spike",
+   "labels": [
+    "trigger",
+    "agent:security"
+   ]
+  }
+ ],
+ "agents": {
+  "investigations_completed": 1,
+  "issues_created": 1,
+  "prs_created": 1,
+  "prs_awaiting_approval": 1
+ }
+}

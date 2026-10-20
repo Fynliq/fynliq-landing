@@ -1,3 +1,4 @@
+import { observe } from '../server/observability.js';
 import {answerQuestion} from '../server/ask-service.js';
 import {containsHighRiskPII,PRIVACY_MESSAGE} from '../server/privacy.js';
 import {clients,session,sameOrigin,body,rpc,rate,positive,fail,BetaError,cookie,token} from '../server/beta.js';
@@ -29,4 +30,4 @@ export function createAskHandler(dependencies={}) {return async(req,res)=>{
     return res.status(200).json(result.body);
   }catch(error){return fail(res,error);}
 };}
-export default createAskHandler();
+export default observe('/api/ask', createAskHandler());

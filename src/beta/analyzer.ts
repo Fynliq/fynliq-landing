@@ -43,10 +43,19 @@ export type AnalysisErrorKind =
   /** HTTP 402: this account needs the one-time FYNQ Beta Unlock first. */
   | 'unlock_required';
 
+/**
+ * Where a failure happened: on this device before anything was sent, in
+ * transit (the request never got an answer), or after the server answered.
+ * Analytics only reports the first two from the browser; the server records
+ * its own outcomes, so reporting those too would count a failure twice.
+ */
+export type AnalysisErrorOrigin = 'device' | 'transit' | 'server';
+
 export class AnalysisError extends Error {
   constructor(
     message: string,
     readonly kind: AnalysisErrorKind,
+    readonly origin: AnalysisErrorOrigin = 'server',
   ) {
     super(message);
     this.name = 'AnalysisError';
@@ -103,4 +112,20 @@ export function delay(ms: number, signal?: AbortSignal): Promise<void> {
  */
 export function createAnalyzer(endpoint = import.meta.env.VITE_FYNLIQ_ANALYZE_URL ?? (import.meta.env.PROD ? '/api/analyze' : undefined)): AidAnalyzer {
   return endpoint ? httpAnalyzer(endpoint) : stubAnalyzer();
+}
+
+/**
+ * The analytics reason for a failed upload the server never saw, or null when
+ * the server already recorded it (any HTTP answer: the reader records its
+ * outcome and refusals as upload_failed) or nothing failed in a way worth
+ * counting (cancelled, unlock required). A reply the browser couldn't use
+ * (`format`) is reported too: the server counted that read as a success.
+ */
+export function unseenUploadFailure(error: unknown): string | null {
+  if (!(error instanceof AnalysisError)) return 'client';
+  if (error.kind === 'cancelled' || error.kind === 'unlock_required') return null;
+  if (error.origin === 'device') return 'device_unreadable';
+  if (error.origin === 'transit') return 'offline';
+  if (error.kind === 'format') return 'bad_response';
+  return null;
 }

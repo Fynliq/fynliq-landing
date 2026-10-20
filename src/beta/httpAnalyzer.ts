@@ -36,7 +36,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
     async analyze(files: File[], options: AnalyzeOptions = {}): Promise<AnalyzeResult> {
       const { signal, onStage } = options;
 
-      if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected');
+      if (!files.length || files.length > 3 || files.reduce((sum, f) => sum + f.size, 0) > 2800000) throw new AnalysisError('Upload 1–3 documents totaling no more than 2.8 MB.', 'rejected', 'device');
 
       // 1. Read each file on this device. The file itself is never uploaded.
       onStage?.('reading');
@@ -45,7 +45,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         pages = await readDocuments(files);
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
-        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'rejected');
+        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'rejected', 'device');
       }
       if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
 
@@ -53,7 +53,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       onStage?.('extracting');
       const redacted = redactDocuments(pages.map((p) => ({ pages: p })));
       if (redacted.every((doc) => doc.keptLines === 0)) {
-        throw new AnalysisError('We couldn’t read enough information from this image. Try uploading a clearer screenshot.', 'rejected');
+        throw new AnalysisError('We couldn’t read enough information from this image. Try uploading a clearer screenshot.', 'rejected', 'device');
       }
       const body = JSON.stringify({
         consent: true,
@@ -74,7 +74,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         });
       } catch {
         if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
-        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'network');
+        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'network', 'transit');
       }
 
       // The paywall lives on the server (api/analyze.js). This only turns its

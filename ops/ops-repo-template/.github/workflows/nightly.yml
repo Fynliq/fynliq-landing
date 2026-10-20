@@ -1,0 +1,65 @@
+# FYNQ nightly autopilot: the deterministic part.
+# Copy to .github/workflows/nightly.yml in the PRIVATE repository Fynliq/fynq-ops
+# (or <owner>/fynq-ops). It reads read-only aggregates from www.fynliq.com and
+# public GitHub state, writes the CEO and engineering reports as issues IN THIS
+# PRIVATE REPO, opens one issue per fired trigger or newly reached milestone
+# (labelled with the agents to wake), and commits milestone state here.
+# It never writes to production, the public app repo, Stripe, Vercel or Supabase.
+name: Nightly
+
+on:
+  schedule:
+    - cron: '30 10 * * *'   # 10:30 UTC = 5:30 CT, ahead of the morning
+  workflow_dispatch:
+
+permissions:
+  contents: write   # commit state/ in THIS private repo only
+  issues: write     # reports and triggers as issues in THIS private repo only
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out this private ops repo (state)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          path: ops
+      - name: Check out the app's ops scripts (read-only, live branch)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Fynliq/fynliq-landing
+          ref: feat/connect-ask-backend
+          path: app
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/ops
+            ops
+            supabase/migrations
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml==6.0.2
+      - name: Run the nightly report
+        env:
+          OPS_READ_TOKEN: ${{ secrets.OPS_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 app/scripts/ops/nightly.py \
+            --metrics-url https://www.fynliq.com \
+            --repo Fynliq/fynliq-landing \
+            --ops-repo "${{ github.repository }}" \
+            --state ops/state --out "$RUNNER_TEMP/out" --publish > /dev/null
+          cat "$RUNNER_TEMP/out/ceo-report.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save milestone state
+        working-directory: ops
+        run: |
+          git config user.name "fynq-ops"
+          git config user.email "fynq-ops@users.noreply.github.com"
+          git add state
+          git diff --cached --quiet || git commit -m "nightly state $(date -u +%F)"
+          git push

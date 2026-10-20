@@ -15,12 +15,14 @@
 // GET /api/analyze[?id=] returns the account's newest (or given) saved
 // analysis under the same rule, so a refresh, a Stripe return or a new login
 // finds it again. With the paywall off (the default) nothing is saved.
+import { observe } from '../server/observability.js';
 import { structuredResponse } from '../server/provider.js';
 import { summarySchema, validateSummary, signSummary } from '../server/summary.js';
 import { allowRequest } from '../server/limits.js';
 import { redactDocuments, fixOcrNumbers } from '../server/redact.js';
 import { PrivacyError, PRIVACY_MESSAGE } from '../server/privacy.js';
 import { recordUpload } from '../server/upload-tracking.js';
+import { track as trackEvents } from '../server/analytics.js';
 import { clients, rpc, BetaError } from '../server/beta.js';
 import { analysisGate, track as trackFunnel } from '../server/billing.js';
 import { computeAidOverview, previewOf } from '../server/aid-overview.js';
@@ -331,34 +333,40 @@ export function createAnalyzeHandler(dependencies = {}) {
     return savedAnalysis(req, res, env, dependencies);
   }
   if (req.method !== 'POST') { res.setHeader('Allow', 'GET, POST'); return bad(res, 405, 'Use POST.'); }
-  if (!allowRequest(req, 'analyze', 3)) return bad(res, 429, 'Please wait a minute before uploading again.');
+  // An upload the reader turns away before reading it. The browser doesn't
+  // report answered requests, so the server records upload_failed here.
+  const refuse = async (status, message, reason) => {
+    await trackEvents(req, [{ name: 'upload_failed', metadata: { reason } }], {}, { env, clients: dependencies.clients || clients });
+    return bad(res, status, message);
+  };
+  if (!allowRequest(req, 'analyze', 3)) return refuse(429, 'Please wait a minute before uploading again.', 'rate_limited');
 
   // Who is asking. With the paywall on this requires a logged-in account,
   // but no longer a paid one: locked accounts are read and get a preview.
   const gate = await gateFor(req, res, env, dependencies);
   if (!gate) return undefined;
 
-  if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) return bad(res, 503, 'The document reader is not configured.');
+  if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) return refuse(503, 'The document reader is not configured.', 'not_configured');
 
   let body;
-  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { return bad(res, 400, 'Invalid upload.'); }
-  if (body?.consent !== true) return bad(res, 400, 'Please agree to AI processing to continue.');
+  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; } catch { return refuse(400, 'Invalid upload.', 'invalid_request'); }
+  if (body?.consent !== true) return refuse(400, 'Please agree to AI processing to continue.', 'no_consent');
 
   // Raw files are refused outright: this endpoint only accepts redacted text.
-  if (body.files !== undefined) return bad(res, 400, 'Please refresh the page and upload again.');
+  if (body.files !== undefined) return refuse(400, 'Please refresh the page and upload again.', 'invalid_request');
 
   const documents = body.documents;
-  if (!Array.isArray(documents) || !documents.length || documents.length > MAX_DOCUMENTS) return bad(res, 400, 'Upload 1–3 documents.');
+  if (!Array.isArray(documents) || !documents.length || documents.length > MAX_DOCUMENTS) return refuse(400, 'Upload 1–3 documents.', 'invalid_request');
 
   let totalChars = 0;
   for (const doc of documents) {
     if (!doc || typeof doc.name !== 'string' || doc.name.length > 180 || !Array.isArray(doc.pages) ||
       !doc.pages.length || doc.pages.length > MAX_PAGES || !doc.pages.every((p) => typeof p === 'string')) {
-      return bad(res, 400, 'Invalid upload.');
+      return refuse(400, 'Invalid upload.', 'invalid_request');
     }
     totalChars += doc.pages.reduce((sum, p) => sum + p.length, 0);
   }
-  if (totalChars > MAX_CHARS) return bad(res, 413, 'These documents are too long. Upload just the aid summary pages.');
+  if (totalChars > MAX_CHARS) return refuse(413, 'These documents are too long. Upload just the aid summary pages.', 'too_long');
 
   // Funnel steps (content-free). Post-cutoff accounts only, locked or paid;
   // paid accounts keep their original events too, for the existing admin view.
@@ -369,6 +377,9 @@ export function createAnalyzeHandler(dependencies = {}) {
     if (legacy && gate.access === 'premium') await trackFunnel(gate.db, gate.account, legacy, env, false);
   };
   await funnel('aid_analysis_started', 'analysis_started');
+  // Canonical events: the redacted text reached the server and the read begins.
+  await trackEvents(req, [{ name: 'upload_completed', metadata: { files: documents.length } }, 'analysis_started'], {},
+    { env, clients: dependencies.clients || clients });
 
   // Defence in depth: whatever the browser did, redact again here.
   const redacted = redactDocuments(documents);
@@ -393,7 +404,7 @@ export function createAnalyzeHandler(dependencies = {}) {
     }
     // Never log the error body: it can echo document text.
     console.error('Document reader provider error:', error?.name ?? 'Error');
-    await track(req, { outcome: 'reader_error', files: documents.length });
+    await track(req, { outcome: 'reader_error', files: documents.length, ai_ms: Date.now() - started });
     return bad(res, 502, 'We couldn’t analyze your aid summary. Please try again.');
   }
 
@@ -448,11 +459,11 @@ export function createAnalyzeHandler(dependencies = {}) {
     let message = 'We couldn’t read enough information from this image. Try uploading a clearer screenshot.';
     if (!names && amounts) message = 'This screenshot shows amounts but not the award names next to them, so Fynliq cannot tell which is which. Upload it together with a screenshot that shows the award names (you can choose up to 3 files at once).';
     else if (names && !rowAmounts) message = 'This screenshot shows the award names but not the amount for each one. If your aid table scrolls sideways, take a second screenshot of the amounts and upload both together.';
-    await track(req, { outcome: 'unreadable', files: documents.length, reason: ref });
+    await track(req, { outcome: 'unreadable', files: documents.length, reason: ref, ai_ms: Date.now() - started, second_pass: secondPass });
     return bad(res, 422, `${message} (ref: ${ref})`);
   }
 
-  await track(req, { outcome: 'read', files: documents.length, figures: facts.length });
+  await track(req, { outcome: 'read', files: documents.length, figures: facts.length, ai_ms: Date.now() - started, second_pass: secondPass });
   const overview = computeAidOverview(facts, scans.map((s) => s.scan));
   if (env.FYNQ_READER_DEBUG === 'true' || env.NODE_ENV === 'development') {
     // Development only. Types and counts; never images, names, IDs or amounts.
@@ -483,4 +494,4 @@ export function createAnalyzeHandler(dependencies = {}) {
   };
 }
 
-export default createAnalyzeHandler();
+export default observe('/api/analyze', createAnalyzeHandler());

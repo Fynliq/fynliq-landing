@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { noteDbError } from './observability.js';
 
 export class BetaError extends Error { constructor(status,message){super(message);this.status=status;} }
 export const cookieName='__Host-fynliq_beta';
@@ -17,7 +18,13 @@ export function clients(env=process.env) {
 }
 export async function rpc(db,name,args={}) {
   const {data,error}=await db.rpc(name,args);
-  if(error)throw new BetaError(503,'The beta service is temporarily unavailable.');
+  if(error){noteDbError();throw new BetaError(503,'The beta service is temporarily unavailable.');}
+  return data;
+}
+/** Read-only call: sent as GET, which PostgREST runs in a read-only transaction. */
+export async function rpcRead(db,name,args={}) {
+  const {data,error}=await db.rpc(name,args,{get:true});
+  if(error){noteDbError();throw new BetaError(503,'The beta service is temporarily unavailable.');}
   return data;
 }
 export function sameOrigin(req,env=process.env) {

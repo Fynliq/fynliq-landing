@@ -41,6 +41,17 @@ Consequences:
    this rebuild uses the env values current at build time.
 6. Verify the live build (below).
 
+## Shipping the phase 2 observability PR (once)
+1. 👤 Apply `supabase/migrations/202610070001_observability.sql` in production
+   **before** merging (see `database.md`). The code is safe without it
+   (events are dropped), but data is lost until it's applied.
+2. 👤 Optional, for the nightly reports: set `OPS_READ_TOKEN_SHA256` on the live
+   env scope (see `ops/ops-repo-template/README.md`). Without it, the metrics
+   view answers 401 and nothing else changes.
+3. Merge, then verify: within minutes `api_requests` and `landing_view` rows
+   appear (`select public.ops_milestone_metrics('')` through the read-only
+   connector).
+
 ## Verify what's live
 ```bash
 curl -s https://www.fynliq.com/ | grep -o 'assets/index-[A-Za-z0-9_-]*\.js'

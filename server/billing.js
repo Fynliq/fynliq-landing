@@ -161,7 +161,7 @@ export async function createCheckout(db, account, env = process.env, { fetchImpl
   const testAccount = testAccountIds(env).has(account.id);
 
   const open = await rpc(db, 'billing_open_checkout', { p_user: account.id, p_livemode: config.livemode });
-  if (open?.url) return { url: open.url, reused: true };
+  if (open?.url) return { url: open.url, reused: true, id: typeof open.id === 'string' ? open.id : null, livemode: config.livemode };
 
   // Double clicks inside one five-minute window map to one Stripe session via
   // the idempotency key; the parameters are identical within the window.
@@ -202,5 +202,5 @@ export async function createCheckout(db, account, env = process.env, { fetchImpl
     p_session: session.id, p_user: account.id, p_livemode: config.livemode, p_test: testAccount,
     p_url: session.url, p_expires: new Date(expiresAt * 1000).toISOString(),
   });
-  return { url: session.url, reused: false };
+  return { url: session.url, reused: false, id: session.id, livemode: config.livemode };
 }

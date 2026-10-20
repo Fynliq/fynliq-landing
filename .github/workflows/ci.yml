@@ -31,6 +31,13 @@ jobs:
           python-version: '3.12'
       - run: pip install pyyaml==6.0.2
       - run: python3 scripts/validate_ops.py
+      - name: Ops tooling tests (routing, triggers, milestones, reports, safety)
+        run: python3 scripts/ops/tests/test_ops.py
+      - name: Nightly autopilot dry run (fixtures, no network, no writes)
+        run: |
+          python3 scripts/ops/nightly.py --fixtures scripts/ops/tests/fixtures/healthy --out "$RUNNER_TEMP/healthy" --now 2026-10-08T10:30:00Z > /dev/null
+          python3 scripts/ops/nightly.py --fixtures scripts/ops/tests/fixtures/problems --out "$RUNNER_TEMP/problems" --now 2026-10-08T10:30:00Z > /dev/null
+          cat "$RUNNER_TEMP/problems/engineering-report.md" >> "$GITHUB_STEP_SUMMARY"
 
   app:
     name: Build and tests
@@ -58,3 +65,5 @@ jobs:
         run: npm run test:billing
       - name: Integration - attribution (PGlite, all migrations, fake Stripe)
         run: node test/attribution-integration.mjs
+      - name: Integration - analytics events, health log and ops metrics (PGlite, all migrations)
+        run: node test/observability-integration.mjs

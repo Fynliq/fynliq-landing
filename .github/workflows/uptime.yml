@@ -1,0 +1,41 @@
+# FYNQ uptime checks: anonymous read-only GETs against www.fynliq.com.
+# A failed scheduled run makes GitHub email the person who last changed the
+# schedule in this file. Scheduled runs only fire from the repository's
+# DEFAULT branch, so the default branch must contain this file. As of
+# 2026-10-06 the default branch is feat/search-tabs-gradi, so the schedule is
+# NOT active until a human changes the default branch (Settings > General).
+# See ops/runbooks/incident-response.md.
+name: Uptime
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'   # every 15 minutes, off the top-of-hour rush
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/uptime.yml
+      - scripts/uptime-check.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  # Separate groups so a PR or manual run never displaces a pending scheduled check.
+  group: uptime-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check www.fynliq.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Probe the live site
+        run: node scripts/uptime-check.mjs

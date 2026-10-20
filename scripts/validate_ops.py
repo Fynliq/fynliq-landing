@@ -158,8 +158,39 @@ def check_milestones() -> None:
         approval = str(m.get("human_approval", "")).strip().lower()
         if not approval or re.match(r"^(none|no|not required|n/?a)\b", approval):
             fail(f"milestones.yaml: {m.get('id')}: human_approval must name a human decision")
-    if data.get("evaluation") != "manual":
-        fail("milestones.yaml: evaluation must stay 'manual' until instrumentation_complete is approved")
+    if data.get("evaluation") not in ("manual", "scheduled_read_only"):
+        fail("milestones.yaml: evaluation must be 'manual' or 'scheduled_read_only' (detection only, never deploys)")
+    sys.path.insert(0, str(ROOT / "scripts" / "ops"))
+    try:
+        from milestones import validate_definitions  # noqa: E402
+        for problem in validate_definitions(data):
+            fail(problem)
+    finally:
+        sys.path.pop(0)
+
+
+def check_triggers() -> None:
+    path = ROOT / "ops" / "agent-triggers.yaml"
+    if not path.is_file():
+        fail("missing ops/agent-triggers.yaml")
+        return
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    known = set(AGENTS)
+    for name in data.get("pr_always", []) + data.get("pr_green_skip", []):
+        if name not in known:
+            fail(f"agent-triggers.yaml: unknown agent {name}")
+    for route in data.get("pr_routes", []):
+        if not route.get("paths") or not route.get("agents"):
+            fail(f"agent-triggers.yaml: route {route.get('name')} needs paths and agents")
+        for a in route.get("agents", []):
+            if a not in known:
+                fail(f"agent-triggers.yaml: route {route.get('name')}: unknown agent {a}")
+    for event, spec in (data.get("events") or {}).items():
+        for a in (spec or {}).get("agents", []):
+            if a not in known:
+                fail(f"agent-triggers.yaml: event {event}: unknown agent {a}")
+        if any(k in (spec or {}) for k in ("deploy", "merge", "apply", "write")):
+            fail(f"agent-triggers.yaml: event {event}: triggers may only label, comment or open issues")
 
 
 def check_settings() -> None:
@@ -176,6 +207,13 @@ def check_settings() -> None:
                  "mcp__Vercel__request_promote", "mcp__Vercel__assign_alias"):
         if rule not in deny:
             fail(f".claude/settings.json: deny must include {rule}")
+    hooks = (data.get("hooks") or {}).get("PreToolUse") or []
+    guarded = [h for h in hooks if "Bash" in str(h.get("matcher", "")) and "mcp__" in str(h.get("matcher", ""))
+               and any("guard.mjs" in str(x.get("command", "")) for x in h.get("hooks", []))]
+    if not guarded:
+        fail(".claude/settings.json: the PreToolUse production guard (.claude/hooks/guard.mjs) must cover Bash and mcp__ tools")
+    if not (ROOT / ".claude" / "hooks" / "guard.mjs").is_file():
+        fail("missing .claude/hooks/guard.mjs")
     allow = data.get("permissions", {}).get("allow", [])
     if set(allow) & set(deny):
         fail(".claude/settings.json: a rule is both allowed and denied")
@@ -207,30 +245,50 @@ def check_files_and_links() -> None:
                 fail(f"{rel}: references missing path {ref}")
 
 
-def check_ci() -> None:
-    path = ROOT / ".github" / "workflows" / "ci.yml"
-    if not path.is_file():
+# Workflows that may hold a job-level write token, and exactly which scopes.
+# They run trusted code from the base branch only and write labels/comments/issues.
+JOB_PERMISSIONS = {
+    "pr-router.yml": {"pull-requests": "write", "issues": "write", "contents": "read"},
+    "ci-failure.yml": {"issues": "write", "actions": "read", "contents": "read"},
+}
+
+
+def check_workflows() -> None:
+    folder = ROOT / ".github" / "workflows"
+    if not (folder / "ci.yml").is_file():
         fail("missing .github/workflows/ci.yml")
-        return
-    text = path.read_text(encoding="utf-8")
-    data = yaml.safe_load(text)
-    triggers = data.get(True, data.get("on", {}))  # YAML 1.1 parses the key `on` as True
-    if "pull_request_target" in (triggers or {}):
-        fail("ci.yml: pull_request_target is not allowed (runs untrusted code with secrets)")
-    if "secrets." in text:
-        fail("ci.yml: CI must not use secrets")
-    if data.get("permissions") != {"contents": "read"}:
-        fail("ci.yml: top-level permissions must be exactly contents: read")
-    runs = " ".join(str(s.get("run", "")) for j in data.get("jobs", {}).values() for s in j.get("steps", []))
-    for cmd in ("npm ci", "npm run build", "vitest run", "node --test", "npm run test:beta",
-                "npm run test:billing", "test/attribution-integration.mjs", "scripts/validate_ops.py"):
-        if cmd not in runs:
-            fail(f"ci.yml: required step missing: {cmd}")
-    for job in data.get("jobs", {}).values():
-        for step in job.get("steps", []):
-            uses = step.get("uses")
-            if uses and not re.search(r"@[0-9a-f]{40}$", uses):
-                fail(f"ci.yml: action not pinned to a commit SHA: {uses}")
+    for path in sorted(folder.glob("*.y*ml")):
+        name = path.name
+        text = path.read_text(encoding="utf-8")
+        data = yaml.safe_load(text) or {}
+        triggers = data.get(True, data.get("on", {}))  # YAML 1.1 parses the key `on` as True
+        if "pull_request_target" in (triggers or {}):
+            fail(f"{name}: pull_request_target is not allowed (runs untrusted code with secrets)")
+        if re.search(r"\bsecrets\s*[.\[]|toJSON\(\s*secrets", text):
+            fail(f"{name}: workflows must not use secrets")
+        if data.get("permissions") != {"contents": "read"}:
+            fail(f"{name}: top-level permissions must be exactly contents: read")
+        allowed = JOB_PERMISSIONS.get(name, {})
+        for job_name, job in data.get("jobs", {}).items():
+            if "permissions" in job:
+                extra = {k: v for k, v in (job["permissions"] or {}).items() if allowed.get(k) != v and not (v == "read")}
+                if not allowed or extra:
+                    fail(f"{name}: job {job_name} may not widen permissions beyond {allowed or 'contents: read'} (got {job['permissions']})")
+            if allowed and job.get("permissions") and any(t in (triggers or {}) for t in ("push", "schedule")):
+                fail(f"{name}: write permissions are only allowed on pull_request / workflow_run triggers")
+            for step in job.get("steps", []):
+                uses = step.get("uses")
+                if uses and not re.search(r"@[0-9a-f]{40}$", uses):
+                    fail(f"{name}: action not pinned to a commit SHA: {uses}")
+                if uses and "checkout" in uses and (step.get("with") or {}).get("persist-credentials") is not False:
+                    fail(f"{name}: actions/checkout must set persist-credentials: false")
+        if name == "ci.yml":
+            runs = " ".join(str(s.get("run", "")) for j in data.get("jobs", {}).values() for s in j.get("steps", []))
+            for cmd in ("npm ci", "npm run build", "vitest run", "node --test", "npm run test:beta",
+                        "npm run test:billing", "test/attribution-integration.mjs", "test/observability-integration.mjs",
+                        "scripts/validate_ops.py", "scripts/ops/tests/test_ops.py", "scripts/ops/nightly.py --fixtures"):
+                if cmd not in runs:
+                    fail(f"ci.yml: required step missing: {cmd}")
 
 
 # Identifiers and secrets that must never be committed in these public files.
@@ -263,9 +321,10 @@ def main() -> int:
     check_agents()
     check_autonomy()
     check_milestones()
+    check_triggers()
     check_settings()
     check_files_and_links()
-    check_ci()
+    check_workflows()
     check_no_leaks()
     if errors:
         print(f"ops validation FAILED ({len(errors)}):")

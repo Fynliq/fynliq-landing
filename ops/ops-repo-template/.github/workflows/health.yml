@@ -1,0 +1,48 @@
+# FYNQ hourly health check. Copy to .github/workflows/health.yml in the PRIVATE
+# repository fynq-ops. Reads the last hour of read-only aggregates and opens or
+# updates one issue per fired trigger in THIS private repo (for example a
+# Stripe webhook failure -> payments-agent + security-agent). GitHub emails the
+# owner about new issues. Never writes to production.
+name: Health
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write   # trigger issues in THIS private repo only
+
+concurrency:
+  group: health
+  cancel-in-progress: false
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the app's ops scripts (read-only, live branch)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: Fynliq/fynliq-landing
+          ref: feat/connect-ask-backend
+          path: app
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/ops
+            ops
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml==6.0.2
+      - name: Check production health
+        env:
+          OPS_READ_TOKEN: ${{ secrets.OPS_READ_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 app/scripts/ops/health_check.py \
+            --metrics-url https://www.fynliq.com \
+            --repo Fynliq/fynliq-landing \
+            --ops-repo "${{ github.repository }}" --publish > /dev/null
