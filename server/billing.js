@@ -27,7 +27,17 @@ export const CLIENT_EVENTS = [
   'my_aid_entered', 'paywall_viewed', 'preflight_completed',
   // Preview-before-pay funnel (content-free: event name, account, time only).
   'my_aid_page_view', 'aid_upload_started', 'aid_upload_completed', 'aid_preview_viewed', 'unlock_button_clicked', 'full_analysis_viewed',
+  // The trip back from Stripe (purchase funnel audit, 2026-10-12). Without
+  // these, "pressed Cancel", "closed the tab" and "came back signed out" all
+  // look the same in the data.
+  'checkout_return_viewed', 'checkout_cancelled', 'unlock_confirmed_viewed',
 ];
+/**
+ * Where an unlock was asked for. A label for the funnel only: it never
+ * changes what anybody may see, and it is never read as proof of anything.
+ */
+export const UNLOCK_SURFACES = ['my_aid_preview', 'my_aid', 'ask', 'search', 'earn'];
+export const unlockSurface = (value) => (UNLOCK_SURFACES.includes(value) ? value : null);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const CUTOFF = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/;
@@ -143,10 +153,16 @@ export async function analysisGate(req, env = process.env, dependencies = {}) {
   return { ...result, account, db, locked: result.access === 'locked' };
 }
 
-/** Best effort: a funnel event must never break a student's flow. */
-export async function track(db, account, event, env = process.env, testAccount = testAccountIds(env).has(account.id)) {
+/**
+ * Best effort: a funnel event must never break a student's flow.
+ * `surface` is sent only when there is one, so this keeps working against
+ * the four-argument billing_track until 202610120001 is applied.
+ */
+export async function track(db, account, event, env = process.env, testAccount = testAccountIds(env).has(account.id), surface = null) {
   try {
-    await rpc(db, 'billing_track', { p_user: account.id, p_event: event, p_livemode: livemode(env), p_test: testAccount });
+    const args = { p_user: account.id, p_event: event, p_livemode: livemode(env), p_test: testAccount };
+    if (unlockSurface(surface)) args.p_surface = surface;
+    await rpc(db, 'billing_track', args);
   } catch { /* metrics only */ }
 }
 
