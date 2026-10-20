@@ -411,6 +411,11 @@ rendering `$NaN` to somebody deciding how much to borrow.
 worked example, the error semantics, and the three rules the frontend enforces.
 No frontend changes are needed to connect it.
 
+**Ask on Ollama Cloud.** `/api/ask` can answer with an Ollama Cloud model
+instead of OpenAI: set `OLLAMA_API_KEY`, `OLLAMA_MODEL` and
+`ASK_PROVIDER=ollama` on the server. The document reader stays on OpenAI.
+**[Setup, settings and smoke test →](docs/OLLAMA_CLOUD.md)**
+
 ### The other three seams
 
 Accounts, Search and Ask are built the same way, and are independent of each
@@ -635,6 +640,10 @@ and every boundary figures cross to reach it.
 | `ask/__tests__/contract.test.ts` | The answer contract — including the rejection of a `personal` answer that names no fields |
 | `auth/__tests__/validate.test.ts` | What makes an email address and a password acceptable, and the words each refusal uses |
 | `auth/__tests__/contract.test.ts` | The session contract, including expiry on the boundary and the refusal of an un-normalised address |
+| `ask/__tests__/provider.test.ts` | The Ask privacy notice names the provider that answers |
+| `server/ollama-provider.test.js` | Ollama Cloud adapter: payload, auth header, schema output, error codes, cancellation, and personal answers |
+
+`npm run test:ollama` makes one real Ollama Cloud call and skips when `OLLAMA_API_KEY` is unset.
 
 <br />
 
