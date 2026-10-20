@@ -392,7 +392,8 @@ function Summary({ summary }: { summary: BudgetSummary }) {
         <div><dt>Going out</dt><dd>{'−'}{formatUSD(summary.expenseTotal)}</dd></div>
         <div className={styles.totalLine}>
           <dt>{short ? 'Short by' : 'Left over'}</dt>
-          <dd>{short ? '−' : ''}{formatUSD(Math.abs(summary.leftOver))}</dd>
+          {/* The label already says "short", so no minus sign as well. */}
+          <dd>{formatUSD(Math.abs(summary.leftOver))}</dd>
         </div>
       </dl>
 

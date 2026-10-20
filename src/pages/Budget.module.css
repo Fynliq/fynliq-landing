@@ -256,20 +256,27 @@
 .itemCategory { grid-area: category; }
 .itemMessage { grid-area: message; }
 
+/*
+ * Wider: name, amount and remove on the first line; how often and category
+ * on the second. One line of five fields cut the dropdown text short at the
+ * card's width, and a cut-off "Every mon…" is worse than a second line.
+ */
 @media (min-width: 640px) {
   .item {
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 44px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 44px;
     grid-template-areas:
-      'label amount frequency category remove'
-      'message message message message message';
+      'label label amount remove'
+      'frequency frequency category category'
+      'message message message message';
     align-items: center;
   }
 
-  /* Income rows have no category; the how-often field takes its place. */
+  /* Income rows have no category. */
   .item:not(:has(.itemCategory)) {
     grid-template-areas:
-      'label amount frequency frequency remove'
-      'message message message message message';
+      'label label amount remove'
+      'frequency frequency . .'
+      'message message message message';
   }
 }
 
