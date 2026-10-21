@@ -3,6 +3,7 @@ import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { AidGlance } from '../components/AidGlance/AidGlance';
 import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
 import type { LockedPreview } from '../beta/preview';
+import { ALSO_OPENS, PRICE, PRICE_TERMS, UNLOCKS } from '../content/offer';
 import styles from './AidPreview.module.css';
 
 /**
@@ -13,14 +14,6 @@ import styles from './AidPreview.module.css';
  * in this page, its source or its network traffic: the server releases it
  * after Stripe confirms payment.
  */
-const LOCKED: { label: string; what: (reviewCount: number) => string }[] = [
-  { label: 'Your grants explained', what: () => 'Each line of free money, and what keeps it coming next year' },
-  { label: 'Your loans explained', what: () => 'How much you actually need to borrow, and which loan to take first' },
-  { label: 'What you may actually owe', what: () => 'What is left after grants, and after loans' },
-  { label: 'Important things to review', what: (n) => (n > 0 ? `The ${n} ${n === 1 ? 'thing' : 'things'} Fynliq flagged, in plain English` : 'Anything worth checking before you accept') },
-  { label: 'Personalized next steps', what: () => 'What to do next, most important first' },
-  { label: 'Questions to ask your financial aid office', what: () => 'Written for your offer, ready to copy into an email' },
-];
 
 interface AidPreviewProps {
   preview: LockedPreview;
@@ -78,14 +71,14 @@ export function AidPreview({ preview, notice = null, onUnlocked, onRestart }: Ai
           ? <>Fynliq found <b>{reviewCount} {reviewCount === 1 ? 'thing' : 'things'}</b> worth reviewing.</>
           : <>Your full breakdown explains each part of your aid.</>}{' '}
         <a className={styles.jump} href="#unlock-title" onClick={(event) => { event.preventDefault(); document.getElementById('unlock-title')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>
-          See them for $1 <span aria-hidden="true">&darr;</span>
+          {reviewCount > 0 ? 'See them' : 'See the full breakdown'} for {PRICE} <span aria-hidden="true">&darr;</span>
         </a>
       </p>
 
       <section className={styles.locked} aria-labelledby="locked-title">
-        <h2 id="locked-title" className={styles.lockedTitle}>What the $1 unlocks</h2>
+        <h2 id="locked-title" className={styles.lockedTitle}>What the {PRICE} unlocks</h2>
         <ul className={styles.lockedList}>
-          {LOCKED.map((item) => (
+          {UNLOCKS.map((item) => (
             <li key={item.label} className={styles.lockedItem}>
               <span className={styles.tick} aria-hidden="true">✓</span>
               <span className={styles.lockedLabel}>{item.label}</span>
@@ -99,9 +92,9 @@ export function AidPreview({ preview, notice = null, onUnlocked, onRestart }: Ai
 
       <section className={styles.pay} aria-labelledby="unlock-title">
         <h2 id="unlock-title" className={styles.payTitle}>Unlock your complete aid breakdown</h2>
-        <p className={styles.price}><b>$1</b> one-time beta unlock</p>
-        <p className={styles.terms}>No subscription. Nothing renews.</p>
-        <p className={styles.also}>Also opens Ask Fynliq, Search and Earn.</p>
+        <p className={styles.price}><b>{PRICE}</b> to unlock the full analysis</p>
+        <p className={styles.terms}>{PRICE_TERMS}</p>
+        <p className={styles.also}>{ALSO_OPENS}</p>
         <ul className={styles.why} aria-label="Why Fynliq instead of a chatbot">
           <li>Every number is checked against your document. Nothing is guessed.</li>
           <li>Made for aid offers: grants, loans, work-study and what you’ll owe.</li>
@@ -109,7 +102,7 @@ export function AidPreview({ preview, notice = null, onUnlocked, onRestart }: Ai
         </ul>
         {error && <p className={styles.error} role="alert">{error}</p>}
         <button type="button" className={styles.cta} onClick={() => void unlock()} disabled={busy} aria-busy={busy}>
-          {busy ? 'Opening secure checkout…' : 'Unlock Full Analysis — $1'}
+          {busy ? 'Opening secure checkout…' : `Unlock the full analysis — ${PRICE}`}
         </button>
         <p className={styles.trust}><span aria-hidden="true">🔒</span> Secure payment with Stripe</p>
         <p className={styles.trustSub}>Your aid documents stay private. Fynliq never sees your card.</p>

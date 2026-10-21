@@ -1,4 +1,5 @@
 import styles from './EarnWithGradi.module.css';
+import { PRICE } from '../../content/offer';
 
 /**
  * A quiet pointer to the Earn tab at the end of the results.
@@ -16,7 +17,7 @@ export function EarnWithGradi() {
           Explore Gradi <span aria-hidden="true">&rarr;</span>
         </a>
       </p>
-      <p className={styles.note}>Official Fynliq partner. Separate from your $1 unlock. Offer amount and terms are set by Gradi and may change.</p>
+      <p className={styles.note}>Official Fynliq partner. Separate from your {PRICE} unlock. Offer amount and terms are set by Gradi and may change.</p>
     </aside>
   );
 }

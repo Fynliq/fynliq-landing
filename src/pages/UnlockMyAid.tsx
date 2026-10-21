@@ -2,32 +2,27 @@ import { useEffect, useState } from 'react';
 import { FlowShell } from '../components/beta/FlowShell/FlowShell';
 import { CheckoutError, startCheckout, trackFunnel } from '../billing/client';
 import { useRouter } from '../router/router';
+import { createAnalyzer } from '../beta/analyzer';
+import { FREE_PREVIEW, PRICE, PRICE_LINE, PRICE_TERMS, UNLOCKS } from '../content/offer';
 import styles from './AidPreview.module.css';
 
 /**
- * The one-time $1 FYNQ Beta Unlock, shown on Search, Ask Fynliq and Earn for
- * accounts created after the beta cutoff that have not paid.
+ * Search, Ask Fynliq and Earn for an account that has not paid.
  *
- * Same card, wording and button as the $1 card on the My Aid preview, so the
- * offer reads the same wherever a student meets it. My Aid itself stays free
- * to try, and this page says so: a student who has not seen what Fynliq does
- * is pointed at the free upload first, not pushed straight to Stripe.
+ * The $1 is asked for only after the student has seen something useful of
+ * their own: a free preview of their aid. Before that, this page sends them to
+ * the free upload and says what the $1 will unlock, with no button to pay.
+ * Once a preview exists, it offers the way back to it and the same $1 card
+ * the preview shows, in the same words (src/content/offer.ts).
  */
 
 export type UnlockFeature = 'ask' | 'search' | 'earn';
 
 const FEATURE: Record<UnlockFeature, { name: string; title: string }> = {
-  ask: { name: 'Ask Fynliq', title: 'Ask Fynliq is part of the $1 unlock' },
-  search: { name: 'Search', title: 'Search is part of the $1 unlock' },
-  earn: { name: 'Earn', title: 'Earn is part of the $1 unlock' },
+  ask: { name: 'Ask Fynliq', title: 'Ask Fynliq opens with the full analysis' },
+  search: { name: 'Search', title: 'Search opens with the full analysis' },
+  earn: { name: 'Earn', title: 'Earn opens with the full analysis' },
 };
-
-const INCLUDED = [
-  'Your full aid breakdown in My Aid',
-  'Ask Fynliq: answers built from your own aid',
-  'Search: what other students are asking, answered',
-  'Earn: ways to make money with our partner Gradi',
-];
 
 interface UnlockMyAidProps {
   /** Called when the server says no payment is needed after all. */
@@ -44,7 +39,19 @@ export function UnlockMyAid({ onUnlocked, notice = null, feature = null }: Unloc
   const [error, setError] = useState<string | null>(null);
   const copy = feature ? FEATURE[feature] : null;
 
-  useEffect(() => { trackFunnel('paywall_viewed'); }, []);
+  /** Whether this account has a free preview yet. `null` while asking the server. */
+  const [hasPreview, setHasPreview] = useState<boolean | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const analyzer = createAnalyzer();
+    void (analyzer.fetchSaved?.(controller.signal) ?? Promise.resolve(null))
+      .catch(() => null)
+      .then((saved) => { if (!controller.signal.aborted) setHasPreview(saved !== null); });
+    return () => controller.abort();
+  }, []);
+
+  // A price is only shown, and only counted as shown, once there is a preview.
+  useEffect(() => { if (hasPreview) trackFunnel('paywall_viewed'); }, [hasPreview]);
 
   // Back from Stripe restores this page from the browser's cache with the
   // button still busy. Make it usable again.
@@ -72,41 +79,70 @@ export function UnlockMyAid({ onUnlocked, notice = null, feature = null }: Unloc
     setBusy(false);
   }
 
+  const unlocks = (
+    <ul className={styles.why} aria-label={`What the ${PRICE} unlocks`}>
+      {UNLOCKS.map((item) => <li key={item.label}>{item.label}</li>)}
+      <li>Ask Fynliq, Search and Earn</li>
+    </ul>
+  );
+
   return (
     <FlowShell step={0} tab={feature ?? 'aid'}>
       {notice && <p className={styles.notice} role="status">{notice}</p>}
 
       <div className={styles.head}>
-        <span className={styles.eyebrow}>{copy ? copy.name : 'Fynliq beta'}</span>
-        <h1 className={styles.title}>{copy ? copy.title : 'Unlock the Fynliq beta'}</h1>
-        <p className={styles.lede}>One $1 payment opens every tab. Not sure yet? Try My Aid first. It’s free.</p>
+        <span className={styles.eyebrow}>{copy ? copy.name : 'My Aid'}</span>
+        <h1 className={styles.title}>{copy ? copy.title : 'Unlock your full analysis'}</h1>
+        <p className={styles.lede}>{PRICE_LINE}</p>
       </div>
 
-      {/* The free way in, before the price. */}
-      <section className={styles.free} aria-labelledby="free-title">
-        <h2 id="free-title" className={styles.freeTitle}>Start free</h2>
-        <p className={styles.freeBody}>Upload a screenshot of your aid offer and see your free money, loans and what you may owe before you pay anything.</p>
-        <button type="button" className={styles.freeCta} onClick={() => navigate('/beta')}>
-          Check my aid offer — free <span aria-hidden="true">&rarr;</span>
-        </button>
-      </section>
+      {hasPreview === null && <p className={styles.terms} role="status">Checking for your preview…</p>}
 
-      <section className={styles.pay} aria-labelledby="unlock-title">
-        <h2 id="unlock-title" className={styles.payTitle}>Or unlock everything now</h2>
-        <p className={styles.price}><b>$1</b> one-time beta unlock</p>
-        <p className={styles.terms}>No subscription. Nothing renews.</p>
-        <ul className={styles.why} aria-label="What the $1 unlocks">
-          {INCLUDED.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-        {error && <p className={styles.error} role="alert">{error}</p>}
-        <button type="button" className={styles.cta} onClick={() => void unlock()} disabled={busy} aria-busy={busy}>
-          {busy ? 'Opening secure checkout…' : 'Unlock everything — $1'}
-        </button>
-        <p className={styles.trust}><span aria-hidden="true">🔒</span> Secure payment with Stripe</p>
-        <p className={styles.trustSub}>Your aid documents stay private. Fynliq never sees your card.</p>
-      </section>
+      {hasPreview === false && (
+        <>
+          <section className={styles.free} aria-labelledby="free-title">
+            <h2 id="free-title" className={styles.freeTitle}>Start with your free preview</h2>
+            <p className={styles.freeBody}>Upload a screenshot of your aid offer. Before you pay anything, you see:</p>
+            <ul className={styles.why}>{FREE_PREVIEW.map((item) => <li key={item}>{item}</li>)}</ul>
+            <button type="button" className={styles.freeCta} onClick={() => navigate('/beta')}>
+              Check my aid offer — free <span aria-hidden="true">&rarr;</span>
+            </button>
+          </section>
 
-      <p className={styles.fine}>Gradi is an official Fynliq partner and is separate from your $1 unlock. Gradi sets its offer and may change it.</p>
+          <section className={styles.pay} aria-labelledby="unlock-title">
+            <h2 id="unlock-title" className={styles.payTitle}>After your preview, {PRICE} unlocks</h2>
+            {unlocks}
+            <p className={styles.terms}>{PRICE_TERMS}</p>
+          </section>
+        </>
+      )}
+
+      {hasPreview === true && (
+        <>
+          <section className={styles.free} aria-labelledby="free-title">
+            <h2 id="free-title" className={styles.freeTitle}>Your free preview is ready</h2>
+            <p className={styles.freeBody}>Your totals are saved. Look at them again before deciding.</p>
+            <button type="button" className={styles.freeCta} onClick={() => navigate('/beta/results')}>
+              See my preview <span aria-hidden="true">&rarr;</span>
+            </button>
+          </section>
+
+          <section className={styles.pay} aria-labelledby="unlock-title">
+            <h2 id="unlock-title" className={styles.payTitle}>Unlock your full analysis</h2>
+            <p className={styles.price}><b>{PRICE}</b> to unlock the full analysis</p>
+            <p className={styles.terms}>{PRICE_TERMS}</p>
+            {unlocks}
+            {error && <p className={styles.error} role="alert">{error}</p>}
+            <button type="button" className={styles.cta} onClick={() => void unlock()} disabled={busy} aria-busy={busy}>
+              {busy ? 'Opening secure checkout…' : `Unlock the full analysis — ${PRICE}`}
+            </button>
+            <p className={styles.trust}><span aria-hidden="true">🔒</span> Secure payment with Stripe</p>
+            <p className={styles.trustSub}>Your aid documents stay private. Fynliq never sees your card.</p>
+          </section>
+        </>
+      )}
+
+      <p className={styles.fine}>Gradi is an official Fynliq partner and is separate from your {PRICE} unlock. Gradi sets its offer and may change it.</p>
     </FlowShell>
   );
 }

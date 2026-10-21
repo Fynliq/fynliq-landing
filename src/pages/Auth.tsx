@@ -11,6 +11,7 @@ import {
   emailProblem,
   passwordProblem,
 } from '../auth/validate';
+import { PRICE_LINE, PRICE_TERMS } from '../content/offer';
 import styles from './Auth.module.css';
 
 export type AuthMode = 'login' | 'signup';
@@ -40,7 +41,7 @@ const COPY = {
   signup: {
     eyebrow: 'Join the beta',
     title: 'Create your account',
-    lede: 'Just an email and a password. No school, no phone number, no card. Uploading and seeing your totals is free.',
+    lede: 'Just an email and a password. No school, no phone number, no card to sign up.',
     submit: 'Create account',
     working: 'Creating your account…',
     switchLead: 'Already have an account?',
@@ -318,6 +319,13 @@ export function Auth({ mode, destination, onAuthenticated }: AuthProps) {
               </p>
             )}
           </div>
+
+          {/* Said before the account exists, so the $1 later is never a surprise. */}
+          {isSignup && (
+            <p className={styles.offer}>
+              <strong>{PRICE_LINE}</strong> {PRICE_TERMS}
+            </p>
+          )}
 
           <button type="submit" className={styles.submit} disabled={pending}>
             {pending ? copy.working : copy.submit}

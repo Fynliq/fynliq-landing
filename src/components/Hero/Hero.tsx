@@ -5,6 +5,7 @@ import { breakDownAward, computeRunway, formatUSD } from '../../core';
 import { DEMO_AWARD, DEMO_RUNWAY } from '../../data/demo';
 import { usePointerVar } from '../../lib/usePointerVar';
 import styles from './Hero.module.css';
+import { PRICE_LINE, PRICE_TERMS } from '../../content/offer';
 
 const TITLE = 'Know what your aid actually leaves you.';
 const WORDS = TITLE.split(' ');
@@ -63,8 +64,7 @@ export function Hero() {
 
           {/* Said up front, so the $1 later is never a surprise. */}
           <p className={styles.price}>
-            <strong>Free</strong> to upload and see your totals. <strong>$1 once</strong> for the
-            full breakdown, only if you want it. No subscription.
+            <strong>{PRICE_LINE}</strong> {PRICE_TERMS}
           </p>
 
           <p className={styles.assurance}>

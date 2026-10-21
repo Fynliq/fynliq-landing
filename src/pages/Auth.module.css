@@ -333,3 +333,16 @@
   font-size: var(--t-13);
   color: var(--on-dark-low);
 }
+
+/* The price, said once, right above the button that creates the account. */
+.offer {
+  margin: 0;
+  font-size: var(--t-14);
+  line-height: 1.5;
+  color: var(--mid);
+}
+
+.offer strong {
+  color: var(--tx);
+  font-weight: 600;
+}
