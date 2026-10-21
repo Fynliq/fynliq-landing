@@ -59,12 +59,15 @@ export function Router({ children }: { children: React.ReactNode }) {
   const [path, setPath] = useState<Path>(currentPath);
 
   const navigate = useCallback((to: Path, options: NavigateOptions = {}) => {
-    const next = normalise(to);
+    // A `?query` rides along in the address bar; the route itself is the path.
+    const queryAt = to.indexOf('?');
+    const next = normalise(queryAt === -1 ? to : to.slice(0, queryAt));
+    const search = queryAt === -1 ? '' : to.slice(queryAt);
     const hash = options.hash ?? '';
-    const unchanged = next === currentPath() && hash === window.location.hash;
+    const unchanged = next === currentPath() && search === window.location.search && hash === window.location.hash;
 
     if (!unchanged) {
-      const url = `${next}${hash}`;
+      const url = `${next}${search}${hash}`;
       window.history[options.replace ? 'replaceState' : 'pushState']({}, '', url);
     }
 

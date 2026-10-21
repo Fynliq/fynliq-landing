@@ -10,6 +10,7 @@ import {
   type AnalyzeStage,
 } from '../beta/analyzer';
 import { triageFiles, type Rejection } from '../beta/files';
+import { isFreshRead } from '../beta/freshRead';
 import styles from './BetaUpload.module.css';
 import { useAccount } from '../accounts/AccountProvider';
 import { useBilling } from '../billing/BillingProvider';
@@ -102,6 +103,11 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
     trackFunnel('aid_upload_started');
     if (onUnlockJourney(billing.status)) trackFunnel('preflight_completed');
 
+    // What the server had saved before this upload, so a timeout can tell
+    // this upload's read apart from the previous one (see isFreshRead).
+    const startedAt = Date.now();
+    const before = analyzer.fetchSaved?.(controller.signal).catch(() => null) ?? Promise.resolve(null);
+
     try {
       const result = await analyzer.analyze(files, {
         signal: controller.signal,
@@ -118,6 +124,19 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
       if (thrown instanceof AnalysisError && thrown.kind === 'cancelled') {
         setStage(null);
         return;
+      }
+
+      // The browser stopped waiting, but the server may have finished and
+      // saved the read. Showing that costs nothing; reading again costs an
+      // AI call. Only this upload's read counts.
+      if (thrown instanceof AnalysisError && thrown.kind === 'timeout') {
+        const saved = await analyzer.fetchSaved?.(controller.signal).catch(() => null) ?? null;
+        if (controller.signal.aborted) { setStage(null); return; }
+        if (isFreshRead(saved, await before, startedAt) && saved) {
+          trackFunnel('aid_upload_completed');
+          onAnalysed(saved);
+          return;
+        }
       }
 
       // The server says this account has not unlocked yet: back to step 1.
@@ -140,7 +159,13 @@ export function BetaUpload({ onAnalysed }: BetaUploadProps) {
   }
 
   // Nothing to draw until we know which steps this account sees.
-  if (billing.loading) return <FlowShell step={1}>{null}</FlowShell>;
+  if (billing.loading) {
+    return (
+      <FlowShell step={1}>
+        <p className={styles.lede} role="status" aria-live="polite">Getting My Aid ready…</p>
+      </FlowShell>
+    );
+  }
 
   return (
     <FlowShell step={working ? 2 : 1}>

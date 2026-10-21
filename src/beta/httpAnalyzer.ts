@@ -4,6 +4,9 @@ import { parseLocked } from './preview';
 import { AnalysisFormatError, parseAnalysis } from './contract';
 import { readDocuments } from './documentText';
 import { redactDocuments } from '../../server/redact.js';
+import { ANALYZE_DEADLINE_MS, deadline } from './deadline';
+
+const TIMED_OUT = 'Fynliq is taking too long to read your document. Please try again in a minute.';
 
 /** JSON property containing the redacted text of each document. */
 export const UPLOAD_FIELD = 'documents';
@@ -63,23 +66,31 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       // 3. Only the redacted aid lines are sent to be read.
       onStage?.('checking');
 
+      const limit = deadline(ANALYZE_DEADLINE_MS, signal);
+      const gaveUp = () => {
+        if (limit.timedOut()) return new AnalysisError(TIMED_OUT, 'timeout');
+        if (signal?.aborted) return new AnalysisError('Analysis cancelled.', 'cancelled');
+        return null;
+      };
+
       let response: Response;
       try {
         response = await fetch(endpoint, {
           method: 'POST',
           body,
-          signal,
+          signal: limit.signal,
           credentials: 'same-origin',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
         });
       } catch {
-        if (signal?.aborted) throw new AnalysisError('Analysis cancelled.', 'cancelled');
-        throw new AnalysisError('We couldn’t upload that image. Please try again.', 'network');
+        limit.clear();
+        throw gaveUp() ?? new AnalysisError('We couldn’t upload that image. Please try again.', 'network');
       }
 
       // The paywall lives on the server (api/analyze.js). This only turns its
       // structured answer into the unlock step; the body is otherwise ignored.
       if (response.status === 402) {
+        limit.clear();
         throw new AnalysisError('Unlock My Aid to continue.', 'unlock_required');
       }
 
@@ -87,6 +98,7 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
         // A 4xx is the reader telling us something about this document; a 5xx
         // is the reader having a bad day. They read differently to a student.
         const detail = await response.text().catch(() => '');
+        limit.clear();
         const trimmed = detail.trim().slice(0, 200);
 
         if (response.status >= 400 && response.status < 500) {
@@ -105,7 +117,9 @@ export function httpAnalyzer(endpoint: string): AidAnalyzer {
       try {
         payload = await response.json();
       } catch {
-        throw new AnalysisError('The document reader did not return JSON.', 'format');
+        throw gaveUp() ?? new AnalysisError('We couldn’t analyze your aid summary. Please try again.', 'format');
+      } finally {
+        limit.clear();
       }
 
       // Before the $1 unlock the server sends a preview only.

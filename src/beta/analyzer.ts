@@ -40,6 +40,8 @@ export type AnalysisErrorKind =
   | 'rejected'
   /** The student pressed cancel. Not an error to apologise for. */
   | 'cancelled'
+  /** No answer within the deadline. The read may still have finished and been saved. */
+  | 'timeout'
   /** HTTP 402: this account needs the one-time FYNQ Beta Unlock first. */
   | 'unlock_required';
 

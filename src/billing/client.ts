@@ -71,6 +71,13 @@ export async function getBillingStatus(signal?: AbortSignal, endpoint = BILLING_
   }
 }
 
+/** What to tell the student when the payment service says no. Nothing was charged: no checkout opened. */
+export function checkoutFailure(status: number): string {
+  if (status === 401) return 'Your session has ended. Please log in again to continue.';
+  if (status === 429) return 'Please wait a minute before trying again.';
+  return 'Payments are not available right now. You have not been charged. Please try again in a moment.';
+}
+
 async function post<T>(body: unknown, endpoint = BILLING_ENDPOINT): Promise<T> {
   if (!endpoint) throw new CheckoutError('Payments are not available in this build.');
   let response: Response;
@@ -85,16 +92,15 @@ async function post<T>(body: unknown, endpoint = BILLING_ENDPOINT): Promise<T> {
   } catch {
     throw new CheckoutError('Fynliq could not reach the payment service. Check your connection and try again.');
   }
-  if (!response.ok) {
-    const text = (await response.text().catch(() => '')).trim().slice(0, 200);
-    throw new CheckoutError(text || 'Payments are not available right now. Please try again in a moment.');
-  }
+  // The words come from the status, never the body: a platform error page or
+  // a configuration message is not something to show a student at checkout.
+  if (!response.ok) throw new CheckoutError(checkoutFailure(response.status));
   return (await response.json()) as T;
 }
 
 /** A Stripe Checkout URL, or `unlocked` when this account needs no payment. */
-export async function startCheckout(): Promise<{ url?: string; unlocked?: boolean }> {
-  const result = await post<{ url?: unknown; unlocked?: unknown }>({ action: 'checkout' });
+export async function startCheckout(endpoint = BILLING_ENDPOINT): Promise<{ url?: string; unlocked?: boolean }> {
+  const result = await post<{ url?: unknown; unlocked?: unknown }>({ action: 'checkout' }, endpoint);
   if (result.unlocked === true) return { unlocked: true };
   if (typeof result.url === 'string' && result.url.startsWith('https://checkout.stripe.com/')) return { url: result.url };
   throw new CheckoutError('Payments are not available right now. Please try again in a moment.');

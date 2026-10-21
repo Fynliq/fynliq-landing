@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isLocked, onUnlockJourney, parseStatus, startCheckout } from '../client';
+import { CheckoutError, checkoutFailure, isLocked, onUnlockJourney, parseStatus, startCheckout } from '../client';
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
@@ -28,7 +28,28 @@ describe('billing status', () => {
 
 describe('checkout', () => {
   it('only follows Stripe-hosted checkout URLs', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ url: 'https://evil.example/pay' }) })));
-    await expect(startCheckout()).rejects.toThrow();
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ url: 'https://evil.example/pay' }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(startCheckout('/api/billing')).rejects.toThrow(CheckoutError);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('follows a Stripe-hosted checkout URL', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' }) })));
+    await expect(startCheckout('/api/billing')).resolves.toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' });
+  });
+
+  it('never shows the student what the server sent back on a failure', async () => {
+    const page = '<html><body>FUNCTION_INVOCATION_TIMEOUT iad1::abc</body></html>';
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 504, text: async () => page })));
+    const failure = await startCheckout('/api/billing').then(() => null, (thrown: Error) => thrown);
+    expect(failure?.message).toBe(checkoutFailure(504));
+    expect(failure?.message).not.toContain('FUNCTION');
+  });
+
+  it('chooses its words by status', () => {
+    expect(checkoutFailure(401)).toMatch(/log in/);
+    expect(checkoutFailure(429)).toMatch(/wait a minute/);
+    for (const status of [500, 502, 503]) expect(checkoutFailure(status)).toMatch(/not been charged/);
   });
 });

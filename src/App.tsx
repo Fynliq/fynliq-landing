@@ -16,6 +16,7 @@ import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
 import { Router, useRouter } from './router/router';
+import { pathOf, safeReturnPath } from './router/returnPath';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
@@ -240,7 +241,9 @@ function Routes() {
 
   useEffect(() => {
     if (!locked) return;
-    setIntended(path);
+    // With its query string: Stripe's `?result=cancelled` is the difference
+    // between "no worries, not charged" and "confirming your payment".
+    setIntended(safeReturnPath(`${path}${window.location.search}${window.location.hash}`) ?? path);
     // Replace, so the back button from the log-in page goes where they came
     // from rather than bouncing them straight back into the gate.
     navigate(GATE_LANDS_ON, { replace: true });
@@ -261,9 +264,11 @@ function Routes() {
   }, [path, question]);
 
   const onAuthenticated = useCallback(() => {
-    const destination = intended ?? AFTER_AUTH;
+    const destination = safeReturnPath(intended) ?? AFTER_AUTH;
     setIntended(null);
-    navigate(destination, { replace: true });
+    const hashAt = destination.indexOf('#');
+    if (hashAt === -1) navigate(destination, { replace: true });
+    else navigate(destination.slice(0, hashAt), { replace: true, hash: destination.slice(hashAt) });
   }, [intended, navigate]);
 
   /*
@@ -283,7 +288,7 @@ function Routes() {
     return (
       <Auth
         mode={path === ROUTES.signup ? 'signup' : 'login'}
-        destination={intended ? (behindTheAccount(intended)?.label ?? undefined) : undefined}
+        destination={intended ? (behindTheAccount(pathOf(intended))?.label ?? undefined) : undefined}
         onAuthenticated={onAuthenticated}
       />
     );

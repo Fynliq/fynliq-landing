@@ -28,9 +28,12 @@ export function CheckoutReturn({ onConfirmed }: { onConfirmed?: () => void | Pro
   const cancelled = useMemo(() => new URLSearchParams(window.location.search).get('result') === 'cancelled', []);
   const [view, setView] = useState<View>('confirming');
   const poke = useRef<() => void>(() => {});
+  /** Bumped by "Check again" after a timeout: a fresh wait, without reloading the page. */
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (cancelled) return;
+    setView('confirming');
     const controller = new AbortController();
     const slow = setTimeout(() => setView((v) => (v === 'confirming' ? 'slow' : v)), 15000);
     const wait = waitForUnlock({ signal: controller.signal });
@@ -45,7 +48,7 @@ export function CheckoutReturn({ onConfirmed }: { onConfirmed?: () => void | Pro
       advance = setTimeout(() => (next.current ? void next.current() : navigate('/beta', { replace: true })), 1600);
     });
     return () => { controller.abort(); clearTimeout(slow); clearTimeout(advance); };
-  }, [cancelled, navigate, refresh]);
+  }, [cancelled, navigate, refresh, attempt]);
 
   const confirmed = view === 'confirmed';
   const copy: Record<View, { title: string; body: string }> = {
@@ -74,9 +77,19 @@ export function CheckoutReturn({ onConfirmed }: { onConfirmed?: () => void | Pro
             See my full analysis <span aria-hidden="true">&nbsp;&rarr;</span>
           </button>
         ) : (
-          <button type="button" className={styles.secondary} onClick={() => (view === 'timeout' ? window.location.reload() : poke.current())}>
-            Check again
-          </button>
+          <>
+            <button type="button" className={styles.secondary} onClick={() => (view === 'timeout' ? setAttempt((n) => n + 1) : poke.current())}>
+              Check again
+            </button>
+            {/* Never a dead end, and never a second charge: the way out goes
+                back to the saved analysis, where the server decides whether
+                it is unlocked yet. */}
+            {view !== 'confirming' && (
+              <button type="button" className={styles.secondary} onClick={() => navigate('/beta/results', { replace: true })}>
+                Back to my analysis
+              </button>
+            )}
+          </>
         )}
       </Card>
     </FlowShell>
