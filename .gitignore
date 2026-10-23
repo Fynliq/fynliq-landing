@@ -20,7 +20,3 @@ docs/.tmp
 /.live.mjs
 /.diag.mjs
 /.chk.mjs
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat
-.gitignore
