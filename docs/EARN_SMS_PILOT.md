@@ -108,3 +108,18 @@ Existing project tests remain `npm test`.
 4. Verify the custom-model endpoint, then add a configurable provider adapter.
 5. Add licensed/authorized real opportunity feeds with attribution and
    freshness checks before advertising real opportunities to customers.
+
+## Extended action commands (2026-10-22)
+
+The SMS pilot now routes to `server/sms-actions.js` after core conversational consent:
+
+- `UBER` / `RIDE`: official Uber handoff URL; customer sees and confirms all prices and booking in Uber.
+- `DEALS`: returns a recently manually verified, unexpired catalog offer if an operator has configured one. Otherwise explicitly says there are no reviewed deals. This is **customer-requested only**.
+- `DEALS JOIN` then `DEALS YES`: separate optional promotional preference; `DEALS STOP` opts out of promotional preferences but keeps support SMS. `STOP` opts out of all messaging. **No background promotional dispatch** is enabled.
+- `TASK CAPTION: brief`, `TASK LISTING: brief`, `TASK REPLY: brief`: the existing AI generates a short ready-to-review deliverable, with an explicit label that it has **not** been submitted or paid.
+
+Server-only `FYNLIQ_REVIEWED_DEALS_JSON` must be a manually curated array of offers with `reviewedByFynliq`, `reviewedAt`, `expiresAt`, `title` and an HTTPS `sourceUrl`. This catalog is not a live deals feed and must be checked by operations.
+
+See `docs/EARN_AUTONOMOUS_TASKS.md` for the buyer-funded workflow required before the agent could truthfully earn money for customers. Full marketplace submission, earnings settlement, payout orchestration and proactive offer SMS do not exist yet.
+
+Test suite: `node --test test/sms-earn.test.mjs test/sms-actions.test.mjs`.
