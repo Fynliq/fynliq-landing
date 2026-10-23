@@ -1,3 +1,4 @@
+import { foodMoneyReply } from './food-money-actions.js';
 import { crisisCashReply } from './crisis-products.js';
 import { providerResponse } from './provider.js';
 import { replyWithExistingModel } from './sms-earn.js';
@@ -128,6 +129,8 @@ export async function answerEarnRequest(message, {
   if (/^DEALS?\s+(?:ON|ALERTS?)$/i.test(value)) {
     return 'For separate promotional consent, text DEALS JOIN. Deal-alert broadcasts are not active yet.';
   }
+  const commerce = await foodMoneyReply(value);
+  if (commerce !== null) return commerce;
   const crisis = crisisCashReply(value);
   if (crisis !== null) return crisis;
   if (/^TASK(?:\s|$)/i.test(value)) return draftWork(value);

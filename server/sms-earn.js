@@ -39,7 +39,7 @@ export function xmlMessage(message) {
 }
 
 const OPT_IN = 'Fynliq Earn AI replies to requests for earning ideas, AI task drafts, deals and ride links. Msg frequency varies; msg/data rates may apply. Reply YES to opt in, STOP to cancel, HELP for help. Promo alerts need separate consent.';
-const HELP = 'Fynliq SMS: CRISIS for aid, WORK for income ideas, BUDGET for cash flow, TASK for drafts, UBER for a ride link, DEALS for offers. No guaranteed cash. STOP cancels texts. Help: https://fynliq.com';
+const HELP = 'Fynliq SMS: FOOD for food aid, ORDER FOOD for delivery services, GROCERY LIST: milk, eggs for a list, UBER for ride link, CRISIS for aid, WORK for income ideas, PAYOUT for status. No booking or transfer yet. STOP cancels. https://fynliq.com';
 
 /**
  * Stateless per-message business logic. The caller supplies a consent store and
@@ -101,6 +101,7 @@ const AGENT_INSTRUCTIONS = [
   'Do not invent job postings, live listings, pay rates, employer details, clients, links or guaranteed earnings.',
   'You do not have any opportunity-search tool. Never claim you searched or booked or applied to anything.',
   'Fynliq cannot deposit cash, send payouts, confirm grant approval, connect bank accounts or verify buyer payments yet. Never imply that funds were transferred.',
+  'Fynliq cannot buy food, charge a payment card or complete a delivery order yet. When someone asks to order food or pay, direct them to ORDER FOOD or an official partner checkout and explain the action is not completed.',
   'If the customer describes urgent hardship, suggest the CRISIS or AID text command for the official assistance navigator. If they need practical work help, suggest WORK or TASK.',
   'Do not encourage get-rich-quick schemes, multi-level marketing, risky trading, gambling, fraud or illicit activity.',
   'Never request bank account numbers, Social Security numbers, passwords or card details by SMS.',
