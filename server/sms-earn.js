@@ -38,8 +38,8 @@ export function xmlMessage(message) {
   return '<?xml version="1.0" encoding="UTF-8"?><Response><Message>' + safe + '</Message></Response>';
 }
 
-const OPT_IN = 'Fynliq Earn AI sends requested earning ideas and answers. Message frequency varies; msg/data rates may apply. Reply YES to opt in, or STOP to cancel. HELP for help.';
-const HELP = 'Fynliq Earn AI helps brainstorm income ideas; earnings are not guaranteed. Text JOIN to opt in. Text STOP to cancel. Help: https://fynliq.com';
+const OPT_IN = 'Fynliq Earn AI replies to requests for earning ideas, AI task drafts, deals and ride links. Msg frequency varies; msg/data rates may apply. Reply YES to opt in, STOP to cancel, HELP for help. Promo alerts need separate consent.';
+const HELP = 'Fynliq Earn AI provides earning ideas, draft tasks, deal links and Uber handoffs. Earnings not guaranteed. JOIN to opt in; STOP to cancel; DEALS STOP stops promotions. Help: https://fynliq.com';
 
 /**
  * Stateless per-message business logic. The caller supplies a consent store and
