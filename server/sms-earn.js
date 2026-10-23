@@ -39,7 +39,7 @@ export function xmlMessage(message) {
 }
 
 const OPT_IN = 'Fynliq Earn AI replies to requests for earning ideas, AI task drafts, deals and ride links. Msg frequency varies; msg/data rates may apply. Reply YES to opt in, STOP to cancel, HELP for help. Promo alerts need separate consent.';
-const HELP = 'Fynliq Earn AI provides earning ideas, draft tasks, deal links and Uber handoffs. Earnings not guaranteed. JOIN to opt in; STOP to cancel; DEALS STOP stops promotions. Help: https://fynliq.com';
+const HELP = 'Fynliq SMS: CRISIS for aid, WORK for income ideas, BUDGET for cash flow, TASK for drafts, UBER for a ride link, DEALS for offers. No guaranteed cash. STOP cancels texts. Help: https://fynliq.com';
 
 /**
  * Stateless per-message business logic. The caller supplies a consent store and
@@ -64,7 +64,7 @@ export async function handleEarnSms({ body, getStatus, setStatus, getDealsStatus
   if (command === 'YES') {
     if (status !== 'pending') return 'To subscribe to Fynliq Earn AI, text JOIN first, then reply YES.';
     await setStatus('active');
-    return 'You are subscribed to Fynliq Earn AI. Tell me your income goal and skills. Text STOP anytime to unsubscribe.';
+    return 'You are subscribed to Fynliq. Text CRISIS for assistance, WORK for earning ideas, or TASK to draft client work. No guaranteed income. Text STOP to unsubscribe.';
   }
   if (command === 'START' || command === 'UNSTOP') {
     await setStatus('pending');
@@ -100,6 +100,8 @@ const AGENT_INSTRUCTIONS = [
   'Offer practical general earning ideas based on the customer message.',
   'Do not invent job postings, live listings, pay rates, employer details, clients, links or guaranteed earnings.',
   'You do not have any opportunity-search tool. Never claim you searched or booked or applied to anything.',
+  'Fynliq cannot deposit cash, send payouts, confirm grant approval, connect bank accounts or verify buyer payments yet. Never imply that funds were transferred.',
+  'If the customer describes urgent hardship, suggest the CRISIS or AID text command for the official assistance navigator. If they need practical work help, suggest WORK or TASK.',
   'Do not encourage get-rich-quick schemes, multi-level marketing, risky trading, gambling, fraud or illicit activity.',
   'Never request bank account numbers, Social Security numbers, passwords or card details by SMS.',
   'If the user needs verified current jobs, explain this feature is not connected yet.',
