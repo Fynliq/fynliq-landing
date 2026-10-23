@@ -45,7 +45,7 @@ const HELP = 'Fynliq Earn AI helps brainstorm income ideas; earnings are not gua
  * Stateless per-message business logic. The caller supplies a consent store and
  * model responder so that webhook, database and AI are independently testable.
  */
-export async function handleEarnSms({ body, getStatus, setStatus, answer }) {
+export async function handleEarnSms({ body, getStatus, setStatus, getDealsStatus, setDealsStatus, answer }) {
   const text = String(body ?? '').trim();
   if (!text || text.length > MAX_SMS_BODY_LENGTH) {
     return 'Please send a shorter text message (800 characters or fewer).';
@@ -72,6 +72,24 @@ export async function handleEarnSms({ body, getStatus, setStatus, answer }) {
   }
   if (status !== 'active') {
     return 'Welcome to Fynliq Earn AI. Text JOIN to see the consent notice and subscribe before using the assistant.';
+  }
+  // Promotional alerts require separate consent. There is no broadcaster yet.
+  if (command === 'DEALS JOIN') {
+    if (!setDealsStatus) return 'Deal alert enrollment is not configured yet.';
+    await setDealsStatus('pending');
+    return 'Optional Fynliq deal texts: varying frequency; msg/data rates may apply. Not required to use Fynliq. Reply DEALS YES to opt in, DEALS STOP for no promotions, or STOP for all messages.';
+  }
+  if (command === 'DEALS YES') {
+    if (!getDealsStatus || !setDealsStatus || await getDealsStatus() !== 'pending') {
+      return 'To opt into promotional deals, text DEALS JOIN and review the notice before DEALS YES.';
+    }
+    await setDealsStatus('active');
+    return 'Deal preference saved. Scheduled promotional messages are NOT active yet. For a deal on demand, text DEALS. DEALS STOP cancels promotions.';
+  }
+  if (command === 'DEALS STOP' || command === 'DEALS OFF') {
+    if (!setDealsStatus) return 'Deal preferences are not configured yet.';
+    await setDealsStatus('opted_out');
+    return 'Promotional deal texts are switched off. You can still request assistance. Text STOP to stop all Fynliq SMS.';
   }
   return await answer(text);
 }
