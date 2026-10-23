@@ -1,8 +1,14 @@
+import inboundSms from '../server/sms-inbound.js';
 import {answerQuestion} from '../server/ask-service.js';
 import {containsHighRiskPII,PRIVACY_MESSAGE} from '../server/privacy.js';
 import {clients,session,sameOrigin,body,rpc,rate,positive,fail,BetaError,cookie,token} from '../server/beta.js';
 export const config={maxDuration:60};
 export function createAskHandler(dependencies={}) {return async(req,res)=>{
+  // Reuse this function to remain within Vercel Hobby's 12-function limit.
+  // SMS webhook authentication and consent checks are isolated in this module.
+  if (new URL(req.url || '/', 'https://fynliq.com').searchParams.get('channel') === 'sms') {
+    return inboundSms(req,res);
+  }
   res.setHeader('Cache-Control','no-store');
   try {
     if(req.method!=='POST')throw new BetaError(405,'Use POST to ask a question.');
