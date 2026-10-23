@@ -1,7 +1,8 @@
+import { answerEarnRequest } from './sms-actions.js';
 import { createSmsConsentStore } from './sms-consent-store.js';
 import {
   parseTwilioForm, verifyTwilioSignature, handleEarnSms,
-  replyWithExistingModel, xmlMessage,
+  xmlMessage,
 } from './sms-earn.js';
 
 export const config = { api: { bodyParser: { sizeLimit: '16kb' } } };
@@ -57,7 +58,9 @@ export default async function inboundSms(req, res) {
       body: params.Body,
       getStatus: store.getStatus,
       setStatus: store.setStatus,
-      answer: replyWithExistingModel,
+      getDealsStatus: store.getDealsStatus,
+      setDealsStatus: store.setDealsStatus,
+      answer: answerEarnRequest,
     });
     res.setHeader('Content-Type', 'text/xml; charset=utf-8');
     return res.status(200).send(xmlMessage(reply));
