@@ -106,7 +106,7 @@ test('sensitive payment requests require SMS opt-in, and never execute transacti
   assert.match(await runner('DOORDASH'),/JOIN/);
   assert.match(await runner('JOIN'),/Reply YES/);
   assert.match(await runner('YES'),/subscribed/);
-  assert.match(await runner('DOORDASH'),/No order/i);
+  assert.match(await runner('DOORDASH'),/NOT placed an order/i);
   assert.match(await runner('SEND MONEY'),/No payment or transfer occurred/);
   assert.match(await runner('STOP'),/unsubscribed/);
   assert.match(await runner('DOORDASH'),/JOIN/);
