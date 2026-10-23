@@ -5,9 +5,14 @@ begin;
 create table if not exists public.fynliq_sms_consent (
   phone_hash text primary key check (phone_hash ~ '^[0-9a-f]{64}$'),
   state text not null check (state in ('pending', 'active', 'opted_out')),
+  deals_state text check (deals_state in ('pending', 'active', 'opted_out')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Also upgrade already-created pilot tables, if this draft was applied manually.
+alter table public.fynliq_sms_consent
+  add column if not exists deals_state text check (deals_state in ('pending', 'active', 'opted_out'));
 
 create index if not exists fynliq_sms_consent_state_idx
   on public.fynliq_sms_consent (state, updated_at);
