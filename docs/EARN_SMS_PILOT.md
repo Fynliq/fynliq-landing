@@ -8,7 +8,7 @@ income opportunities, or a connection to the separately trained custom model.
 
 - Existing `server/provider.js` and server-only `OPENAI_API_KEY` /
   `OPENAI_MODEL` for text responses.
-- Vercel Node function convention: `api/sms/inbound.js`.
+- The existing Vercel `api/ask.js` function handles `/api/ask?channel=sms` and delegates to `server/sms-inbound.js` (avoids an extra Hobby function).
 - Supabase REST API and a narrow, new RLS-enabled consent table.
 - Existing `server/privacy.js` input filtering in the model provider.
 
@@ -23,7 +23,7 @@ accounts: incoming SMS ownership alone must never grant account access.
 | --- | --- |
 | `TWILIO_AUTH_TOKEN` | Token used by Twilio to sign incoming HTTP webhooks |
 | `TWILIO_SMS_NUMBER` | Purchased number in E.164 format, e.g. +1XXXXXXXXXX |
-| `FYNLIQ_SMS_WEBHOOK_URL` | Exact public, HTTPS Twilio webhook URL, e.g. https://fynliq.com/api/sms/inbound |
+| `FYNLIQ_SMS_WEBHOOK_URL` | Exact public, HTTPS Twilio webhook URL, e.g. https://fynliq.com/api/ask?channel=sms |
 | `SUPABASE_URL` | Existing Supabase project endpoint |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase service-role key |
 | `FYNLIQ_SMS_PHONE_HASH_KEY` | Unique random secret of at least 32 characters to HMAC-hash inbound phone numbers |
