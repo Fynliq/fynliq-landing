@@ -6,11 +6,11 @@ income opportunities, or a connection to the separately trained custom model.
 
 ## Reused Fynliq components
 
-- Existing \`server/provider.js\` and server-only \`OPENAI_API_KEY\` /
-  \`OPENAI_MODEL\` for text responses.
-- Vercel Node function convention: \`api/sms/inbound.js\`.
+- Existing `server/provider.js` and server-only `OPENAI_API_KEY` /
+  `OPENAI_MODEL` for text responses.
+- Vercel Node function convention: `api/sms/inbound.js`.
 - Supabase REST API and a narrow, new RLS-enabled consent table.
-- Existing \`server/privacy.js\` input filtering in the model provider.
+- Existing `server/privacy.js` input filtering in the model provider.
 
 The existing Ask Fynliq, finance-document workflow, subscriptions, and closed
 beta are not modified. This pilot intentionally stores **no** SMS content
@@ -21,18 +21,18 @@ accounts: incoming SMS ownership alone must never grant account access.
 
 | Variable | Meaning |
 | --- | --- |
-| \`TWILIO_AUTH_TOKEN\` | Token used by Twilio to sign incoming HTTP webhooks |
-| \`TWILIO_SMS_NUMBER\` | Purchased number in E.164 format, e.g. +1XXXXXXXXXX |
-| \`FYNLIQ_SMS_WEBHOOK_URL\` | Exact public, HTTPS Twilio webhook URL, e.g. https://fynliq.com/api/sms/inbound |
-| \`SUPABASE_URL\` | Existing Supabase project endpoint |
-| \`SUPABASE_SERVICE_ROLE_KEY\` | Server-only Supabase service-role key |
-| \`FYNLIQ_SMS_PHONE_HASH_KEY\` | Unique random secret of at least 32 characters to HMAC-hash inbound phone numbers |
-| \`OPENAI_API_KEY\` | Already-used existing model provider API key |
-| \`OPENAI_MODEL\` | Already-used existing model provider identifier |
+| `TWILIO_AUTH_TOKEN` | Token used by Twilio to sign incoming HTTP webhooks |
+| `TWILIO_SMS_NUMBER` | Purchased number in E.164 format, e.g. +1XXXXXXXXXX |
+| `FYNLIQ_SMS_WEBHOOK_URL` | Exact public, HTTPS Twilio webhook URL, e.g. https://fynliq.com/api/sms/inbound |
+| `SUPABASE_URL` | Existing Supabase project endpoint |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only Supabase service-role key |
+| `FYNLIQ_SMS_PHONE_HASH_KEY` | Unique random secret of at least 32 characters to HMAC-hash inbound phone numbers |
+| `OPENAI_API_KEY` | Already-used existing model provider API key |
+| `OPENAI_MODEL` | Already-used existing model provider identifier |
 
 **Do not set up keys by committing an .env file.** Configure server-only
 environment secrets in Vercel. Existing Vite variables may include a URL, but
-service role credentials must never be prefixed \`VITE_\`.
+service role credentials must never be prefixed `VITE_`.
 
 ## External setup still required
 
@@ -42,11 +42,11 @@ service role credentials must never be prefixed \`VITE_\`.
    for approval before sending SMS with a local number. Toll-free SMS requires
    its own verification. Make sure disclosures, HELP and STOP flows match the
    approved sender use case.
-3. Apply \`supabase/migrations/202610220001_earn_sms_consent.sql\` after review.
+3. Apply `supabase/migrations/202610220001_earn_sms_consent.sql` after review.
    Configure the server-side variables above in the intended preview
    environment. No migrations are applied automatically by this branch.
-4. Configure the Twilio Messaging webhook for \`POST\` to
-   \`FYNLIQ_SMS_WEBHOOK_URL\`. Use the same exact public URL (including
+4. Configure the Twilio Messaging webhook for `POST` to
+   `FYNLIQ_SMS_WEBHOOK_URL`. Use the same exact public URL (including
    scheme, hostname, and trailing slash if any) in the environment variable,
    since Twilio signs the actual URL.
 5. Enable an authorized preview environment and test with the approved sender.
@@ -55,11 +55,11 @@ service role credentials must never be prefixed \`VITE_\`.
 
 ## Interactive conversation
 
-- \`JOIN\` → consent disclosure and request to reply YES.
-- \`YES\` after JOIN → subscribe to requested AI replies.
-- \`STOP\`, \`UNSUBSCRIBE\`, etc. → opt out immediately.
-- \`START\` → restart the two-step opt-in flow.
-- \`HELP\` → support details.
+- `JOIN` → consent disclosure and request to reply YES.
+- `YES` after JOIN → subscribe to requested AI replies.
+- `STOP`, `UNSUBSCRIBE`, etc. → opt out immediately.
+- `START` → restart the two-step opt-in flow.
+- `HELP` → support details.
 - Any other message before consent → invitation to JOIN.
 - After consent, messages go through the existing AI provider, which provides
   **general earning ideas**, not live income opportunities or autonomous
@@ -71,7 +71,7 @@ not override it with separate sending APIs.
 
 ## Security / limitations
 
-- \`X-Twilio-Signature\` verification uses the exact configured URL and every
+- `X-Twilio-Signature` verification uses the exact configured URL and every
   form parameter. Form field duplication, oversized payloads, wrong recipient,
   wrong method, and unsupported sender formats are rejected. Consider migrating
   to Twilio's official validation helper when adding the SDK.
@@ -92,12 +92,12 @@ not override it with separate sending APIs.
 
 ## Local test command
 
-\`\`\`sh
+```sh
 node --test test/sms-earn.test.mjs
-\`\`\`
+```
 
 Tests use pure injected mocks and do not send texts or contact Supabase.
-Existing project tests remain \`npm test\`.
+Existing project tests remain `npm test`.
 
 ## Next engineering steps
 
