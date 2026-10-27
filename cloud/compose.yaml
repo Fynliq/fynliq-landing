@@ -1,0 +1,11 @@
+services:
+  ai-cloud-gateway:
+    build: .
+    env_file: .env
+    environment:
+      CLOUD_BIND_HOST: 0.0.0.0
+    ports:
+      - "127.0.0.1:8787:8787"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

@@ -1,0 +1,22 @@
+name: AI cloud gateway checks
+on:
+  pull_request:
+    paths:
+      - 'cloud/**'
+      - '.github/workflows/ai-cloud-gateway.yml'
+  push:
+    paths:
+      - 'cloud/**'
+      - '.github/workflows/ai-cloud-gateway.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run check
+        working-directory: cloud
