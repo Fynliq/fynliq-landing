@@ -9,6 +9,7 @@ import { BillingProvider } from './billing/BillingProvider';
 import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
+import { TalabuInvite } from './pages/TalabuInvite';
 import { Search } from './pages/Search';
 import { Router, useRouter } from './router/router';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
@@ -30,6 +31,7 @@ export const ROUTES = {
   ask: '/ask',
   gradi: '/gradi',
   gradiStart: '/gradi/start',
+  talabu: '/talabu',
 } as const;
 
 /** `/search/<slug>` — one canonical question, answered in full. */
@@ -46,6 +48,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
   [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
+  [ROUTES.talabu]: 'Join Talabu Exchange — Fynliq',
 };
 
 /**
@@ -66,6 +69,7 @@ const BEHIND_THE_ACCOUNT: readonly { root: string; label: string }[] = [
   { root: ROUTES.upload, label: 'uploading your aid summary' },
   { root: ROUTES.search, label: 'search' },
   { root: ROUTES.ask, label: 'Ask Fynliq' },
+  { root: ROUTES.talabu, label: 'exploring Talabu Exchange' },
 ];
 
 /**
@@ -279,6 +283,7 @@ function Routes() {
     return <Gradi />;
   }
 
+  if (path === ROUTES.talabu) return <TalabuInvite />;
   if (path === '/admin') return <BetaAdmin />;
   return <Landing />;
 }

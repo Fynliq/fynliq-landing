@@ -16,6 +16,7 @@ const COLUMNS = [
       { label: 'Get more', href: '#get-more' },
       { label: 'Deadlines', href: '#tasks' },
       { label: 'Earn with Gradi', href: '/gradi' },
+      { label: 'Talabu Exchange (optional)', href: '/talabu' },
     ],
   },
   {
