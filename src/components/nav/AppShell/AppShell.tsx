@@ -36,6 +36,7 @@ export function AppShell({ tab, banner, children }: AppShellProps) {
             <Logo beta />
           </a>
           <div className={styles.right}>
+            <a className={styles.back} href="/talabu" aria-label="Discover Talabu Exchange">Talabu</a>
             <a className={styles.back} href="/" aria-label="Back to the site">
               <span aria-hidden="true">&larr;</span>
               <span className={styles.backLabel} aria-hidden="true">
