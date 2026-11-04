@@ -8,6 +8,7 @@ import { CheckoutReturn } from './pages/CheckoutReturn';
 import { BillingProvider } from './billing/BillingProvider';
 import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
+import { Exchange } from './pages/Exchange';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
 import { Router, useRouter } from './router/router';
@@ -30,6 +31,7 @@ export const ROUTES = {
   ask: '/ask',
   gradi: '/gradi',
   gradiStart: '/gradi/start',
+  exchange: '/exchange',
 } as const;
 
 /** `/search/<slug>` — one canonical question, answered in full. */
@@ -46,6 +48,7 @@ const TITLES: Record<string, string> = {
   [ROUTES.ask]: 'Ask Fynliq — answers from your own aid',
   [ROUTES.gradi]: 'Earn as a Gradi creator — Fynliq',
   [ROUTES.gradiStart]: 'Make your first $10 — Fynliq',
+  [ROUTES.exchange]: 'Fynliq Exchange — Live Price Matching Concept',
 };
 
 /**
@@ -278,6 +281,8 @@ function Routes() {
   if (path === ROUTES.gradi) {
     return <Gradi />;
   }
+
+  if (path === ROUTES.exchange) return <Exchange />;
 
   if (path === '/admin') return <BetaAdmin />;
   return <Landing />;
