@@ -1,0 +1,16 @@
+# Blocks any branch or pull request that carries the loader described in
+# docs/SECURITY_INCIDENT_2026-10.md. Make "guard" a required check on main
+# (Settings > Branches) so an infected branch cannot be merged.
+name: supply-chain-guard
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Reads files through git only; nothing from the branch is executed.
+      - run: node test/supply-chain-guard.mjs HEAD
