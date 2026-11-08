@@ -10,7 +10,7 @@ import { Gradi } from './pages/Gradi';
 import { GradiStart } from './pages/GradiStart';
 import { Landing } from './pages/Landing';
 import { Search } from './pages/Search';
-import { Router, useRouter } from './router/router';
+import { Router, useRouteFocus, useRouter } from './router/router';
 import { AuthProvider, useAuth } from './auth/AuthProvider';
 import { SearchProvider } from './search/SearchProvider';
 import { questionBySlug } from './search/library';
@@ -197,6 +197,9 @@ function Routes() {
       ? `${question.question} — Fynliq`
       : (TITLES[path] ?? TITLES[ROUTES.landing]);
   }, [path, question]);
+
+  // After the redirects above, so a redirect's target is the one it waits for.
+  useRouteFocus();
 
   const onAuthenticated = useCallback(() => {
     const destination = intended ?? AFTER_AUTH;
